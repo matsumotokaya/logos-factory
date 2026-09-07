@@ -368,3 +368,27 @@ test("食い違いの種類を言い分ける（形が違う／事実が新し�
   };
   assert.equal(narrationStaleness(shape), "shape");
 });
+
+test("由来は素材IDで残る。名指しの無い項目は、読んだ資料すべてが根拠", () => {
+  const result = mapFactsIntoBrief(
+    SEEDED,
+    { ...EMPTY_FACTS, title: "世界が恋する日本酒", venue: "渋谷" },
+    "フライヤー.pdf、メモ",
+    NOW,
+    { byField: { title: ["flyer"] }, readIds: ["flyer", "memo"] },
+  );
+  assert.deepEqual(result.brief.provenance?.title?.sources, ["flyer"]);
+  assert.deepEqual(result.brief.provenance?.["schedule.venue"]?.sources, ["flyer", "memo"]);
+  // The label is still there for people.
+  assert.equal(result.brief.provenance?.title?.source, "フライヤー.pdf、メモ");
+});
+
+test("由来の記録が無い実行では、ラベルだけを書く", () => {
+  const result = mapFactsIntoBrief(
+    SEEDED,
+    { ...EMPTY_FACTS, title: "世界が恋する日本酒" },
+    "フライヤー.pdf",
+    NOW,
+  );
+  assert.equal(result.brief.provenance?.title?.sources, undefined);
+});

@@ -7,6 +7,7 @@ import { MATERIAL_CATEGORIES } from "@/lib/materials/category";
 import { z } from "zod";
 import type { ExtractedSource } from "./extract";
 import { sanitizeFacts, type SanitizeReport } from "./sanitize";
+import { attributeFacts, FACT_KEYS, type FactAttribution } from "./attribution";
 
 // Stage ③: turning what was read into the event's facts.
 //
@@ -70,6 +71,10 @@ const SYSTEM = `あなたはイベント告知資料の読み取り担当です�
 - cta: 申し込み方法・行動喚起
 - footnote: 注記（年齢制限・定員など）
 
+## 根拠の記録
+
+資料には【資料 ラベル / ID: xxxx】、画像には【画像 ラベル / ID: xxxx】という見出しが付いています。**値を抜き出した項目ごとに、根拠となった資料・画像のIDを attribution に返してください。** 複数の資料に書かれていれば全部のIDを挙げます。null にした項目は attribution に含めません。IDは見出しのものをそのまま使い、作らないでください。
+
 ## 画像の読み取り
 
 画像には【画像 ラベル / ID: xxxx】という見出しが付いています。**渡されたすべての画像について1件ずつ** images に結果を返してください。判定できない画像も unreadable として残し、飛ばさないでください。ref にはその画像のIDをそのまま入れます。
@@ -82,6 +87,7 @@ const SYSTEM = `あなたはイベント告知資料の読み取り担当です�
 - visibleText: 画像内で読める文字（キャプション・氏名・社名）。無ければ空配列
 - personName: **画像のキャプション・資料本文・ファイル名から氏名が分かる場合だけ**その氏名。**顔から人物を推測することは絶対にしない。** 根拠が無ければ null
 - personEvidence: 氏名の根拠（image-caption / document-text / filename）。personName が null なら null
+- personEvidenceRef: その根拠が書かれていた資料または画像のID（見出しのID）。filename なら画像自身のID。personName が null なら null
 
 **ファイル名は根拠です。** 画像の見出しにはファイル名が入っています。ファイル名（ローマ字・かな・漢字）が、資料に出てくる登壇者の姓または氏名と対応するなら、それを filename 根拠として personName に書いてください。例: 「miyao.jpg」と資料の「宮尾佳明」→ personName は「宮尾佳明」、personEvidence は filename。「yamada_taro.png」と「山田太郎」も同じです。「IMG_2831.jpg」「AdobeStock_1894358160.jpeg」のように人を指さないファイル名であれば null のままにしてください。
 
@@ -130,6 +136,12 @@ const ImageReadingSchema = z.object({
   visibleText: z.array(z.string()),
   personName: z.string().nullable(),
   personEvidence: z.enum(["image-caption", "document-text", "filename"]).nullable(),
+  /**
+   * WHICH written thing named the person, by material id — so a placement can
+   * rest on the picture and on its evidence, and lose the name with the
+   * document (lib/event-cm/withdraw.ts). Null when there is no name.
+   */
+  personEvidenceRef: z.string().nullable(),
   focusX: z.enum(["left", "centre", "right"]),
   focusY: z.enum(["top", "upper", "centre", "lower", "bottom"]),
   confidence: z.enum(["high", "medium", "low"]),
@@ -160,6 +172,20 @@ const FactsSchema = z.object({
 
 export type EventFacts = z.infer<typeof FactsSchema>;
 
+/**
+ * The facts plus where each came from.
+ *
+ * Kept as an extension rather than a field of `FactsSchema` so `EventFacts` —
+ * what the mapping stage and every fixture handle — stays the facts alone. The
+ * citations are checked and folded into `FactAttribution` before anything
+ * downstream sees them (attribution.ts).
+ */
+const ReadingSchema = FactsSchema.extend({
+  attribution: z
+    .array(z.object({ field: z.enum(FACT_KEYS), refs: z.array(z.string()) }))
+    .describe("値を抜き出した項目ごとの根拠ID。null にした項目は含めない"),
+});
+
 export function structuringAvailable(): boolean {
   return Boolean(process.env.OPENAI_API_KEY);
 }
@@ -179,6 +205,8 @@ export interface StructuredResult {
   imageCounts: { sent: number; judged: number };
   /** What the deterministic pass threw away, and why. */
   dropped: SanitizeReport["dropped"];
+  /** Which material each fact rests on, checked where it could be. */
+  attribution: FactAttribution;
   usage: { inputTokens: number; outputTokens: number } | null;
 }
 
@@ -196,12 +224,18 @@ export async function structureEventFacts(
   let sentImages = 0;
   for (const source of usable) {
     if (source.mode === "text" && source.text) {
-      content.push({ type: "text", text: `【${source.label}】\n${source.text}` });
+      content.push({
+        type: "text",
+        text: `【資料 ${source.label} / ID: ${source.materialId}】\n${source.text}`,
+      });
       continue;
     }
     if (!source.data) continue;
     if (source.mediaType === "application/pdf") {
-      content.push({ type: "text", text: `【資料 ${source.label}】` });
+      content.push({
+        type: "text",
+        text: `【資料 ${source.label} / ID: ${source.materialId}】`,
+      });
       content.push({
         type: "file",
         file: {
@@ -240,7 +274,7 @@ export async function structureEventFacts(
       { role: "system", content: SYSTEM },
       { role: "user", content: content as never },
     ],
-    response_format: zodResponseFormat(FactsSchema, "event_facts"),
+    response_format: zodResponseFormat(ReadingSchema, "event_facts"),
     }),
     "資料が長さの上限に達しました。1回に読む資料を減らすか、長いPDFを分けてからお試しください",
   );
@@ -251,11 +285,24 @@ export async function structureEventFacts(
   // The prompt asks for this too, but a model told not to copy a heading will
   // still copy one sometimes. What can be recognised by rule is enforced by
   // rule (§17.2), and what it removes is reported rather than removed quietly.
-  const { facts, report } = sanitizeFacts(parsed);
+  const { attribution: cited, ...reading } = parsed;
+  const { facts, report } = sanitizeFacts(reading);
+  // Checked against the sanitised facts, not the raw ones: a citation for a
+  // value the rules threw away is a citation for nothing.
+  const attribution = attributeFacts(
+    cited,
+    facts,
+    usable.map((source) => ({
+      materialId: source.materialId,
+      mode: source.mode,
+      text: source.text,
+    })),
+  );
 
   return {
     facts,
     readLabels: usable.map((source) => source.label),
+    attribution,
     imageCounts: { sent: sentImages, judged: facts.images?.length ?? 0 },
     dropped: report.dropped,
     usage: response.usage

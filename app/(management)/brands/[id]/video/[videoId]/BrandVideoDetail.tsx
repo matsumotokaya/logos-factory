@@ -783,12 +783,28 @@ export default function BrandVideoDetail({
   async function removeSource(materialId: string) {
     busy("資料を外しています…");
     try {
-      await videoFetch(
+      const res = await videoFetch(
         `/api/brands/${brandId}/videos/${videoId}/materials?materialId=${materialId}`,
         { method: "DELETE" },
       );
+      const json = (await res.json().catch(() => null)) as {
+        error?: string;
+        withdrawn?: Array<{ label: string }>;
+      } | null;
+      if (!res.ok) throw new Error(json?.error ?? "資料を外せませんでした");
+      // What left with it. Said here because the values changed on a screen
+      // the user is not looking at — the board behind the drawer.
+      if (json?.withdrawn?.length) {
+        setNotice(
+          `${json.withdrawn.length}件を仮の値に戻しました（${json.withdrawn
+            .map((entry) => entry.label)
+            .join("、")}）`,
+        );
+      }
       await loadSources();
       await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "資料を外せませんでした");
     } finally {
       idle();
     }

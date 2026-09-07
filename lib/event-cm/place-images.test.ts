@@ -43,6 +43,7 @@ const reading = (over: Partial<ImageReading> & { ref: string }): ImageReading =>
   visibleText: [],
   personName: null,
   personEvidence: null,
+  personEvidenceRef: null,
   focusX: "centre",
   focusY: "centre",
   confidence: "high",

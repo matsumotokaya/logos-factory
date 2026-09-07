@@ -104,6 +104,9 @@ export default function FactList({
       {fields.map((field) => {
         const suppressed = isSuppressed(brief, field.path);
         const origin = originOf.get(field.path) ?? null;
+        // 「資料から読んだ」 names which one on hover. The label, not the ids:
+        // this is for a person, and the ids are for the pin.
+        const readFrom = brief.provenance?.[field.path]?.source ?? null;
         const preview = previewOf(brief, field.path);
         const editable = field.input === "text" || field.input === "lines";
         const isEditingThis = editing === field.path;
@@ -130,6 +133,7 @@ export default function FactList({
                 </span>
               ) : origin ? (
                 <span
+                  title={origin === "extracted" && readFrom ? `資料: ${readFrom}` : undefined}
                   className={cn(
                     "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
                     ORIGIN_STYLE[origin],

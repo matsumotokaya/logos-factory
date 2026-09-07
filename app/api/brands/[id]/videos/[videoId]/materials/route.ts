@@ -15,6 +15,10 @@ import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
+import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
+import { withdrawMaterials, type Withdrawal } from "@/lib/event-cm/withdraw";
+import { validateBrief } from "@/lib/templates/brief-schemas";
+import type { EventCmBrief } from "@/remotion/event-cm/types";
 
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -43,7 +47,7 @@ async function loadTake(
 ) {
   const { data, error } = await supabase
     .from("takes")
-    .select("id, template_id")
+    .select("id, template_id, brief")
     .eq("id", videoId)
     .eq("brand_id", brandId)
     .eq("tool_kind", "video")
@@ -337,5 +341,48 @@ export async function DELETE(
   }
   // The material row and its bytes stay: another take may pin the same file,
   // and content-addressed objects are cheap to keep and impossible to recreate.
-  return Response.json({ ok: true });
+
+  // What the take still holds, in any role. A file pinned again as something
+  // else — a normalised copy, the mark — is still here, and nothing of it leaves.
+  const remaining = await supabase
+    .from("take_inputs")
+    .select("material_id")
+    .eq("take_id", loaded.take.id);
+  if (remaining.error) {
+    return Response.json({ error: "素材の状態を確認できませんでした" }, { status: 500 });
+  }
+  const held = new Set((remaining.data ?? []).map((row) => row.material_id as string));
+
+  // The values that rested on it go with it (lib/event-cm/withdraw.ts). Back to
+  // the template's proposal for this brand, which is what the take opened with.
+  let withdrawn: Withdrawal[] = [];
+  const brief = (loaded.take.brief as EventCmBrief | null) ?? null;
+  if (loaded.take.template_id === "event-cm" && brief && !held.has(materialId)) {
+    const seeded = await seedEventCmFromBrand(supabase, {
+      brandId,
+      userId: user.id,
+      ...(brief.artDirection ? { artDirection: brief.artDirection } : {}),
+    });
+    if (seeded.ok) {
+      const result = withdrawMaterials(brief, held, seeded.seeded.brief);
+      if (result.withdrawn.length > 0) {
+        const validated = validateBrief("event-cm", result.brief);
+        if (!validated.ok) {
+          return Response.json(
+            { error: `外した資料の値を戻せませんでした: ${validated.issues.join(", ")}` },
+            { status: 500 },
+          );
+        }
+        const saved = await supabase
+          .from("takes")
+          .update({ brief: validated.brief, updated_at: new Date().toISOString() })
+          .eq("id", loaded.take.id);
+        if (saved.error) {
+          return Response.json({ error: "外した資料の値を戻せませんでした" }, { status: 500 });
+        }
+        withdrawn = result.withdrawn;
+      }
+    }
+  }
+  return Response.json({ ok: true, withdrawn });
 }

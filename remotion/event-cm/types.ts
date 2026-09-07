@@ -432,7 +432,20 @@ export interface EventCmNarration {
  */
 export type EventCmProvenance = Record<
   string,
-  { origin: "brand" | "extracted" | "inferred" | "user"; note?: string; source?: string }
+  {
+    origin: "brand" | "extracted" | "inferred" | "user";
+    note?: string;
+    /** What was read, as a label for people. */
+    source?: string;
+    /**
+     * The material ids this value rests on — several when several documents
+     * state it, and for a placed portrait the picture plus the document that
+     * named the person. Absent on values recorded before attribution existed,
+     * which reads as 「由来未記録」, never as 「根拠なし」. This is what lets a
+     * removed document take its values with it (lib/event-cm/withdraw.ts).
+     */
+    sources?: string[];
+  }
 >;
 
 /**

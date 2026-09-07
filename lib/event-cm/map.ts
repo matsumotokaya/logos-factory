@@ -1,4 +1,5 @@
 import type { EventFacts } from "./structure";
+import type { FactAttribution, FactKey } from "./attribution";
 import { isSuppressed } from "./facts";
 import { sameName } from "./names";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
@@ -19,6 +20,12 @@ import type { EventCmBrief } from "@/remotion/event-cm/types";
 // What changes is the origin as much as the value: a date the flyer states
 // stops being "仮に入れた値" and becomes "資料から読んだ", and that single
 // change is the whole point of putting a document in.
+//
+// The origin also records WHICH documents, by material id (`sources`), when
+// the structuring stage could say. That is what makes 「外す」 mean something
+// later: a value whose every source has left the take goes back to being a
+// proposal (withdraw.ts). Values written before attribution existed keep their
+// label and no ids, and are simply never withdrawn.
 
 export interface MappedField {
   path: string;
@@ -35,7 +42,7 @@ export interface MapResult {
   keptUserValues: string[];
 }
 
-const LABELS: Record<string, string> = {
+export const FACT_LABELS: Record<string, string> = {
   title: "イベント名",
   subtitle: "サブタイトル",
   seriesLabel: "シリーズ・回次",
@@ -52,11 +59,30 @@ const LABELS: Record<string, string> = {
   footnote: "注記",
 };
 
+/** brief path → the fact key the structuring stage answers under. */
+export const FACT_KEY_BY_PATH: Record<string, FactKey> = {
+  title: "title",
+  subtitle: "subtitle",
+  seriesLabel: "seriesLabel",
+  presenter: "presenter",
+  valueLines: "valueLines",
+  valueChip: "valueChip",
+  programs: "programs",
+  guests: "guests",
+  "schedule.date": "date",
+  "schedule.time": "time",
+  "schedule.venue": "venue",
+  "schedule.fee": "fee",
+  cta: "cta",
+  footnote: "footnote",
+};
+
 export function mapFactsIntoBrief(
   brief: EventCmBrief,
   facts: EventFacts,
   source: string,
   now: string = new Date().toISOString(),
+  attribution?: Pick<FactAttribution, "byField" | "readIds">,
 ): MapResult {
   const applied: MappedField[] = [];
   const keptUserValues: string[] = [];
@@ -66,12 +92,26 @@ export function mapFactsIntoBrief(
   const settle = (path: string, before: string, after: string, write: () => void) => {
     if (after === "" || after === before) return;
     if (provenance[path]?.origin === "user" || isSuppressed(brief, path)) {
-      keptUserValues.push(LABELS[path] ?? path);
+      keptUserValues.push(FACT_LABELS[path] ?? path);
       return;
     }
     write();
-    provenance[path] = { origin: "extracted", source };
-    applied.push({ path, label: LABELS[path] ?? path, before, after });
+    // A field the model attributed rests on those documents; one it did not
+    // rests on everything that was read. No attribution at all (an older run)
+    // leaves the ids off rather than guessing.
+    const key = FACT_KEY_BY_PATH[path];
+    const cited = key ? attribution?.byField[key] : undefined;
+    const sources = attribution
+      ? cited && cited.length > 0
+        ? cited
+        : attribution.readIds
+      : undefined;
+    provenance[path] = {
+      origin: "extracted",
+      source,
+      ...(sources && sources.length > 0 ? { sources } : {}),
+    };
+    applied.push({ path, label: FACT_LABELS[path] ?? path, before, after });
   };
 
   const text = (path: string, value: string | null, before: string, write: (v: string) => void) => {

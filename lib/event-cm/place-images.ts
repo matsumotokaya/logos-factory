@@ -164,7 +164,20 @@ export function placeImagesIntoBrief(
     reason: string,
   ) => {
     used.add(reading.ref);
-    provenance[path] = { origin, source, note: reason };
+    // What this placement rests on: the picture, and — for a portrait — the
+    // written thing that named the person, so that losing either takes the
+    // placement with it (withdraw.ts). The mark row is one path holding many
+    // marks, so its sources accumulate rather than replace.
+    const evidence =
+      reading.personEvidenceRef && reading.personEvidenceRef !== reading.ref
+        ? [reading.personEvidenceRef]
+        : [];
+    const own = [reading.ref, ...evidence];
+    const sources =
+      path === "logos"
+        ? [...new Set([...(provenance[path]?.sources ?? []), ...own])]
+        : own;
+    provenance[path] = { origin, source, note: reason, sources };
     placed.push({
       path,
       label,

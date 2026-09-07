@@ -128,6 +128,11 @@ export async function POST(
         steps: {
           facts: structured.facts,
           read: structured.readLabels,
+          // Which material each fact rests on, for the mapping stage to write
+          // into the brief — and what the checking threw out, for the log.
+          readIds: structured.attribution.readIds,
+          attribution: structured.attribution.byField,
+          unverified: structured.attribution.dropped,
           dropped: structured.dropped,
           images: structured.imageCounts,
         },
@@ -159,13 +164,26 @@ export async function POST(
       .limit(1)
       .maybeSingle();
     if (structureError) throw new Error("構造化の結果を読めませんでした");
-    const steps = lastStructure?.steps as { facts?: EventFacts; read?: string[] } | null;
+    const steps = lastStructure?.steps as {
+      facts?: EventFacts;
+      read?: string[];
+      readIds?: string[];
+      attribution?: Record<string, string[]>;
+    } | null;
     if (!steps?.facts) {
       throw new Error("先に構造化を実行してください");
     }
 
     const readLabel = (steps.read ?? []).join("、");
-    const mapped = mapFactsIntoBrief(take.brief as EventCmBrief, steps.facts, readLabel);
+    const mapped = mapFactsIntoBrief(
+      take.brief as EventCmBrief,
+      steps.facts,
+      readLabel,
+      new Date().toISOString(),
+      // A run recorded before attribution existed has no ids; the brief then
+      // gets the label alone, as it always did.
+      steps.readIds ? { byField: steps.attribution ?? {}, readIds: steps.readIds } : undefined,
+    );
 
     // The pictures go in against the facts that were just applied — speaker
     // names have to exist before a portrait can be matched to one, which is
