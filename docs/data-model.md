@@ -59,11 +59,12 @@ Brandの親子関係は`parent_brand_id`で表し、**同じワークスペー�
 
 ### 2.1 ブランドトップ(`/brands/[id]`)
 
-`/brands/[id]` は3セクションから成る。
+`/brands/[id]` は4セクションから成る。
 
 1. ブランド基本情報(`brand_entities` から name / kind / description / industry / location / website)
-2. 採用済みデザインルール(`brand_knowledge_values` から palette / typography / voice のうち known field のみ)
-3. 3タイル(動画 / LP / ロゴ) — 各 `/brands/[id]/{videos,lps,logos}` へのエントリ
+2. **わかっていること**。取得の枠([lib/brand/capture-frame.ts](../lib/brand/capture-frame.ts) の `CAPTURE_FRAME`)の全項目を、**採用 / 推定 / まだわからない**の3状態で出す。採用は `brand_knowledge_values`、推定は値の無いフィールドの**最新クレーム**(`brand_knowledge_claims`)、残りは「まだわからない」として項目名と用途を名指しする。値だけを読んでいた時期は、測り終えたブランドが何も知らないように見えた
+3. **サイトから取り込んだ画像**(`brand_materials` の `scope='brand'` かつ `source_kind='url_fetch'`)。実際に描画した画面・キービジュアル・地紋。表示は署名付き同一オリジンURL(`/api/brands/[id]/materials/[materialId]/[name]`)経由
+4. 3タイル(動画 / LP / ロゴ) — 各 `/brands/[id]/{videos,lps,logos}` へのエントリ
 
 Organization詳細ページにはロゴ・パレット・タイポ等のBrand Profileを表示しない。Brand Profileは `/brands/[id]/logos/[logoId]/info` のLogoInfoPageでロゴ単位に表示する。
 
@@ -71,7 +72,17 @@ Organization詳細ページにはロゴ・パレット・タイポ等のBrand Pr
 
 抽出や生成で得た情報は`brand_knowledge_claims`へ追記し、利用者が採用した現在値を`brand_knowledge_values`へ置く。生成処理は採用済み値を上書きしない。
 
-代表的な`field_path`は`identity.*`、`visual.*`、`voice.*`、`audience.*`、`offer.*`、`evidence.*`。Takeのbriefは必要なKnowledgeだけを作成時に投影し、その後は独立して編集できる。
+**何を採用するかの規則**(2026-09-03):
+
+| 出所 | 層 | 保存先 | 理由 |
+| --- | --- | --- | --- |
+| ルールが実測した表現(配色・書体・寸法・構成) | expression | **確定値**(`url_extraction`で採用) | 決定論で再現でき、再取り込みで自己修復する |
+| モデルが提案した表現(Chromium不在時のパレット、書体の性格) | expression | クレーム `suggested` | 誰も決めていないものを規則にしない |
+| ページが記載している事実(電話・住所・SNS・著作権表記) | fact | クレーム `evidenced` | `adopt`は事実を`confirmed`と刻むが、クロールは何も確認していない |
+
+`field_path`の正本は [lib/brand/capture-frame.ts](../lib/brand/capture-frame.ts) の `CAPTURE_FRAME`(`palette.*` / `typography.*` / `tokens.*` / `layout.*` / `imagery.*` / `tone.*` / `voice.*` / `identity.*` / `contact.*` / `social.*` / `offering.*` / `site.*`)。ゴール(`BRAND_ASSET_GOAL`)はこの枠の**expression層**から導出する——採用できるのは表現だけなので、事実をゴールに入れると永久に埋まらない行になる。
+
+Takeのbriefは必要なKnowledgeだけを作成時に投影し、その後は独立して編集できる。
 
 ## 4. MaterialとTake
 
