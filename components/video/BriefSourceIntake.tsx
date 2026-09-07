@@ -319,11 +319,14 @@ export default function BriefSourceIntake({
         </h2>
         <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
       </div>
-      {/* On by default, and switchable — not deletable. Off is 「読ませない・候補に
-          出さない」; the file stays this video's so the box can be ticked again
-          (docs/asset-normalization.md §9.4). */}
+      {/* What the ticks govern is the NEXT run, not the video as it stands.
+          Reading is not applying and applying is not reversible from here: the
+          brief records a fact as 「抽出」 with a source label, not with the
+          material's id (lib/event-cm/map.ts), so unticking a flyer cannot
+          withdraw the date it gave. Saying so is the difference between a
+          switch people trust and one they think is broken. */}
       <p className="-mt-3 text-[11px] text-ink-faint">
-        チェックを外すと、読み取りとシーンの候補から外れます。ファイルは残るので、いつでも戻せます。
+        チェックしたものを、次の読み取りとシーンの候補に使います。外しても、すでに動画に反映された内容は消えません。
       </p>
 
       <ul className="flex flex-col gap-1.5">
@@ -340,21 +343,28 @@ export default function BriefSourceIntake({
                 !source.active && "bg-ink/[0.02]",
               )}
             >
-              <input
-                type="checkbox"
-                checked={source.active}
-                disabled={busy || onScreen}
-                onChange={(event) => void onToggle(source.id, event.target.checked)}
-                aria-label={`${source.label} を読み取りと候補に含める`}
-                title={
-                  onScreen
-                    ? `使用中（${uses.map((use) => use.label).join("、")}）。先に差し替えてください`
-                    : source.active
-                      ? "外すと、読み取りとシーンの候補から外れます。ファイルは残ります"
-                      : "読み取りとシーンの候補に戻します"
-                }
-                className="size-3.5 shrink-0 accent-ink disabled:opacity-50"
-              />
+              {/* A file the film is drawing has no tick at all. It used to
+                  have a checked-but-disabled one, which reads as a third
+                  state — 「グレーのチェックは何か」 — when it is only a control
+                  nobody can operate. What it is is 使用中, said on the right,
+                  and the place to take it off screen is the storyboard. */}
+              {onScreen ? (
+                <span className="size-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={source.active}
+                  disabled={busy}
+                  onChange={(event) => void onToggle(source.id, event.target.checked)}
+                  aria-label={`${source.label} を次の読み取りとシーンの候補に使う`}
+                  title={
+                    source.active
+                      ? "外すと、次の読み取りとシーンの候補から外れます。ファイルは残ります"
+                      : "次の読み取りとシーンの候補に戻します"
+                  }
+                  className="size-3.5 shrink-0 accent-ink disabled:opacity-50"
+                />
+              )}
               <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
                 {KIND_LABEL[source.kind] ?? source.kind}
               </span>
@@ -367,7 +377,12 @@ export default function BriefSourceIntake({
                 {source.label}
               </span>
               {onScreen ? (
-                <span className="shrink-0 text-[11px] text-ink-muted">使用中</span>
+                <span
+                  className="shrink-0 truncate text-[11px] text-ink-muted"
+                  title={`${uses.map((use) => use.label).join("、")}。外すには、絵コンテでそのシーンを開いて差し替えてください`}
+                >
+                  使用中（{uses.map((use) => use.label).join("、")}）
+                </span>
               ) : !source.active ? (
                 <span className="shrink-0 text-[11px] text-ink-faint">外しています</span>
               ) : null}
