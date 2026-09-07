@@ -59,16 +59,28 @@ export const SequenceGround: React.FC<{
   length: number;
 }> = ({ shots, length }) => {
   const total = shots.reduce((sum, shot) => sum + (shot.weight ?? 1), 0);
-  let from = 0;
+
+  // Cuts worked out before the JSX, rather than by advancing a cursor inside
+  // the map: the last shot takes whatever is left, so rounding never opens a
+  // gap at the end of the scene. Same arithmetic, no variable reassigned while
+  // rendering (react-hooks/purity).
+  const cuts: Array<{ start: number; slot: number }> = [];
+  for (const [i, shot] of shots.entries()) {
+    const previous = cuts[cuts.length - 1];
+    const start = previous ? previous.start + previous.slot : 0;
+    cuts.push({
+      start,
+      slot:
+        i === shots.length - 1
+          ? length - start
+          : Math.round((length * (shot.weight ?? 1)) / total),
+    });
+  }
+
   return (
     <AbsoluteFill>
       {shots.map((shot, i) => {
-        const slot =
-          i === shots.length - 1
-            ? length - from
-            : Math.round((length * (shot.weight ?? 1)) / total);
-        const start = from;
-        from += slot;
+        const { start, slot } = cuts[i];
         return (
           <Sequence key={i} from={start} durationInFrames={slot}>
             {shot.kind === "video" ? (
