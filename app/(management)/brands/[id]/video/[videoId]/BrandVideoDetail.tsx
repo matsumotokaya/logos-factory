@@ -218,6 +218,10 @@ export default function BrandVideoDetail({
   >(null);
   const [openStage, setOpenStage] = useState<string | null>(null);
   const [sources, setSources] = useState<BriefSource[]>([]);
+  // What the reading stages and the pickers see. A switched-off source stays
+  // in `sources` — it is this video's file, and its row is how it is switched
+  // back on — but it is material for nothing (docs/asset-normalization.md §9.4).
+  const activeSources = sources.filter((source) => source.active);
   const [inventory, setInventory] = useState<InventoryPayload | null>(null);
   const [runs, setRuns] = useState<TakeRunRecord[]>([]);
   const [runCards, setRunCards] = useState<RunCard[]>([]);
@@ -764,15 +768,22 @@ export default function BrandVideoDetail({
     return submitSource({ method: "POST", body: form }, { showError: false });
   }
 
-  async function removeSource(materialId: string) {
-    busy("資料を外しています…");
+  async function toggleSource(materialId: string, active: boolean) {
+    busy(active ? "資料を戻しています…" : "資料を外しています…");
     try {
-      await videoFetch(
-        `/api/brands/${brandId}/videos/${videoId}/materials?materialId=${materialId}`,
-        { method: "DELETE" },
-      );
+      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/materials`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ materialId, active }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(json?.error ?? "資料の状態を変えられませんでした");
+      }
       await loadSources();
       await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "資料の状態を変えられませんでした");
     } finally {
       idle();
     }
@@ -843,7 +854,7 @@ export default function BrandVideoDetail({
       );
 
     try {
-      appendLine(id, `${sources.length}件の資料を対象に開始`);
+      appendLine(id, `${activeSources.length}件の資料を対象に開始`);
       const res = await videoFetch(
         `/api/brands/${brandId}/videos/${videoId}/run/${stage}`,
         { method: "POST" },
@@ -961,7 +972,7 @@ export default function BrandVideoDetail({
     // in the first place.
     const { read, redo } = bulkRunPlan({
       stages: pipeline?.stages ?? [],
-      sourceCount: sources.length,
+      sourceCount: activeSources.length,
       filmStepCount: filmSteps.length,
     });
     for (const stage of read) {
@@ -1201,7 +1212,7 @@ export default function BrandVideoDetail({
 
   const video = resolved.video;
   const openStageDef = pipeline?.stages.find((stage) => stage.id === openStage);
-  const pendingStages = pendingReadStages(pipeline?.stages ?? [], sources.length);
+  const pendingStages = pendingReadStages(pipeline?.stages ?? [], activeSources.length);
   // One number for the whole chain. It used to count the three reading stages
   // only, so writing a narration — the change that matters most — left the badge
   // reading 0 while the film was a version behind (§9.7).
@@ -1291,7 +1302,7 @@ export default function BrandVideoDetail({
               title={
                 pendingCount > 0
                   ? `未処理の${pendingCount}件を順番に実行し、動画に反映します（MP4は書き出しません）`
-                  : sources.length === 0
+                  : activeSources.length === 0
                     ? "ナレーションと読み上げを、もう一度すべて実行し直します（資料はまだありません）"
                     : "未処理はありません。資料の読み取りからナレーション・読み上げまで、もう一度すべて実行し直します"
               }
@@ -1339,7 +1350,8 @@ export default function BrandVideoDetail({
                   onAddText={async (text) => {
                     await addSource({ text });
                   }}
-                  onRemove={removeSource}
+                  onToggle={toggleSource}
+                  usage={inventory?.usage}
                 />
               ) : undefined
             }
@@ -1357,7 +1369,7 @@ export default function BrandVideoDetail({
                   stageId={openStageDef.id}
                   stages={pipeline.stages}
                   busy={saving}
-                  disabled={sources.length === 0}
+                  disabled={activeSources.length === 0}
                   onRun={(stage) =>
                     void (stage === "structure" ? runStructureAndMap() : runStage(stage))
                   }
@@ -1372,7 +1384,7 @@ export default function BrandVideoDetail({
                   stageId={openStageDef.id}
                   stages={pipeline.stages}
                   busy={saving}
-                  disabled={sources.length === 0}
+                  disabled={activeSources.length === 0}
                   onRun={(stage) =>
                     void (stage === "structure" ? runStructureAndMap() : runStage(stage))
                   }
@@ -1521,7 +1533,7 @@ export default function BrandVideoDetail({
                   <BgmDialog
                     current={current}
                     pool={DEFAULT_ASSETS.filter((asset) => asset.kind === "bgm")}
-                    uploads={sources.filter((source) => source.kind === "audio")}
+                    uploads={activeSources.filter((source) => source.kind === "audio")}
                     unreflected={isUnreflected("bgm")}
                     busy={saving}
                     onChoose={(src) => editFact({ path: "bgm", src })}
@@ -1722,7 +1734,7 @@ export default function BrandVideoDetail({
           onRewriteNarration={(force) => void writeNarration(force)}
           // Photographs and marks alike: which slot a picture suits is the
           // user's call here, exactly as it is for audio.
-          imageSources={sources.filter(
+          imageSources={activeSources.filter(
             (source) => source.kind === "photo" || source.kind === "logo",
           )}
           // The same element the mapping drawer renders, so the board and the

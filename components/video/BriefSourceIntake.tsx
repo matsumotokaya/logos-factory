@@ -16,6 +16,8 @@ export interface BriefSource {
   label: string;
   media_type: string | null;
   bytes: number | null;
+  /** On: read by the stages and offered in the pickers. Off: held, nothing more. */
+  active: boolean;
   upload_fingerprint?: string | null;
 }
 
@@ -136,13 +138,17 @@ export default function BriefSourceIntake({
   busy,
   onUpload,
   onAddText,
-  onRemove,
+  onToggle,
+  usage,
 }: {
   sources: BriefSource[];
   busy: boolean;
   onUpload: (file: File, label: string) => Promise<boolean>;
   onAddText: (text: string) => Promise<void>;
-  onRemove: (materialId: string) => Promise<void>;
+  /** Switch a source on (read + offered) or off (held, read by nothing). */
+  onToggle: (materialId: string, active: boolean) => Promise<void>;
+  /** materialId → where the film shows it. A source on screen cannot be switched off. */
+  usage?: Record<string, ReadonlyArray<{ label: string }>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -313,30 +319,64 @@ export default function BriefSourceIntake({
         </h2>
         <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
       </div>
+      {/* On by default, and switchable — not deletable. Off is 「読ませない・候補に
+          出さない」; the file stays this video's so the box can be ticked again
+          (docs/asset-normalization.md §9.4). */}
+      <p className="-mt-3 text-[11px] text-ink-faint">
+        チェックを外すと、読み取りとシーンの候補から外れます。ファイルは残るので、いつでも戻せます。
+      </p>
 
       <ul className="flex flex-col gap-1.5">
-        {sources.map((source) => (
-          <li
-            key={source.id}
-            className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm"
-          >
-            <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
-              {KIND_LABEL[source.kind] ?? source.kind}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-ink">{source.label}</span>
-            <span className="shrink-0 font-mono text-[11px] text-ink-faint">
-              {readableSize(source.bytes)}
-            </span>
-            <button
-              type="button"
-              onClick={() => void onRemove(source.id)}
-              disabled={busy}
-              className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
+        {sources.map((source) => {
+          const uses = usage?.[source.id] ?? [];
+          // The server refuses this too; saying it here saves the round trip
+          // and explains the greyed box.
+          const onScreen = source.active && uses.length > 0;
+          return (
+            <li
+              key={source.id}
+              className={cn(
+                "flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm",
+                !source.active && "bg-ink/[0.02]",
+              )}
             >
-              外す
-            </button>
-          </li>
-        ))}
+              <input
+                type="checkbox"
+                checked={source.active}
+                disabled={busy || onScreen}
+                onChange={(event) => void onToggle(source.id, event.target.checked)}
+                aria-label={`${source.label} を読み取りと候補に含める`}
+                title={
+                  onScreen
+                    ? `使用中（${uses.map((use) => use.label).join("、")}）。先に差し替えてください`
+                    : source.active
+                      ? "外すと、読み取りとシーンの候補から外れます。ファイルは残ります"
+                      : "読み取りとシーンの候補に戻します"
+                }
+                className="size-3.5 shrink-0 accent-ink disabled:opacity-50"
+              />
+              <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
+                {KIND_LABEL[source.kind] ?? source.kind}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate",
+                  source.active ? "text-ink" : "text-ink-faint",
+                )}
+              >
+                {source.label}
+              </span>
+              {onScreen ? (
+                <span className="shrink-0 text-[11px] text-ink-muted">使用中</span>
+              ) : !source.active ? (
+                <span className="shrink-0 text-[11px] text-ink-faint">外しています</span>
+              ) : null}
+              <span className="shrink-0 font-mono text-[11px] text-ink-faint">
+                {readableSize(source.bytes)}
+              </span>
+            </li>
+          );
+        })}
         {sources.length === 0 ? (
           <li className="rounded-lg border border-dashed border-hairline px-3 py-3 text-[12px] text-ink-muted">
             まだ資料がありません。いまの動画の内容は、すべてこちらで仮に決めたものです。
