@@ -118,6 +118,22 @@ type VideoAsset = {
 /** A render takes minutes; poll while one is in flight. */
 const RENDER_POLL_MS = 5000;
 
+/**
+ * A run card's id.
+ *
+ * Was `${label}-${Date.now()}`, which gave two cards opened in the same
+ * millisecond the same id — and a shared id means one card's lines land in
+ * both, and settling one settles the other. 「動画を作り直す」 opens its steps
+ * back to back, so the collision is reachable rather than theoretical.
+ *
+ * A counter is unique by construction, and it is also not a clock read in the
+ * component body, which is what react-hooks/purity was objecting to. The
+ * timestamps the card actually shows are still wall-clock, taken inside the
+ * state updater where they belong.
+ */
+let runCardSeq = 0;
+const nextRunCardId = (label: string) => `${label}-${(runCardSeq += 1)}`;
+
 type Resolved = { kind: "asset"; video: VideoAsset };
 
 function hasPinnedProductVoice(brief: VideoAsset["brief"]): boolean {
@@ -820,7 +836,7 @@ export default function BrandVideoDetail({
    * broken (2026-08-26); it had never been there on this path.
    */
   function openRunCard(label: string) {
-    const id = `${label}-${Date.now()}`;
+    const id = nextRunCardId(label);
     setRunCards((cards) => [
       ...cards,
       { id, label, status: "running", lines: [], startedAt: Date.now(), endedAt: null },
@@ -837,7 +853,7 @@ export default function BrandVideoDetail({
   }
 
   async function runStage(stage: RunnableStage): Promise<boolean> {
-    const id = `${stage}-${Date.now()}`;
+    const id = nextRunCardId(stage);
     const label = STAGE_RUN_LABEL[stage];
     setRunCards((cards) => [
       ...cards,
