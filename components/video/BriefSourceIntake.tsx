@@ -313,14 +313,6 @@ export default function BriefSourceIntake({
         </h2>
         <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
       </div>
-      {/* 「外す」 is prospective. Reading is not applying, and applying is not
-          reversible from here: the brief records a fact as 「抽出」 with a
-          source label, not with the material's id (lib/event-cm/map.ts), so
-          removing a flyer cannot withdraw the date it gave. Saying so is what
-          keeps the button from looking broken. */}
-      <p className="-mt-3 text-[11px] text-ink-faint">
-        「外す」は次の読み取りから外します。すでに動画に反映された内容は消えません。
-      </p>
 
       <ul className="flex flex-col gap-1.5">
         {sources.map((source) => (
