@@ -17,16 +17,15 @@
 - **項目ごとの由来を素材IDで持つ**(2026-09-07、[asset-normalization §9.5](docs/asset-normalization.md))。構造化が根拠IDを返して検証し、map / place-images が `provenance[path].sources` を書く。**資料を「外す」と、その資料だけに立っていた値と、その素材を指すスロットがその場で仮に戻る**([withdraw.ts](lib/event-cm/withdraw.ts))。資料単位のオン/オフは同日に実装→撤回(層が違った)。**入力ドロワーは2段**: 「追加した資料」=未読み取りのステージング、「抽出した資料」=読み取り済み(外すはここ)。入力段の新旧は読んだ集合と今の集合の差。4段目は「動画プレビュー」(MP4と区別、2026-09-08)。**依頼者のUI確認はまだ**。既存の動画は読み直すまで由来未記録
 - ワークスペースは1つずつ表示、ブランド追加はツリー下のダイアログ(URLのみ)。アセットは本体と詳細(`…/info`)の2面、Brand未所属のロゴは `/logos/[id]` が詳細。URL→ロゴ取得はStage 1c。**依頼者のUI確認はまだ**
 - 取り込みの枠は64項目([lib/brand/capture-frame.ts](lib/brand/capture-frame.ts))、実測/推定/まだわからないの3状態。サイトの画像はR2へ(`brand_materials` scope=brand)。再取り込みは `POST /api/brands/[id]/recapture`。**依頼者のUI確認はまだ**
-- main に直接コミット済み(2026-09-07〜08、12件)。lint エラー0(警告7件は既存の未使用変数)、テスト435件・tsc 通過。**push はまだ**
+- main に直接コミット済み(2026-09-07〜08、13件)。lint エラー0(警告7件は既存の未使用変数)、テスト435件・tsc 通過。**push はまだ**
 - 日本酒イベントは [labs/event/sake-2026/](labs/event/sake-2026/README.md) に保全。event-cm の `sumi` は承認済み、`standard` は静止画しか確認していない
 
 ## 次の作業
 
-1. **取り込みの一本化**([asset-normalization §14-9](docs/asset-normalization.md)): 3経路が呼ぶ `lib/materials/intake.ts`
-2. **PDF展開**(§14-11・§9.4): 子素材を作り、展開表示・ダウンロード・シーンの候補に出す。モデルには渡さない。まず `unpdf` で手元のPDFを実測(埋め込み画像がどれだけ取れるか、ベクタがどれだけ落ちるか)
-3. **祖先の可視化と昇格**(§14-12・[§19.6-6,7](docs/deliverable-architecture.md)): 基盤段と seed が祖先を辿る、trigger 改定(migration・リモート適用は要承認)
-4. v3の残り(§19.6): 同URLダイアログ、D&Dツリー、生成スイッチUI。枠の残り: `imagery.*`・`layout.sections.kind`・`voice.tone`
-5. ワークスペース切り替えの通し確認。`standard` を1本焼く(`npm run event-cm:walkthrough`、課金あり)
+1. **PDF展開**(別セッションで着手。仕様と実装の入口は [asset-normalization §9.4](docs/asset-normalization.md)): `unpdf` で手元のPDFを実測 → 子素材(派生)を作る → 「抽出した資料」のPDF行に ▸ で中身を全件展開・1点ずつダウンロード → シーンの候補へ。**最初の到達点は「子をダウンロードして別イベントに上げ直せる」**。目的は素材をブラックボックスにしないこと。取り込みの一本化(§14-9)はこの関数を核に後追い
+2. **祖先の可視化と昇格**(§14-12・[§19.6-6,7](docs/deliverable-architecture.md)): 基盤段と seed が祖先を辿る、trigger 改定(migration・リモート適用は要承認)。依頼者が次に作る**シリーズ物のイベント動画セット(モダンジャパニーズの後継)**で素材を流用する前提
+3. v3の残り(§19.6): 同URLダイアログ、D&Dツリー、生成スイッチUI。枠の残り: `imagery.*`・`layout.sections.kind`・`voice.tone`
+4. ワークスペース切り替えの通し確認。`standard` を1本焼く(`npm run event-cm:walkthrough`、課金あり)
 
 ## 判断待ち
 
