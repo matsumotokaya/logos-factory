@@ -14,11 +14,10 @@
 
 - **v3へ切り替え済み**(migration 0056 適用、コードは main)。Organizationはワークスペース、Brandは自由ツリー、Workは廃止、素材スコープは take / brand の2段。決定の正本は [docs/deliverable-architecture.md](docs/deliverable-architecture.md) §19、稼働構造は [docs/data-model.md](docs/data-model.md)。ワークスペース17・メンバー18・ユーザー136は健在
 - **素材の使える範囲の規則を4行に確定した**(2026-09-07、[§2.4](docs/deliverable-architecture.md))。置いた Brand と配下から選べる・昇格はツリーを上へ・自動で入るのはマークだけ・D&Dで既存成果物は変わらない。v2の「継承元カラム」案は撤回。**コードは未対応**(基盤段と seed は自分の Brand しか見ない。0056 の trigger は祖先への移動を拒否)
-- **動画の資料リストにオン/オフ**(2026-09-07、[BriefSourceIntake](components/video/BriefSourceIntake.tsx))。既定オン。オフ＝`take_inputs` の役割を `parked` に変える(`PATCH /api/brands/[id]/videos/[videoId]/materials`)。画面に載っている素材はオフ不可([lib/takes/source-toggle.ts](lib/takes/source-toggle.ts))。**依頼者のUI確認はまだ**
+- **資料単位のオン/オフは実装後に撤回**(2026-09-07)。資料は構造化されて brief に溶けるので、この層に有効/無効は無い。資料リストの「外す」はピン解除に戻した。代わりに**項目ごとの由来を素材IDで持つ**案を提起([asset-normalization §13-8](docs/asset-normalization.md))、判断待ち
 - ワークスペースは1つずつ表示、ブランド追加はツリー下のダイアログ(URLのみ)。アセットは本体と詳細(`…/info`)の2面、Brand未所属のロゴは `/logos/[id]` が詳細。URL→ロゴ取得はStage 1c。**依頼者のUI確認はまだ**
 - 取り込みの枠は64項目([lib/brand/capture-frame.ts](lib/brand/capture-frame.ts))、実測/推定/まだわからないの3状態。サイトの画像はR2へ(`brand_materials` scope=brand)。再取り込みは `POST /api/brands/[id]/recapture`。**依頼者のUI確認はまだ**
-- テスト435件・tsc 通過。**lint に既存の3エラー**(react-hooks/purity: [BrandVideoDetail](app/(management)/brands/[id]/video/[videoId]/BrandVideoDetail.tsx) の `Date.now()` ×2、`labs/freehand/sake-2026/src/freehand/Ground.tsx`)。HEAD時点のコードで出ており今回の変更が原因ではない
-- 前セッション分(枠64項目・recapture・AddBrandDialog 等)と今回分(素材オン/オフ・正本改定)が**同じ作業ツリーに未コミット**
+- main に直接コミット済み(2026-09-07、8件)。lint エラー0(警告7件は既存の未使用変数)、テスト435件・tsc 通過。**push はまだ**
 - 日本酒イベントは [labs/event/sake-2026/](labs/event/sake-2026/README.md) に保全。event-cm の `sumi` は承認済み、`standard` は静止画しか確認していない
 
 ## 次の作業

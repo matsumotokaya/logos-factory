@@ -15,22 +15,11 @@ import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
-import { collectMaterialIds } from "@/lib/takes/material-uri";
-import { parkDecision } from "@/lib/takes/source-toggle";
-import { eventCmUsageRecord } from "@/lib/event-cm/material-usage";
-import type { EventCmBrief } from "@/remotion/event-cm/types";
 
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
 
 /** Pin role for anything supplied as briefing material. */
 export const SOURCE_ROLE = "brief_source";
-/**
- * Pin role for a source switched off: held by this take, read by nothing,
- * offered nowhere. Switching it back on is a role change, not a re-upload
- * (docs/asset-normalization.md §9.4). The pin stays so the row remains this
- * take's — a duplicate carries it, and delete_take still asks about it.
- */
-export const PARKED_ROLE = "parked";
 
 const MAX_BYTES = 12_000_000;
 const ACCEPTED =
@@ -54,7 +43,7 @@ async function loadTake(
 ) {
   const { data, error } = await supabase
     .from("takes")
-    .select("id, template_id, brief")
+    .select("id, template_id")
     .eq("id", videoId)
     .eq("brand_id", brandId)
     .eq("tool_kind", "video")
@@ -90,13 +79,12 @@ export async function GET(
       "role, pinned_at, brand_materials(id, kind, label, media_type, bytes, created_at, provenance)",
     )
     .eq("take_id", loaded.take.id)
-    .in("role", [SOURCE_ROLE, PARKED_ROLE]);
+    .eq("role", SOURCE_ROLE);
   if (error) {
     return Response.json({ error: "素材を取得できませんでした" }, { status: 500 });
   }
 
   type Row = {
-    role: string;
     pinned_at: string;
     brand_materials:
       | {
@@ -129,7 +117,6 @@ export async function GET(
             label: material.label,
             media_type: material.media_type,
             bytes: material.bytes,
-            active: row.role === SOURCE_ROLE,
             pinnedAt: row.pinned_at,
             upload_fingerprint:
               typeof material.provenance?.upload_fingerprint === "string"
@@ -140,18 +127,7 @@ export async function GET(
     })
     .filter((material): material is NonNullable<typeof material> => material !== null);
 
-  // One role per material. If a toggle ever failed between its two writes
-  // the material holds both, and the reading stage would read it — so the
-  // screen says what the reader would do.
-  const byId = new Map<string, (typeof materials)[number]>();
-  for (const material of materials) {
-    const seen = byId.get(material.id);
-    if (!seen || (material.active && !seen.active)) byId.set(material.id, material);
-  }
-  return Response.json(
-    { materials: [...byId.values()] },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  return Response.json({ materials }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(
@@ -258,14 +234,6 @@ export async function POST(
         });
         if (repinned.error) throw new Error("素材を入力として固定できませんでした");
       }
-      // Uploading a file again is the loudest possible 「使う」: a parked pin
-      // on it is dropped so the material holds one role.
-      await supabase
-        .from("take_inputs")
-        .delete()
-        .eq("take_id", loaded.take.id)
-        .eq("material_id", existing.data.id)
-        .eq("role", PARKED_ROLE);
       return Response.json({ material: existing.data, duplicate: true }, { status: 200 });
     }
 
@@ -370,94 +338,4 @@ export async function DELETE(
   // The material row and its bytes stay: another take may pin the same file,
   // and content-addressed objects are cheap to keep and impossible to recreate.
   return Response.json({ ok: true });
-}
-
-/**
- * Switch one source on or off for this take.
- *
- * Off is a role change (SOURCE_ROLE → PARKED_ROLE), never an unpin: the pin is
- * what makes the material this take's, and the row is how the switch is flipped
- * back. A source the film is drawing cannot be switched off — the brief would
- * keep pointing at it — so the request is refused with the place named.
- */
-export async function PATCH(
-  req: Request,
-  ctx: { params: Promise<{ id: string; videoId: string }> },
-) {
-  const denied = await guardLabsRequest(req);
-  if (denied) return denied;
-  let user;
-  try {
-    user = await requireUser(req);
-  } catch {
-    return unauthorized();
-  }
-  const { id: brandId, videoId } = await ctx.params;
-  const supabase = createServerSupabaseForToken(user.token);
-
-  const loaded = await loadTake(supabase, brandId, videoId);
-  if ("error" in loaded) {
-    return Response.json({ error: loaded.error }, { status: loaded.status });
-  }
-
-  const body = (await req.json().catch(() => null)) as {
-    materialId?: unknown;
-    active?: unknown;
-  } | null;
-  if (!body || typeof body.materialId !== "string" || typeof body.active !== "boolean") {
-    return Response.json({ error: "materialId と active が必要です" }, { status: 400 });
-  }
-  const materialId = body.materialId;
-
-  const pins = await supabase
-    .from("take_inputs")
-    .select("role, checksum")
-    .eq("take_id", loaded.take.id)
-    .eq("material_id", materialId)
-    .in("role", [SOURCE_ROLE, PARKED_ROLE]);
-  if (pins.error) {
-    return Response.json({ error: "素材の状態を確認できませんでした" }, { status: 500 });
-  }
-  if (!pins.data || pins.data.length === 0) {
-    return Response.json({ error: "この動画の資料ではありません" }, { status: 404 });
-  }
-
-  if (!body.active) {
-    const brief = (loaded.take.brief as Record<string, unknown> | null) ?? null;
-    const uses =
-      loaded.take.template_id === "event-cm" && brief
-        ? eventCmUsageRecord(brief as unknown as EventCmBrief)[materialId]
-        : undefined;
-    const decision = parkDecision(materialId, collectMaterialIds(brief), uses);
-    if (!decision.can) {
-      return Response.json({ error: decision.reason }, { status: 409 });
-    }
-  }
-
-  const want = body.active ? SOURCE_ROLE : PARKED_ROLE;
-  const drop = body.active ? PARKED_ROLE : SOURCE_ROLE;
-  if (!pins.data.some((pin) => pin.role === want)) {
-    const added = await supabase.from("take_inputs").insert({
-      take_id: loaded.take.id,
-      material_id: materialId,
-      role: want,
-      checksum: (pins.data[0].checksum as string) ?? "",
-    });
-    if (added.error) {
-      return Response.json({ error: "素材の状態を変えられませんでした" }, { status: 500 });
-    }
-  }
-  // Only once the new role is in place. A failure between the two writes leaves
-  // the material pinned twice, never unpinned.
-  const dropped = await supabase
-    .from("take_inputs")
-    .delete()
-    .eq("take_id", loaded.take.id)
-    .eq("material_id", materialId)
-    .eq("role", drop);
-  if (dropped.error) {
-    return Response.json({ error: "素材の状態を変えられませんでした" }, { status: 500 });
-  }
-
-  return Response.json({ ok: true, active: body.active });
 }
