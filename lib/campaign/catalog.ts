@@ -6,9 +6,13 @@ import { newLogoId } from "@/lib/id";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { createServerSupabaseForToken } from "@/lib/supabase/server";
 import {
+  adoptBrandKnowledge,
   appendBrandKnowledgeClaims,
   type AppendKnowledgeField,
 } from "@/lib/brand/knowledge";
+import { paletteKnowledge, siteKnowledge } from "@/lib/brand/site-knowledge";
+import { saveSiteMaterials } from "@/lib/brand/site-materials";
+import type { SiteCapture } from "./capture";
 import type { CampaignJob } from "./jobs";
 import type { CampaignBrandKit } from "./schema";
 import { resolveSubjectCategory, type BrandKind } from "./classification";
@@ -40,6 +44,10 @@ type PersistCatalogInput = {
   userId: string;
   job: CampaignJob;
   kit: CampaignBrandKit;
+  /** The rendered-page evidence, when there was a page and a browser to read
+   *  it with. Its absence is why a brand can end up knowing only what a model
+   *  proposed, and the two must not be stored as if they were the same. */
+  capture?: SiteCapture | null;
 };
 
 type BrandTarget = {
@@ -168,6 +176,8 @@ async function saveCatalogKnowledge(
   target: BrandTarget,
   job: CampaignJob,
   kit: CampaignBrandKit,
+  capture: SiteCapture | null,
+  capturedAt: string,
 ): Promise<void> {
   const sourceRef = { campaign_job_id: job.id, source_url: job.input.url };
   const organizationFields: AppendKnowledgeField[] = [
@@ -183,23 +193,38 @@ async function saveCatalogKnowledge(
     { field_path: "offering.audience", layer: "fact", value: kit.service.audience, confidence: "inferred" },
     { field_path: "offering.summary", layer: "fact", value: kit.service.offering, confidence: "inferred" },
   ];
+  // The palette splits by where it came from: read off the rendered page, or
+  // proposed by the model because there was no page to read.
+  const palette = paletteKnowledge(kit.brand);
+  // Everything the second in-page pass measured — type scale, component shape,
+  // section structure — plus the facts the page states about itself.
+  const site = capture ? siteKnowledge(capture, capturedAt) : null;
+
   const expressionFields: AppendKnowledgeField[] = [
-    { field_path: "palette.primary", layer: "expression", value: kit.brand.primary, confidence: "suggested" },
-    { field_path: "palette.accent", layer: "expression", value: kit.brand.accent, confidence: "suggested" },
-    { field_path: "palette.background", layer: "expression", value: kit.brand.background, confidence: "suggested" },
-    { field_path: "palette.surface", layer: "expression", value: kit.brand.surface, confidence: "suggested" },
-    { field_path: "palette.text", layer: "expression", value: kit.brand.text, confidence: "suggested" },
-    { field_path: "palette.mode", layer: "expression", value: kit.brand.mode, confidence: "suggested" },
-    { field_path: "palette.source", layer: "expression", value: kit.brand.palette_source, confidence: "suggested" },
-    { field_path: "typography.font_style", layer: "expression", value: kit.brand.font_style, confidence: "suggested" },
-    { field_path: "typography.body_font", layer: "expression", value: kit.design_tokens?.body_font, confidence: "suggested" },
-    { field_path: "typography.heading_font", layer: "expression", value: kit.design_tokens?.heading_font, confidence: "suggested" },
-    { field_path: "tokens.button_radius", layer: "expression", value: kit.design_tokens?.button_radius, confidence: "suggested" },
-    { field_path: "tokens.button_padding", layer: "expression", value: kit.design_tokens?.button_padding, confidence: "suggested" },
-    { field_path: "tokens.section_spacing", layer: "expression", value: kit.design_tokens?.section_spacing, confidence: "suggested" },
-    { field_path: "tokens.container_width", layer: "expression", value: kit.design_tokens?.container_width, confidence: "suggested" },
+    ...palette.claims,
     { field_path: "tone.theme", layer: "expression", value: kit.theme, confidence: "suggested" },
   ];
+  // A design token is a measurement, so it is only a suggestion when nothing
+  // measured it. With a capture in hand these are adopted below instead.
+  if (!capture) {
+    for (const [path, value] of [
+      ["typography.body_font", kit.design_tokens?.body_font],
+      ["typography.heading_font", kit.design_tokens?.heading_font],
+      ["tokens.button_radius", kit.design_tokens?.button_radius],
+      ["tokens.button_padding", kit.design_tokens?.button_padding],
+      ["tokens.section_spacing", kit.design_tokens?.section_spacing],
+      ["tokens.container_width", kit.design_tokens?.container_width],
+    ] as const) {
+      if (value) {
+        expressionFields.push({
+          field_path: path,
+          layer: "expression",
+          value,
+          confidence: "suggested",
+        });
+      }
+    }
+  }
 
   // One Brand carries both: the operator facts describe who runs it, and in
   // v3 there is no separate corporate Brand to hang them on. They stay claims
@@ -225,6 +250,35 @@ async function saveCatalogKnowledge(
     userId,
   });
   if (!expression.ok) throw new Error(expression.error);
+
+  if (site) {
+    const observed = await appendBrandKnowledgeClaims(supabase, {
+      brandId: target.brandId,
+      fields: site.claims,
+      sourceKind: "url_extraction",
+      sourceRef,
+      userId,
+    });
+    if (!observed.ok) throw new Error(observed.error);
+  }
+
+  // Adopting what a rule measured is what makes the brand page show anything
+  // at all. Before this, a URL produced two dozen claims and zero values, and
+  // the page — which reads values — said 「まだ採用されたデザインルールはありません」
+  // about a brand it had just finished measuring. Adoption is confined to
+  // `expression` fields a deterministic reading produced; facts stay claims,
+  // and a value a person has already decided is not touched by the RPC.
+  const toAdopt = [...palette.adopt, ...(site?.adopt ?? [])];
+  if (toAdopt.length > 0) {
+    const adopted = await adoptBrandKnowledge(supabase, {
+      brandId: target.brandId,
+      fields: toAdopt,
+      sourceKind: "url_extraction",
+      sourceRef,
+      userId,
+    });
+    if (!adopted.ok) throw new Error(adopted.error);
+  }
 }
 
 async function findOrCreateLogo(
@@ -396,6 +450,7 @@ export async function persistCampaignCatalog({
   userId,
   job,
   kit,
+  capture,
 }: PersistCatalogInput): Promise<CampaignCatalogLink> {
   const supabase = createServerSupabaseForToken(accessToken);
   const sourceUrl = job.input.url;
@@ -429,9 +484,34 @@ export async function persistCampaignCatalog({
         };
       })();
 
-  await saveCatalogKnowledge(supabase, userId, target, job, kit);
-  const logoId = await findOrCreateLogo(supabase, userId, target, kit);
   const now = new Date().toISOString();
+  await saveCatalogKnowledge(
+    supabase,
+    userId,
+    target,
+    job,
+    kit,
+    capture ?? null,
+    now,
+  );
+  const logoId = await findOrCreateLogo(supabase, userId, target, kit);
+
+  // The files the capture brought home. Deliberately after the knowledge and
+  // the logo: a brand that gained its colours and its mark but lost a
+  // screenshot to a storage hiccup is still a brand, so this must not be able
+  // to fail the registration.
+  if (capture) {
+    try {
+      await saveSiteMaterials({
+        supabase,
+        userId,
+        brandId: target.brandId,
+        capture,
+      });
+    } catch (error) {
+      console.error("Site material capture failed:", error);
+    }
+  }
 
   return {
     organizationId: target.organizationId,

@@ -23,6 +23,20 @@ export const takeMaterialSignatureToken = (
   key: string,
 ): string => `take-material:${brandId}:${takeId}:${materialId}:${key}`;
 
+/**
+ * The same, for a material held at brand scope rather than pinned to a take.
+ *
+ * A brand's own files — the site screenshots, the key visual, the textures the
+ * capture brought home — belong to no take, so `takeMaterialSignatureToken`
+ * has no take id to bind. The route identity differs so a URL minted for one
+ * cannot be replayed against the other.
+ */
+export const brandMaterialSignatureToken = (
+  brandId: string,
+  materialId: string,
+  key: string,
+): string => `brand-material:${brandId}:${materialId}:${key}`;
+
 export function collectMaterialIds(value: unknown, ids = new Set<string>()): Set<string> {
   if (typeof value === "string" && value.startsWith(MATERIAL_URI_PREFIX)) {
     ids.add(value.slice(MATERIAL_URI_PREFIX.length));

@@ -6,32 +6,28 @@ import {
   type PipelineStage,
   type PipelineStageStatus,
 } from "./stages";
+import { GOAL_FIELDS } from "@/lib/brand/capture-frame";
 
 /**
- * What a brand needs before it can dress anything else. This list is the
- * product's opinion, not a schema dump: it says a brand is not understood
- * until we know its colours, its typography, its spacing feel and its mark.
+ * What a brand needs before it can dress anything else.
  *
- * Everything downstream reads from here, so adding a row here is how the bar
- * gets raised — the pipeline immediately reports it as missing and the
- * extractors get a new thing to go find (§17.1).
+ * Derived from the capture frame rather than listed again here: the frame is
+ * the one place that says what the product tries to learn from a site, and a
+ * second hand-maintained list is how the extractor, the goal and the brand
+ * page came to disagree about what a brand even has (lib/brand/capture-frame.ts).
+ *
+ * Only the frame's `expression` fields are here, because only they are
+ * adoptable — a design judgement measured off the site becomes this brand's
+ * rule, while a fact stays a claim carrying its confidence (§4.1). Raising the
+ * bar means adding a row to the frame; this list follows.
  */
-export const BRAND_ASSET_GOAL: readonly GoalField[] = [
-  { path: "palette.primary", label: "プライマリカラー", required: true },
-  { path: "palette.accent", label: "アクセントカラー", required: true },
-  { path: "palette.background", label: "背景色", required: true },
-  { path: "palette.surface", label: "面の色", required: false },
-  { path: "palette.text", label: "文字色", required: true },
-  { path: "palette.mode", label: "明暗", required: false },
-  { path: "typography.heading_font", label: "見出し書体", required: true },
-  { path: "typography.body_font", label: "本文書体", required: true },
-  { path: "typography.font_style", label: "書体の性格", required: false },
-  { path: "tokens.button_radius", label: "角の丸み", required: false },
-  { path: "tokens.button_padding", label: "ボタンの余白", required: false },
-  { path: "tokens.section_spacing", label: "セクション間の余白", required: false },
-  { path: "tokens.container_width", label: "コンテナ幅", required: false },
-  { path: "tone.theme", label: "トーン", required: false },
-];
+export const BRAND_ASSET_GOAL: readonly GoalField[] = GOAL_FIELDS.map(
+  (field) => ({
+    path: field.path,
+    label: field.label,
+    required: field.required,
+  }),
+);
 
 export interface BrandPipelineInput {
   /** Sources fed in so far: the site URL, uploaded PDFs, guidelines. */

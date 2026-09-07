@@ -27,7 +27,6 @@ import { cn } from "@/lib/cn";
 import { videoFetch } from "@/lib/video/client";
 import type { BrandOverview } from "@/app/api/brands/[id]/overview/route";
 import type { LogoSummary } from "@/app/api/brands/[id]/logos/route";
-import type { BrandUrlInspection } from "@/lib/brand-detail";
 import PipelineBar from "@/components/pipeline/PipelineBar";
 import StageDrawer from "@/components/pipeline/StageDrawer";
 import BrandPipelinePanel, {
@@ -35,6 +34,9 @@ import BrandPipelinePanel, {
 } from "@/components/pipeline/BrandPipelinePanel";
 import type { BrandMaterial } from "@/components/pipeline/MaterialIntake";
 import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
+import BrandKnowledgePanel, {
+  BrandSiteFiles,
+} from "@/components/brand/BrandKnowledgePanel";
 import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
@@ -56,56 +58,6 @@ const BRAND_KIND_LABEL: Record<string, string> = {
   event: "イベント",
   audience: "対象別",
 };
-
-// Map a brand_knowledge_values field path to a human label so the rendered
-// card on the brand top is not a tree of dotted keys. The map only covers
-// fields the product actually adopts today; unknown fields still render
-// because the override is opt-in, not required.
-const KNOWN_FIELDS: Record<string, string> = {
-  "palette.primary": "プライマリカラー",
-  "palette.accent": "アクセントカラー",
-  "palette.background": "背景色",
-  "palette.surface": "面の色",
-  "palette.text": "文字色",
-  "palette.mode": "明暗",
-  "palette.neutral": "ニュートラル",
-  "palette.source": "パレットの出所",
-  "typography.heading": "見出しフォント",
-  "typography.body": "本文フォント",
-  "typography.heading_font": "見出しフォント",
-  "typography.body_font": "本文フォント",
-  "typography.font_style": "書体の性格",
-  "tokens.button_radius": "角の丸み",
-  "tokens.button_padding": "ボタンの余白",
-  "tokens.section_spacing": "セクション間の余白",
-  "tokens.container_width": "コンテナ幅",
-  "voice.tone": "声のトーン",
-  "voice.guideline": "ライティング指針",
-  "voice.tagline": "タグライン",
-  "offering.name": "提供サービス名",
-  "offering.summary": "提供内容の要約",
-  "audience.primary": "主要な対象",
-};
-
-/** A hex value gets a swatch: a colour rule is unreadable as six characters. */
-const HEX_VALUE = /^#[0-9a-f]{6}$/i;
-
-function formatKnowledgeValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.join(" / ");
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    if (typeof obj.label === "string") return obj.label;
-    if (typeof obj.name === "string") return obj.name;
-    if (typeof obj.hex === "string") return obj.hex;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
 
 export default function BrandTop({ brandId }: { brandId: string }) {
   const [overview, setOverview] = useState<BrandOverview | null>(null);
@@ -205,66 +157,50 @@ export default function BrandTop({ brandId }: { brandId: string }) {
    * choose anything. The result lands in the design-rules section below, where
    * it can be judged — and re-run — after the fact.
    */
+  /**
+   * Read the site again through the server-side capture.
+   *
+   * The old route sent the browser to `inspect-url`, took the small JSON it
+   * returns, and PATCHed it back — a shape that can hold a palette and one
+   * logo. The capture now brings home a type scale, component shapes, the
+   * page's own sections, contact details and a dozen files, none of which can
+   * travel through a JSON the client carries. So the work happens where the
+   * bytes already are, and this only asks for it and reloads.
+   */
   const reimportSite = useCallback(async () => {
-    if (!overview?.website) return;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const inspectRes = await videoFetch("/api/brands/inspect-url", {
+      const res = await videoFetch(`/api/brands/${brandId}/recapture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: overview.website, scope: "business" }),
+        body: JSON.stringify({}),
       });
-      const inspectBody = (await inspectRes.json().catch(() => null)) as {
-        inspection?: BrandUrlInspection;
+      const body = (await res.json().catch(() => null)) as {
+        adopted?: number;
+        claims?: number;
+        files?: number;
+        note?: string | null;
         error?: string;
       } | null;
-      if (!inspectRes.ok || !inspectBody?.inspection) {
-        throw new Error(inspectBody?.error ?? "サイトを読み取れませんでした");
+      if (!res.ok) {
+        throw new Error(body?.error ?? "サイトから取り込めませんでした");
       }
-      const brandImport = inspectBody.inspection.brandAssets;
-      if (!brandImport) {
-        throw new Error("このサイトからは配色・書体・ロゴを取得できませんでした");
-      }
-
-      // The brand's facts are sent back unchanged. Only `brandImport` carries
-      // anything new, and it is the only part the crawl is allowed to decide.
-      const saveRes = await videoFetch(`/api/brands/businesses/${brandId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: overview.name,
-          parentOrganizationId: overview.brandOrganizationId,
-          website: overview.website,
-          industry: overview.industry,
-          location: overview.location,
-          description: overview.description,
-          brandImport,
-        }),
-      });
-      const saveBody = (await saveRes.json().catch(() => null)) as {
-        ok?: boolean;
-        logo?: unknown;
-        error?: string;
-      } | null;
-      if (!saveRes.ok || !saveBody?.ok) {
-        throw new Error(saveBody?.error ?? "取り込んだ内容を保存できませんでした");
-      }
-
       await load();
       await loadPipeline();
-      setNotice(
-        saveBody.logo
-          ? "サイトから配色・書体・ロゴを取り込みました。"
-          : "サイトから配色・書体を取り込みました。",
-      );
+      const parts = [
+        `${body?.adopted ?? 0}項目を採用`,
+        `${body?.claims ?? 0}件を記録`,
+        `画像${body?.files ?? 0}点を保存`,
+      ];
+      setNotice(`サイトを読み直しました（${parts.join("・")}）。${body?.note ?? ""}`.trim());
     } catch (e) {
       setError(e instanceof Error ? e.message : "サイトから取り込めませんでした");
     } finally {
       setBusy(false);
     }
-  }, [brandId, load, loadPipeline, overview]);
+  }, [brandId, load, loadPipeline]);
 
   const uploadMaterial = useCallback(
     async (file: File, data: string) => {
@@ -348,9 +284,6 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   ];
 
   const kindLabel = BRAND_KIND_LABEL[overview.brandKind] ?? overview.brandKind;
-  const visibleKnowledge = overview.knowledge
-    .filter((k) => KNOWN_FIELDS[k.fieldPath] !== undefined || true)
-    .sort((a, b) => a.fieldPath.localeCompare(b.fieldPath));
 
   const openStageDef = pipeline?.stages.find((stage) => stage.id === openStage);
 
@@ -474,47 +407,34 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         <div className="flex flex-col gap-3">
           <div className="flex items-baseline gap-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
-              デザイン
+              このブランドについてわかっていること
             </h3>
             <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
           </div>
-          {visibleKnowledge.length > 0 ? (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleKnowledge.map((k) => {
-                const value = formatKnowledgeValue(k.value);
-                return (
-                  <li
-                    key={k.fieldPath}
-                    className="rounded-2xl border border-hairline bg-white p-4"
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-                      {KNOWN_FIELDS[k.fieldPath] ?? k.fieldPath}
-                    </p>
-                    <p className="mt-2 flex items-center gap-2 text-pretty text-sm font-semibold text-ink">
-                      {HEX_VALUE.test(value) ? (
-                        <span
-                          aria-hidden="true"
-                          className="inline-block h-4 w-4 shrink-0 rounded border border-hairline"
-                          style={{ backgroundColor: value }}
-                        />
-                      ) : null}
-                      {value}
-                    </p>
-                    <p className="mt-2 font-mono text-[10px] text-ink-faint">
-                      {k.fieldPath}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
+          {/* Three states, not two. Reading values alone made a brand that had
+              just been measured look untouched — see BrandKnowledgePanel. */}
+          <BrandKnowledgePanel
+            values={overview.knowledge}
+            claims={overview.claims}
+          />
+          {overview.knowledge.length === 0 && overview.claims.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-hairline px-4 py-5 text-sm text-ink-muted">
-              まだ採用されたデザインルールはありません。
+              このブランドはまだ何も読み取っていません。
               {overview.website
-                ? "「サイトから取り込む」でこのブランドのサイトを読み取ると、配色・書体・ロゴがここに入ります。"
-                : "サイトURLを登録すると、そこから配色・書体・ロゴを取り込めます。"}
+                ? "「サイトから取り込む」でこのブランドのサイトを読み取ると、配色・書体・構成・ロゴがここに入ります。"
+                : "サイトURLを登録すると、そこから配色・書体・構成・ロゴを取り込めます。"}
             </p>
-          )}
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline gap-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+              サイトから取り込んだ画像
+            </h3>
+            <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
+          </div>
+          <BrandSiteFiles files={overview.files} />
         </div>
 
         {/* Logos and the key visual as NAMED SLOTS, so an empty one is

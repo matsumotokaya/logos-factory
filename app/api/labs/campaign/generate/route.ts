@@ -206,6 +206,10 @@ export async function POST(req: Request) {
           userId: user.id,
           job: completedJob,
           kit: result.kit,
+          // What the rendered page actually said. Without it the brand can
+          // only record what the model proposed, and the two are stored
+          // differently (lib/brand/site-knowledge.ts).
+          capture: result.debug.capture,
         });
         saveCampaignCatalog(job.id, catalog);
         const v2 = await createCampaignLpTake(

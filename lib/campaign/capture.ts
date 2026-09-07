@@ -32,6 +32,85 @@ export interface SiteCapture {
   logoCandidates: CapturedLogoCandidate[];
   /** best-effort design guideline hints from computed CSS */
   designTokens: DesignTokens;
+  /** everything the second in-page pass read. null when that pass threw. */
+  profile: SiteProfile | null;
+  /** the site's own images, downloaded — key visual first (see IMAGE_BUDGET) */
+  images: FetchedSiteImage[];
+}
+
+/**
+ * Everything about the site that is not colour: the type scale, the shape of
+ * its components, what the page is made of, who to contact and where else the
+ * brand is. Collected by COLLECT_SITE_PROFILE in one in-page pass.
+ *
+ * Every field is nullable and nothing is inferred. A site that does not state
+ * its phone number leaves `telephone` null, which the brand page renders as
+ * まだわからない — the one thing this must never do is fill a gap with a guess
+ * (deliverable-architecture §8).
+ */
+export interface SiteProfile {
+  typography: {
+    headingWeight: string | null;
+    bodyWeight: string | null;
+    headingSize: string | null;
+    bodySize: string | null;
+    /** unitless ratio, as a string ("1.75") */
+    lineHeight: string | null;
+    letterSpacing: string | null;
+    /** Google Fonts / Typekit hrefs and @font-face families actually declared. */
+    fontSources: string[];
+  };
+  tokens: {
+    buttonWeight: string | null;
+    buttonShadow: string | null;
+    cardRadius: string | null;
+    cardShadow: string | null;
+    borderWidth: string | null;
+    borderColor: string | null;
+  };
+  layout: {
+    sections: { kind: string | null; heading: string | null; height: number }[];
+    navItems: string[];
+    /** what the first screen is painted with: image / gradient / video / plain */
+    heroKind: string | null;
+    ctaLabel: string | null;
+    /** characters per 1000 px² over the first three screens */
+    density: number | null;
+  };
+  site: {
+    lang: string | null;
+    darkMode: boolean | null;
+    title: string | null;
+    description: string | null;
+    tagline: string | null;
+  };
+  contact: { telephone: string | null; email: string | null; address: string | null };
+  social: Record<string, string>;
+  copyright: string | null;
+  images: SiteImageRef[];
+}
+
+/** An image the page is built out of, as the DOM describes it. */
+export interface SiteImageRef {
+  src: string;
+  alt: string | null;
+  naturalWidth: number | null;
+  naturalHeight: number | null;
+  renderedWidth: number;
+  renderedHeight: number;
+  /** distance from the top of the document, in px */
+  top: number;
+  role: "keyvisual" | "hero" | "content" | "texture";
+  /** a tiling background — the only way a texture is visible in a DOM */
+  repeats: boolean;
+}
+
+/** One of those images, actually downloaded and ready to be stored. */
+export interface FetchedSiteImage extends SiteImageRef {
+  /** base64 of the original bytes — not re-encoded, so the file stays the site's own */
+  data: string;
+  mediaType: string;
+  bytes: number;
 }
 
 export interface CapturedLogoCandidate {
@@ -47,6 +126,21 @@ export interface CapturedLogoCandidate {
 }
 
 const NAV_TIMEOUT = 30_000;
+
+/**
+ * How much of a site's imagery one capture will carry home.
+ *
+ * A cap, not a sample: the collector already ranks key visual → hero → texture
+ * → content and biggest-first, so what falls off the end is the least useful
+ * thing on the page. `minBytes` drops tracking pixels and spacer GIFs that
+ * survived the DOM-size filter by being stretched.
+ */
+const IMAGE_BUDGET = {
+  count: 16,
+  minBytes: 4_000,
+  maxBytes: 8_000_000,
+  totalBytes: 40_000_000,
+};
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 
@@ -271,6 +365,427 @@ const COLLECT_PAGE_COLORS = String.raw`(() => {
     vars,
     tokens,
   };
+})()`;
+
+// Runs inside the page: everything about the site that is not colour.
+//
+// The colour histogram answers "what is this brand painted in". This answers
+// the rest of what a designer copies off a site before rebuilding it — the
+// type scale, the shape of a button, what the page is made of, who to contact,
+// where else they are, and which images are actually load-bearing.
+//
+// Same conventions as COLLECT_PAGE_COLORS: a plain-JS source string so no
+// bundler can inject helpers that do not exist in the browser, everything
+// wrapped so one bad site cannot take the whole capture down with it, and a
+// null for anything not found — never a guess (§8: 意味は発明しない).
+const COLLECT_SITE_PROFILE = String.raw`(() => {
+  const out = {
+    typography: { headingWeight: null, bodyWeight: null, headingSize: null, bodySize: null, lineHeight: null, letterSpacing: null, fontSources: [] },
+    tokens: { buttonWeight: null, buttonShadow: null, cardRadius: null, cardShadow: null, borderWidth: null, borderColor: null },
+    layout: { sections: [], navItems: [], heroKind: null, ctaLabel: null, density: null },
+    site: { lang: null, darkMode: null, title: null, description: null, tagline: null },
+    contact: { telephone: null, email: null, address: null },
+    social: {},
+    copyright: null,
+    images: [],
+  };
+  const px = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? Math.round(n) + "px" : null;
+  };
+  const mode = (xs) => {
+    const m = new Map();
+    for (const x of xs) if (x !== null && x !== undefined && x !== "") m.set(x, (m.get(x) || 0) + 1);
+    let best = null, n = 0;
+    for (const [k, v] of m) if (v > n) { best = k; n = v; }
+    return best;
+  };
+  const parseHex = (s) => {
+    if (!s) return null;
+    const m = s.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s\/]+([\d.]+%?))?\s*\)/);
+    if (!m) return null;
+    if (m[4] !== undefined) {
+      const a = m[4].endsWith("%") ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+      if (a < 0.35) return null;
+    }
+    const h = (x) => (+x).toString(16).padStart(2, "0");
+    return "#" + h(m[1]) + h(m[2]) + h(m[3]);
+  };
+  const visible = (el, cs) =>
+    cs.display !== "none" && cs.visibility !== "hidden" && parseFloat(cs.opacity) >= 0.1;
+
+  // ---- type scale -------------------------------------------------------
+  try {
+    // The LARGEST visible heading, not the first in the DOM. On this site's
+    // own pages the first h1 is a 15px tagline sitting in the masthead, and
+    // reporting that as 見出しの大きさ would tell every renderer to set
+    // headlines smaller than the body text.
+    let h = null, hSize = 0;
+    for (const el of Array.from(document.querySelectorAll("h1, h2")).slice(0, 60)) {
+      const cs = getComputedStyle(el);
+      if (!visible(el, cs)) continue;
+      if (!(el.textContent || "").trim()) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 40 || r.height < 10) continue;
+      const fs = parseFloat(cs.fontSize) || 0;
+      if (fs > hSize) { hSize = fs; h = el; }
+    }
+    if (h) {
+      const cs = getComputedStyle(h);
+      out.typography.headingWeight = cs.fontWeight || null;
+      out.typography.headingSize = px(cs.fontSize);
+      const ls = parseFloat(cs.letterSpacing);
+      out.typography.letterSpacing = Number.isFinite(ls) ? (Math.round(ls * 100) / 100) + "px" : "normal";
+    }
+    const sizes = [], weights = [], leadings = [];
+    for (const p of Array.from(document.querySelectorAll("p, li")).slice(0, 200)) {
+      const t = (p.textContent || "").trim();
+      if (t.length < 20) continue;
+      const cs = getComputedStyle(p);
+      if (!visible(p, cs)) continue;
+      const fs = parseFloat(cs.fontSize);
+      if (!Number.isFinite(fs) || fs < 9 || fs > 32) continue;
+      sizes.push(Math.round(fs) + "px");
+      weights.push(cs.fontWeight);
+      const lh = parseFloat(cs.lineHeight);
+      if (Number.isFinite(lh) && fs > 0) leadings.push((Math.round((lh / fs) * 100) / 100).toFixed(2));
+    }
+    out.typography.bodySize = mode(sizes);
+    out.typography.bodyWeight = mode(weights);
+    out.typography.lineHeight = mode(leadings);
+  } catch (e) { /* best effort */ }
+
+  // Where the faces actually come from. A family name the renderer cannot load
+  // is a different page; a Google Fonts href or an @font-face src is the thing
+  // that makes the same type reproducible.
+  try {
+    const srcs = new Set();
+    for (const link of Array.from(document.querySelectorAll('link[rel="stylesheet"], link[rel="preload"]'))) {
+      const href = link.getAttribute("href") || "";
+      if (/fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit|fonts\.bunny|typesquare|fontplus/i.test(href)) {
+        srcs.add(href.split("?")[0].replace(/^\/\//, "https://"));
+      }
+    }
+    for (const sheet of Array.from(document.styleSheets).slice(0, 40)) {
+      let rules = null;
+      try { rules = sheet.cssRules; } catch (e) { rules = null; } // cross-origin
+      if (!rules) continue;
+      for (const rule of Array.from(rules).slice(0, 800)) {
+        if (rule.constructor && rule.constructor.name === "CSSFontFaceRule") {
+          const fam = (rule.style.getPropertyValue("font-family") || "").replace(/["']/g, "").trim();
+          if (fam) srcs.add("@font-face " + fam);
+        }
+      }
+    }
+    out.typography.fontSources = Array.from(srcs).slice(0, 8);
+  } catch (e) { /* best effort */ }
+
+  // ---- component shape --------------------------------------------------
+  try {
+    const weights = [], shadows = [], labels = [];
+    for (const el of Array.from(document.querySelectorAll('button, a, [role="button"], input[type="submit"]')).slice(0, 400)) {
+      let cs = getComputedStyle(el);
+      let bg = parseHex(cs.backgroundColor);
+      if (!bg && el.children.length === 1) {
+        const ccs = getComputedStyle(el.children[0]);
+        const c = parseHex(ccs.backgroundColor);
+        if (c) { cs = ccs; bg = c; }
+      }
+      if (!bg) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 72 || r.height < 30 || r.width / r.height < 1.6) continue;
+      weights.push(cs.fontWeight);
+      shadows.push(cs.boxShadow && cs.boxShadow !== "none" ? cs.boxShadow : "none");
+      const t = (el.textContent || "").trim().replace(/\s+/g, " ");
+      if (t && t.length <= 24 && r.top < window.innerHeight * 2) labels.push(t);
+    }
+    out.tokens.buttonWeight = mode(weights);
+    out.tokens.buttonShadow = mode(shadows);
+    out.layout.ctaLabel = labels.length ? labels[0] : null;
+
+    // Cards: a bordered or shadowed box holding text. Their radius is a
+    // different decision from the button's and generated pages get it wrong
+    // by borrowing the button's.
+    const radii = [], cardShadows = [], borderWidths = [], borderColors = [];
+    for (const el of Array.from(document.querySelectorAll("article, li, div")).slice(0, 900)) {
+      const cs = getComputedStyle(el);
+      if (!visible(el, cs)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 160 || r.height < 100 || r.width > 900) continue;
+      const bw = parseFloat(cs.borderTopWidth) || 0;
+      const shadow = cs.boxShadow && cs.boxShadow !== "none";
+      if (!shadow && bw < 0.5) continue;
+      if ((el.textContent || "").trim().length < 12) continue;
+      const rad = cs.borderTopLeftRadius;
+      if (rad && !rad.endsWith("%")) radii.push(px(rad));
+      if (shadow) cardShadows.push(cs.boxShadow);
+      if (bw >= 0.5) {
+        borderWidths.push((Math.round(bw * 10) / 10) + "px");
+        const bc = parseHex(cs.borderTopColor);
+        if (bc) borderColors.push(bc);
+      }
+    }
+    out.tokens.cardRadius = mode(radii);
+    out.tokens.cardShadow = mode(cardShadows);
+    out.tokens.borderWidth = mode(borderWidths);
+    out.tokens.borderColor = mode(borderColors);
+  } catch (e) { /* best effort */ }
+
+  // ---- what the page is made of ----------------------------------------
+  try {
+    const KINDS = [
+      ["hero", /hero|jumbotron|kv|mainvisual|main-visual|firstview/i],
+      ["feature", /feature|benefit|service|strength|point|merit/i],
+      ["pricing", /pricing|price|plan|料金|プラン/i],
+      ["faq", /faq|question|よくある/i],
+      ["testimonial", /voice|testimonial|review|case|導入事例|お客様/i],
+      ["news", /news|blog|article|topics|お知らせ/i],
+      ["contact", /contact|inquiry|form|問い合わせ|お問合せ/i],
+      ["about", /about|company|profile|会社|概要/i],
+      ["cta", /cta|apply|entry|download|trial|申し込み|無料/i],
+    ];
+    const nodes = Array.from(document.querySelectorAll("body > *, main > *, body > div > section, main section"));
+    const seen = new Set();
+    for (const el of nodes.slice(0, 120)) {
+      if (seen.has(el)) continue;
+      seen.add(el);
+      const cs = getComputedStyle(el);
+      if (!visible(el, cs)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.height < 120 || r.width < 240) continue;
+      const cls = (typeof el.className === "string" ? el.className : "") + " " + (el.id || "");
+      const head = (el.querySelector("h1, h2, h3") || {}).textContent || "";
+      const hay = cls + " " + head;
+      let kind = null;
+      for (const [name, re] of KINDS) if (re.test(hay)) { kind = name; break; }
+      out.layout.sections.push({
+        kind: kind,
+        heading: head.trim().replace(/\s+/g, " ").slice(0, 60) || null,
+        height: Math.round(r.height),
+      });
+      if (out.layout.sections.length >= 24) break;
+    }
+
+    const nav = document.querySelector("header nav, nav, header");
+    if (nav) {
+      const items = [];
+      for (const a of Array.from(nav.querySelectorAll("a")).slice(0, 40)) {
+        const t = (a.textContent || "").trim().replace(/\s+/g, " ");
+        if (t && t.length <= 24 && items.indexOf(t) === -1) items.push(t);
+      }
+      out.layout.navItems = items.slice(0, 12);
+    }
+
+    // What the first screen is actually made of. A template that opens on a
+    // photograph and a template that opens on a flat colour are different
+    // videos, and this is the only place that says which one this site is.
+    let heroKind = "plain";
+    const probe = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight * 0.4));
+    let node = probe, depth = 0;
+    while (node && depth < 8) {
+      const cs = getComputedStyle(node);
+      const bi = cs.backgroundImage || "";
+      if (node.tagName === "VIDEO" || node.querySelector && node.querySelector("video")) { heroKind = "video"; break; }
+      if (bi.indexOf("url(") !== -1) { heroKind = "image"; break; }
+      if (bi.indexOf("gradient(") !== -1) { heroKind = "gradient"; break; }
+      node = node.parentElement;
+      depth++;
+    }
+    if (heroKind === "plain") {
+      for (const img of Array.from(document.querySelectorAll("img")).slice(0, 60)) {
+        const r = img.getBoundingClientRect();
+        if (r.top < window.innerHeight && r.width > window.innerWidth * 0.5 && r.height > 200) { heroKind = "image"; break; }
+      }
+    }
+    out.layout.heroKind = heroKind;
+
+    // Density: how much text the first three screens carry, in characters per
+    // 1000 px². Not a judgement, a measurement — the label is applied later.
+    const area = window.innerWidth * Math.min(document.documentElement.scrollHeight, window.innerHeight * 3);
+    const chars = (document.body.innerText || "").slice(0, 20000).length;
+    if (area > 0) out.layout.density = Math.round((chars / area) * 1000 * 100) / 100;
+  } catch (e) { /* best effort */ }
+
+  // ---- the site's own statements about itself ---------------------------
+  try {
+    out.site.lang = document.documentElement.getAttribute("lang") || null;
+    out.site.title = (document.title || "").trim() || null;
+    const desc = document.querySelector('meta[name="description"]');
+    out.site.description = desc ? (desc.getAttribute("content") || "").trim() || null : null;
+    const h1 = document.querySelector("h1");
+    out.site.tagline = h1 ? (h1.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120) || null : null;
+    // Dark mode is a fact about the stylesheet, not a guess from the palette.
+    let dark = false;
+    for (const sheet of Array.from(document.styleSheets).slice(0, 40)) {
+      let rules = null;
+      try { rules = sheet.cssRules; } catch (e) { rules = null; }
+      if (!rules) continue;
+      for (const rule of Array.from(rules).slice(0, 1200)) {
+        if (rule.media && String(rule.media.mediaText).indexOf("prefers-color-scheme") !== -1) { dark = true; break; }
+      }
+      if (dark) break;
+    }
+    if (!dark) {
+      const cs = getComputedStyle(document.documentElement).colorScheme || "";
+      if (cs.indexOf("dark") !== -1) dark = true;
+    }
+    out.site.darkMode = dark;
+  } catch (e) { /* best effort */ }
+
+  // ---- contact, social, copyright ---------------------------------------
+  try {
+    const footer = document.querySelector("footer") || document.body;
+    const footText = (footer.innerText || "").slice(0, 4000);
+    const tel = footer.querySelector('a[href^="tel:"]');
+    if (tel) out.contact.telephone = (tel.getAttribute("href") || "").replace(/^tel:/, "").trim() || null;
+    const mail = footer.querySelector('a[href^="mailto:"]');
+    if (mail) out.contact.email = (mail.getAttribute("href") || "").replace(/^mailto:/, "").split("?")[0].trim() || null;
+    const cr = footText.match(/(?:©|\(c\)|&copy;|Copyright)[^\n]{0,120}/i);
+    if (cr) out.copyright = cr[0].trim().replace(/\s+/g, " ").slice(0, 160);
+
+    const NETS = [
+      ["x", /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//i],
+      ["instagram", /^https?:\/\/(www\.)?instagram\.com\//i],
+      ["facebook", /^https?:\/\/(www\.)?facebook\.com\//i],
+      ["youtube", /^https?:\/\/(www\.)?youtube\.com\//i],
+      ["linkedin", /^https?:\/\/(www\.)?linkedin\.com\//i],
+      ["github", /^https?:\/\/(www\.)?github\.com\//i],
+    ];
+    for (const a of Array.from(document.querySelectorAll("a[href]")).slice(0, 800)) {
+      const href = a.href || "";
+      for (const [name, re] of NETS) {
+        if (!out.social[name] && re.test(href)) out.social[name] = href.split("?")[0];
+      }
+    }
+
+    // JSON-LD is the site stating these as data rather than as layout, so it
+    // wins over anything scraped out of the footer's text.
+    for (const s of Array.from(document.querySelectorAll('script[type="application/ld+json"]')).slice(0, 12)) {
+      let data = null;
+      try { data = JSON.parse(s.textContent || "null"); } catch (e) { data = null; }
+      if (!data) continue;
+      const nodes = Array.isArray(data) ? data : (data["@graph"] && Array.isArray(data["@graph"]) ? data["@graph"] : [data]);
+      for (const n of nodes) {
+        if (!n || typeof n !== "object") continue;
+        if (n.telephone && !out.contact.telephone) out.contact.telephone = String(n.telephone).trim();
+        if (n.email && !out.contact.email) out.contact.email = String(n.email).replace(/^mailto:/, "").trim();
+        const addr = n.address;
+        if (addr && !out.contact.address) {
+          if (typeof addr === "string") out.contact.address = addr.trim();
+          else if (typeof addr === "object") {
+            const parts = [addr.postalCode, addr.addressRegion, addr.addressLocality, addr.streetAddress].filter(Boolean);
+            if (parts.length) out.contact.address = parts.join(" ").trim();
+          }
+        }
+        const same = n.sameAs;
+        if (same) {
+          for (const href of (Array.isArray(same) ? same : [same])) {
+            for (const [name, re] of NETS) if (re.test(String(href))) out.social[name] = String(href).split("?")[0];
+          }
+        }
+      }
+    }
+  } catch (e) { /* best effort */ }
+
+  // ---- the images the page is actually built out of ---------------------
+  //
+  // Ranked, not dumped: a site has hundreds of images and almost all of them
+  // are icons. What a deliverable can use is the handful that are large, load
+  // early and carry the page — plus whatever tiles as a background, which is
+  // the only way a texture shows up in a DOM.
+  try {
+    const seen = new Set();
+    const push = (rec) => {
+      if (!rec.src || seen.has(rec.src)) return;
+      if (rec.src.indexOf("data:") === 0) return; // already inline; not worth a fetch
+      seen.add(rec.src);
+      out.images.push(rec);
+    };
+    const ogMeta = document.querySelector('meta[property="og:image"], meta[name="og:image"]');
+    const ogSrc = ogMeta ? ogMeta.getAttribute("content") : null;
+
+    for (const img of Array.from(document.querySelectorAll("img")).slice(0, 300)) {
+      const cs = getComputedStyle(img);
+      if (!visible(img, cs)) continue;
+      const r = img.getBoundingClientRect();
+      const nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
+      if (r.width < 120 || r.height < 90) continue;
+      if (nw && nh && nw * nh < 40000) continue; // 200x200 or smaller: an icon
+      const src = img.currentSrc || img.getAttribute("src") || "";
+      if (!src) continue;
+      let abs = src;
+      try { abs = new URL(src, location.href).href; } catch (e) { /* keep raw */ }
+      const top = r.top + window.scrollY;
+      const cover = r.width >= window.innerWidth * 0.6 && r.height >= 240;
+      push({
+        src: abs,
+        alt: (img.getAttribute("alt") || "").trim().slice(0, 120) || null,
+        naturalWidth: nw || null,
+        naturalHeight: nh || null,
+        renderedWidth: Math.round(r.width),
+        renderedHeight: Math.round(r.height),
+        top: Math.round(top),
+        role: top < window.innerHeight && cover ? "hero" : "content",
+        repeats: false,
+      });
+    }
+
+    for (const el of Array.from(document.querySelectorAll("*")).slice(0, 4000)) {
+      const cs = getComputedStyle(el);
+      const bi = cs.backgroundImage || "";
+      if (bi.indexOf("url(") === -1) continue;
+      if (!visible(el, cs)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 120 || r.height < 90) continue;
+      const m = bi.match(/url\(["']?([^"')]+)["']?\)/);
+      if (!m) continue;
+      let abs = m[1];
+      try { abs = new URL(m[1], location.href).href; } catch (e) { /* keep raw */ }
+      // A tiling pattern repeats AND is drawn at its own size. A hero
+      // photograph is usually set to repeat too — nothing stops it — but it
+      // is sized cover, and calling it a texture files a 700KB photograph
+      // under 地紋 where no deliverable will ever find it.
+      const size = (cs.backgroundSize || "").toLowerCase();
+      const repeats =
+        (cs.backgroundRepeat || "").indexOf("no-repeat") === -1 &&
+        size.indexOf("cover") === -1 &&
+        size.indexOf("contain") === -1;
+      const top = r.top + window.scrollY;
+      push({
+        src: abs,
+        alt: null,
+        naturalWidth: null,
+        naturalHeight: null,
+        renderedWidth: Math.round(r.width),
+        renderedHeight: Math.round(r.height),
+        top: Math.round(top),
+        role: repeats ? "texture" : (top < window.innerHeight ? "hero" : "content"),
+        repeats: repeats,
+      });
+      if (out.images.length >= 60) break;
+    }
+
+    if (ogSrc) {
+      let abs = ogSrc;
+      try { abs = new URL(ogSrc, location.href).href; } catch (e) { /* keep raw */ }
+      const existing = out.images.filter((i) => i.src === abs)[0];
+      if (existing) existing.role = "keyvisual";
+      else out.images.unshift({ src: abs, alt: null, naturalWidth: null, naturalHeight: null, renderedWidth: 0, renderedHeight: 0, top: 0, role: "keyvisual", repeats: false });
+    }
+
+    // Biggest first, hero and key visual ahead of the rest: whatever gets
+    // dropped by the fetch budget should be the least useful thing.
+    const rank = { keyvisual: 0, hero: 1, texture: 2, content: 3 };
+    out.images.sort((a, b) => {
+      const ra = rank[a.role] === undefined ? 9 : rank[a.role];
+      const rb = rank[b.role] === undefined ? 9 : rank[b.role];
+      if (ra !== rb) return ra - rb;
+      return (b.renderedWidth * b.renderedHeight) - (a.renderedWidth * a.renderedHeight);
+    });
+    out.images = out.images.slice(0, 40);
+  } catch (e) { /* best effort */ }
+
+  return out;
 })()`;
 
 // Runs inside the page: score every plausible logo element and tag the best
@@ -709,6 +1224,44 @@ export async function captureSite(
       }
     }
 
+    // --- profile pass: everything that is not colour ---
+    let profile: SiteProfile | null = null;
+    try {
+      profile = await evaluateSettled<SiteProfile>(page, COLLECT_SITE_PROFILE);
+    } catch {
+      profile = null; // one bad site must not cost the whole capture
+    }
+
+    // --- the site's own images ---
+    //
+    // Downloaded through the page's request context so that referer, cookies
+    // and any auth the page itself needed still apply — a plain fetch() gets
+    // 403 from most CDNs that serve a real site's photography.
+    const images: FetchedSiteImage[] = [];
+    if (profile?.images?.length) {
+      let spent = 0;
+      for (const ref of profile.images) {
+        if (images.length >= IMAGE_BUDGET.count || spent >= IMAGE_BUDGET.totalBytes) break;
+        try {
+          const resp = await page.request.get(ref.src, { timeout: 15_000 });
+          if (!resp.ok()) continue;
+          const body = await resp.body();
+          if (body.length < IMAGE_BUDGET.minBytes || body.length > IMAGE_BUDGET.maxBytes) continue;
+          const mediaType = (resp.headers()["content-type"] ?? "").split(";")[0].trim();
+          if (!/^image\//.test(mediaType)) continue;
+          spent += body.length;
+          images.push({
+            ...ref,
+            data: body.toString("base64"),
+            mediaType,
+            bytes: body.length,
+          });
+        } catch {
+          // one image failing is not a capture failing
+        }
+      }
+    }
+
     await context.close();
 
     // --- mobile pass: screenshot only ---
@@ -743,6 +1296,8 @@ export async function captureSite(
       logoImage,
       logoSvg,
       logoCandidates,
+      profile,
+      images,
       designTokens: {
         body_font: raw.tokens?.bodyFont ?? null,
         heading_font: raw.tokens?.headingFont ?? null,
