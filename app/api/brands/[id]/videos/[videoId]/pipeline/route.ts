@@ -93,10 +93,10 @@ export async function GET(
 
   // The input stage is about what the user supplied, so it is read from the
   // pins, not from the brief. A seeded take has a brief and no sources.
-  const [sourcesResult, runsResult] = await Promise.all([
+  const [sourcesResult, runsResult, lastExtract] = await Promise.all([
     supabase
       .from("take_inputs")
-      .select("pinned_at")
+      .select("material_id, pinned_at")
       .eq("take_id", take.id)
       .eq("role", "brief_source")
       .order("pinned_at", { ascending: false }),
@@ -107,8 +107,25 @@ export async function GET(
       .eq("status", "succeeded")
       .in("stage", ["extract", "structure", "map"])
       .order("finished_at", { ascending: false }),
+    // What the last reading read, by id. Compared with the pins as SETS, so a
+    // document taken out changes the stage the way one put in does.
+    supabase
+      .from("take_runs")
+      .select("steps")
+      .eq("take_id", take.id)
+      .eq("stage", "extract")
+      .eq("status", "succeeded")
+      .order("finished_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const sources = sourcesResult.data ?? [];
+  const readSteps = (lastExtract.data?.steps as Array<{ materialId?: unknown }> | null) ?? null;
+  const readIds = readSteps
+    ? readSteps
+        .map((step) => step.materialId)
+        .filter((id): id is string => typeof id === "string")
+    : null;
   const runs: Partial<Record<"extract" | "structure" | "map", string | null>> = {};
   for (const run of runsResult.data ?? []) {
     const stage = run.stage as "extract" | "structure" | "map";
@@ -120,6 +137,8 @@ export async function GET(
     hasBrief: take.brief != null && typeof take.brief === "object",
     sourceCount: sources.length,
     sourcePinnedAt: (sources[0]?.pinned_at as string | null) ?? null,
+    sourceIds: sources.map((source) => source.material_id as string),
+    readIds,
     runs,
     briefUpdatedAt: (take.updated_at as string | null) ?? null,
     brief: (take.brief as Record<string, unknown> | null) ?? null,

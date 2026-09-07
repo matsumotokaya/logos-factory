@@ -47,7 +47,7 @@ import FactList from "@/components/video/FactList";
 import BusyBar from "@/components/pipeline/BusyBar";
 import RunOverlay, { type RunCard } from "@/components/pipeline/RunOverlay";
 import StageAction from "@/components/pipeline/StageAction";
-import { ExtractResults, StructureResults } from "@/components/pipeline/StageResults";
+import { ExtractResults, StructureResults, lastExtractReadIds } from "@/components/pipeline/StageResults";
 import type { RunnableStage } from "@/app/api/brands/[id]/videos/[videoId]/run/[stage]/route";
 
 /** What the run card calls each step while it is running. */
@@ -236,6 +236,9 @@ export default function BrandVideoDetail({
   const [sources, setSources] = useState<BriefSource[]>([]);
   const [inventory, setInventory] = useState<InventoryPayload | null>(null);
   const [runs, setRuns] = useState<TakeRunRecord[]>([]);
+  // Which pins the last reading read. Splits the input drawer: read ones sit
+  // under 「抽出した資料」 with 外す, the rest are staged under 「追加した資料」.
+  const readIds = lastExtractReadIds(runs);
   const [runCards, setRunCards] = useState<RunCard[]>([]);
 
   // The two briefs, for DRAWING: the storyboard renders one and the player the
@@ -1371,12 +1374,19 @@ export default function BrandVideoDetail({
                   onAddText={async (text) => {
                     await addSource({ text });
                   }}
-                  onRemove={removeSource}
+                  readIds={readIds}
                 />
               ) : undefined
             }
             extracted={
-              video?.template === "event-cm" ? <ExtractResults runs={runs} /> : undefined
+              video?.template === "event-cm" ? (
+                <ExtractResults
+                  runs={runs}
+                  sources={sources}
+                  busy={saving}
+                  onRemove={removeSource}
+                />
+              ) : undefined
             }
             structured={
               video?.template === "event-cm" ? <StructureResults runs={runs} /> : undefined

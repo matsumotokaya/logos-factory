@@ -60,6 +60,18 @@ export interface VideoPipelineInput {
   sourceCount?: number;
   /** When the newest of them was pinned. */
   sourcePinnedAt?: string | null;
+  /** The materials pinned now, by id. */
+  sourceIds?: string[];
+  /**
+   * The materials the last successful reading actually read, by id. Null when
+   * no reading has recorded ids; absent when the caller did not look.
+   *
+   * The input stage is stale when this differs from `sourceIds` in EITHER
+   * direction. Timestamps could only see additions: a removed pin takes its
+   * time with it, the newest remaining pin is older than the reading, and
+   * 「すべて読み取り済み」 stood over a list that had changed (2026-09-07).
+   */
+  readIds?: string[] | null;
   /** Last successful run per stage, when there has been one. */
   runs?: Partial<Record<"extract" | "structure" | "map", string | null>>;
   /** When the brief was last written. */
@@ -166,12 +178,27 @@ export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
   //
   // `stale` with material and no run is the state that matters: there is
   // something to read and it has not been read.
+  // What changed since the reading, as sets. Both directions count: a document
+  // taken out is as much a change to the input as one put in, and the same
+  // 「未反映」 has to follow either.
+  const current = new Set(input.sourceIds ?? []);
+  const read = input.readIds ? new Set(input.readIds) : null;
+  const added = read ? [...current].filter((id) => !read.has(id)).length : 0;
+  const removed = read ? [...read].filter((id) => !current.has(id)).length : 0;
   const inputStatus: PipelineStageStatus =
     sourceCount === 0
       ? "empty"
-      : extractAt
-        ? statusFor(extractAt, inputAt, true, false)
-        : "stale";
+      : !extractAt
+        ? "stale"
+        : read && input.sourceIds
+          ? added + removed > 0
+            ? "stale"
+            : "ready"
+          : statusFor(extractAt, inputAt, true, false);
+  const changed = [
+    added > 0 ? `追加${added}件` : null,
+    removed > 0 ? `外した${removed}件` : null,
+  ].filter(Boolean);
 
   // structure: a run that worked out the event's facts from what was read.
   // Recorded, not applied — applying is the map stage's job, which is what
@@ -241,9 +268,11 @@ export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
       summary:
         sourceCount === 0
           ? "資料なし（すべてこちらの提案）"
-          : extractAt && inputStatus === "ready"
+          : inputStatus === "ready"
             ? `資料${sourceCount}件・読み取り済み`
-            : `資料${sourceCount}件・未読み取り`,
+            : changed.length > 0
+              ? `資料${sourceCount}件・${changed.join("、")}が未反映`
+              : `資料${sourceCount}件・未読み取り`,
       producedAt: extractAt ?? inputAt,
     },
     {

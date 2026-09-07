@@ -79,3 +79,40 @@ test("焼き付けを持たないテンプレートは、これまでどおりMP
   assert.match(stage.summary, /MP4/);
   assert.equal(stage.status, "ready");
 });
+
+const inputStage = (input: VideoPipelineInput) => {
+  const stage = videoPipeline(input).stages.find((item) => item.id === "input");
+  assert.ok(stage, "入力段が無い");
+  return stage;
+};
+
+test("読んだ集合と今の集合が同じなら、読み取り済み", () => {
+  const stage = inputStage({ ...BASE, sourceCount: 2, sourceIds: ["a", "b"], readIds: ["a", "b"] });
+  assert.equal(stage.status, "ready");
+  assert.match(stage.summary, /読み取り済み/);
+});
+
+test("資料を外すと、追加と同じく要更新になる", () => {
+  // The remaining pin is older than the reading, so a timestamp would say
+  // "read". The set says otherwise, and says what changed.
+  const stage = inputStage({ ...BASE, sourceCount: 1, sourceIds: ["a"], readIds: ["a", "b"] });
+  assert.equal(stage.status, "stale");
+  assert.match(stage.summary, /外した1件/);
+});
+
+test("資料を足すと要更新で、何件かを言う", () => {
+  const stage = inputStage({ ...BASE, sourceCount: 3, sourceIds: ["a", "b", "c"], readIds: ["a"] });
+  assert.equal(stage.status, "stale");
+  assert.match(stage.summary, /追加2件/);
+});
+
+test("外した資料は、下流まで古くする", () => {
+  const stages = videoPipeline({ ...BASE, sourceCount: 1, sourceIds: ["a"], readIds: ["a", "b"] }).stages;
+  assert.equal(stages.find((stage) => stage.id === "structure")?.status, "stale");
+  assert.equal(stages.find((stage) => stage.id === "map")?.status, "stale");
+});
+
+test("読んだ集合が記録されていない古い実行では、時刻で判定する", () => {
+  const stage = inputStage({ ...BASE, sourceIds: ["a"], readIds: null });
+  assert.equal(stage.status, "ready");
+});

@@ -136,19 +136,24 @@ export default function BriefSourceIntake({
   busy,
   onUpload,
   onAddText,
-  onRemove,
+  readIds,
 }: {
   sources: BriefSource[];
   busy: boolean;
   onUpload: (file: File, label: string) => Promise<boolean>;
   onAddText: (text: string) => Promise<void>;
-  onRemove: (materialId: string) => Promise<void>;
+  /**
+   * The materials the last reading read. A pin not in here is staged: handed
+   * over, not yet read, shown below until 「入力・抽出を実行」 moves it on.
+   */
+  readIds: ReadonlySet<string>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState("");
   const [dragging, setDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const staged = sources.filter((source) => !readIds.has(source.id));
 
   const accept = async (items: UploadItem[]) => {
     if (busy || items.length === 0) return;
@@ -304,18 +309,26 @@ export default function BriefSourceIntake({
         </div>
       </div>
 
-      {/* 「この動画のもとになっている資料」 was a claim about the film — and
-          reading is not applying, so a freshly dropped flyer is not yet what
-          the video is made of. This list is simply what has been handed over. */}
+      {/* Staging. What has been handed over and not yet read — normally empty.
+          Pressing 「入力・抽出を実行」 reads everything here and it moves to
+          「抽出した資料」 below, which is where a document can be taken out again
+          (docs/asset-normalization.md §9.4, after slide-factory). Nothing is
+          removable here: reading is cheap and deterministic, and one verb per
+          list is what keeps the two lists from reading as one. */}
       <div className="flex items-baseline gap-3">
         <h2 className="font-display text-base font-semibold tracking-tight">
           追加した資料
+          {staged.length > 0 ? (
+            <span className="ml-1.5 font-sans text-sm font-normal tabular-nums text-ink-faint">
+              {staged.length}
+            </span>
+          ) : null}
         </h2>
         <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
       </div>
 
       <ul className="flex flex-col gap-1.5">
-        {sources.map((source) => (
+        {staged.map((source) => (
           <li
             key={source.id}
             className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm"
@@ -324,22 +337,17 @@ export default function BriefSourceIntake({
               {KIND_LABEL[source.kind] ?? source.kind}
             </span>
             <span className="min-w-0 flex-1 truncate text-ink">{source.label}</span>
+            <span className="shrink-0 text-[11px] text-amber-700">未読み取り</span>
             <span className="shrink-0 font-mono text-[11px] text-ink-faint">
               {readableSize(source.bytes)}
             </span>
-            <button
-              type="button"
-              onClick={() => void onRemove(source.id)}
-              disabled={busy}
-              className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
-            >
-              外す
-            </button>
           </li>
         ))}
-        {sources.length === 0 ? (
+        {staged.length === 0 ? (
           <li className="rounded-lg border border-dashed border-hairline px-3 py-3 text-[12px] text-ink-muted">
-            まだ資料がありません。いまの動画の内容は、すべてこちらで仮に決めたものです。
+            {sources.length === 0
+              ? "まだ資料がありません。いまの動画の内容は、すべてこちらで仮に決めたものです。"
+              : "追加待ちの資料はありません。入れたものは「入力・抽出を実行」で読み取られ、下の「抽出した資料」へ移ります。"}
           </li>
         ) : null}
       </ul>
