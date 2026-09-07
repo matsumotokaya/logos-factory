@@ -472,7 +472,7 @@ export default function BrandVideoDetail({
    */
   async function bakeFilm(): Promise<boolean> {
     const card = openRunCard("動画への反映");
-    busy("動画に反映しています…");
+    busy("動画プレビューに反映しています…");
     try {
       // What is about to change, named before the request: this is the one step
       // that moves what a viewer sees, and the pending list is already on screen.
@@ -485,14 +485,14 @@ export default function BrandVideoDetail({
         bakedAt?: string;
       } | null;
       if (!res.ok) {
-        throw new Error(json?.error ?? "動画に反映できませんでした");
+        throw new Error(json?.error ?? "動画プレビューに反映できませんでした");
       }
       card.log("反映しました。プレイヤーがこの版を再生します");
       card.settle("succeeded");
       await load();
       return true;
     } catch (e) {
-      const message = e instanceof Error ? e.message : "動画に反映できませんでした";
+      const message = e instanceof Error ? e.message : "動画プレビューに反映できませんでした";
       card.log(message);
       card.settle("failed", message);
       setError(message);
@@ -1325,7 +1325,7 @@ export default function BrandVideoDetail({
               }
               title={
                 pendingCount > 0
-                  ? `未処理の${pendingCount}件を順番に実行し、動画に反映します（MP4は書き出しません）`
+                  ? `未処理の${pendingCount}件を順番に実行し、動画プレビューに反映します（MP4は書き出しません）`
                   : sources.length === 0
                     ? "ナレーションと読み上げを、もう一度すべて実行し直します（資料はまだありません）"
                     : "未処理はありません。資料の読み取りからナレーション・読み上げまで、もう一度すべて実行し直します"
@@ -1470,10 +1470,10 @@ export default function BrandVideoDetail({
             output={
               video?.template === "event-cm" && bake ? (
                 <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium text-ink">動画に反映する</h3>
+                  <h3 className="text-sm font-medium text-ink">動画プレビューに反映する</h3>
                   <p className="text-sm text-ink-muted">
                     {!bake.baked
-                      ? "まだ一度も実行していません。「動画を作り直す」を押すと、資料の読み取りからナレーション・読み上げまで通り、その結果が再生される動画になります。"
+                      ? "まだ一度も実行していません。「動画を作り直す」を押すと、資料の読み取りからナレーション・読み上げまで通り、その結果が動画プレビューになります。"
                       : bake.changes.length > 0
                         ? // Named here too, and from the same list: the drawer
                           // and the notice under the player are two views of

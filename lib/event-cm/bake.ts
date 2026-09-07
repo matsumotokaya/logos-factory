@@ -86,7 +86,8 @@ export type FilmStep = "narration" | "voice" | "bake";
 export const FILM_STEP_LABEL: Record<FilmStep, string> = {
   narration: "ナレーションを書く",
   voice: "読み上げる",
-  bake: "動画に反映する",
+  // 「動画プレビュー」 so it cannot be read as the MP4 (docs/video-state-model.md §2).
+  bake: "動画プレビューに反映する",
 };
 
 /** The order the one button runs them in. Fixing is always last. */

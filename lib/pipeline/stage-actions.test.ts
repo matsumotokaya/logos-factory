@@ -86,9 +86,9 @@ test("映像の段のラベルは、実際にやることを並べる", () => {
     stageActions({ stageId: "map", stages: pipeline(READ), hasMaterial: true, filmSteps: steps })
       .advance?.label;
 
-  assert.equal(label(["narration", "voice", "bake"]), "ナレーションを書く・読み上げる・動画に反映する");
-  assert.equal(label(["bake"]), "動画に反映する");
-  assert.equal(label(["voice", "bake"]), "読み上げる・動画に反映する");
+  assert.equal(label(["narration", "voice", "bake"]), "ナレーションを書く・読み上げる・動画プレビューに反映する");
+  assert.equal(label(["bake"]), "動画プレビューに反映する");
+  assert.equal(label(["voice", "bake"]), "読み上げる・動画プレビューに反映する");
 });
 
 test("映像が最新なら押せず、段の状態ではなく残り工程で判定する", () => {
@@ -102,7 +102,7 @@ test("映像が最新なら押せず、段の状態ではなく残り工程で�
     filmSteps: [],
   });
   assert.equal(fixed.advance?.enabled, false);
-  assert.equal(fixed.advance?.reason, "この動画に反映済みです");
+  assert.equal(fixed.advance?.reason, "動画プレビューに反映済みです");
 
   const owesVoice = stageActions({
     stageId: "map",

@@ -579,7 +579,7 @@ function NarrationLine({
         ) : null}
         {saved ? (
           <span role="status" className="text-[11px] font-semibold text-emerald-700">
-            保存しました。「動画を作り直す」を押すと映像に反映されます
+            保存しました。「動画を作り直す」を押すと動画プレビューに反映されます
           </span>
         ) : !text ? (
           <span className="text-[11px] text-amber-700">
@@ -587,7 +587,7 @@ function NarrationLine({
           </span>
         ) : dirty ? (
           <span className="text-[11px] text-ink-faint">
-            保存しても再生中の動画は変わりません。直し終えたら「動画を作り直す」を押してください
+            保存しても動画プレビューは変わりません。直し終えたら「動画を作り直す」を押してください
           </span>
         ) : null}
       </div>

@@ -27,7 +27,7 @@ const lastStage = (input: VideoPipelineInput) => {
 
 test("焼き付けを持つテンプレートでは、最終段はMP4ではなく動画", () => {
   const stage = lastStage({ ...BASE, bake: { at: "2026-08-14T10:00:00Z", changes: 0 } });
-  assert.equal(stage.label, "動画");
+  assert.equal(stage.label, "動画プレビュー");
   assert.equal(stage.status, "ready");
   assert.match(stage.summary, /反映済み/);
   // The chain's last dot must not go green or red because of a file nobody

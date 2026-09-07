@@ -140,7 +140,7 @@ export default function BgmDialog({
                     the change and forgotten after it. */}
                 {unreflected ? (
                   <p className="mt-1.5 text-[12px] text-amber-700">
-                    この選択は、まだ再生中の動画に反映していません。「動画を作り直す」を押すと入ります。
+                    この選択は、まだ動画プレビューに反映していません。「動画を作り直す」を押すと入ります。
                   </p>
                 ) : null}
               </div>

@@ -129,7 +129,7 @@ function advanceButton(
       ? "先に資料かテキストを追加してください"
       : done
         ? film
-          ? "この動画に反映済みです"
+          ? "動画プレビューに反映済みです"
           : `${advance.label}は反映済みです`
         : waiting
           ? `${here?.label ?? "前の段"}が最新になると実行できます`

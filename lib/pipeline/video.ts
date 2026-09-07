@@ -294,7 +294,11 @@ export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
     },
     {
       id: "output",
-      label: input.bake ? "動画" : STAGE_LABELS.output,
+      // 「動画プレビュー」, not 「動画」: with an MP4 on the same page, 「動画に
+      // 反映」 read as 「MP4に反映」 (2026-09-08). The player and the MP4 are
+      // drawn from the same fixed brief; "preview" means before export, not
+      // lesser.
+      label: input.bake ? "動画プレビュー" : STAGE_LABELS.output,
       status: outputStatus,
       summary: input.bake
         ? !input.bake.at
