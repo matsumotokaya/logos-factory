@@ -21,6 +21,7 @@ import {
 } from "@/lib/brand-tree-actions";
 import RowActionsMenu from "./RowActionsMenu";
 import WorkspaceMenu from "./WorkspaceMenu";
+import AddBrandDialog from "./AddBrandDialog";
 import TreeDeleteDialog, {
   type AtRiskMaterial,
   type MaterialChoice,
@@ -137,9 +138,7 @@ function TreeLink({
         depth === 0 && "pl-2 text-sm font-semibold",
         depth === 1 && "pl-7",
         depth === 2 && "pl-10 text-[11px]",
-        active
-          ? "bg-ink text-white"
-          : "text-ink-muted hover:bg-ink/5 hover:text-ink",
+        active ? "bg-ink text-white" : "text-ink hover:bg-ink/5",
       )}
     >
       {children}
@@ -484,6 +483,7 @@ function SidebarContent({
   onNavigate,
   onRetry,
   onAction,
+  onAddBrand,
 }: {
   /** The workspace being viewed; null while loading or when the user has none. */
   organization: BrandOrganizationSummary | null;
@@ -496,23 +496,21 @@ function SidebarContent({
   onNavigate: () => void;
   onRetry: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
+  onAddBrand: () => void;
 }) {
   return (
     // pb-28 keeps ~100px of breathing room below the last item so it never
     // sits flush against the bottom edge of the scroll area.
     <div className="p-5 pb-28">
+      {/* The workspace names the pane. "ブランド管理" said what the screen
+          was for; the organization says which world you are in, which is
+          the thing that changes and the thing you can get wrong. The label,
+          the brand count and the menu share one row so the name below gets
+          the full width of the pane. */}
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          {/* The workspace names the pane. "ブランド管理" said what the screen
-              was for; the organization says which world you are in, which is
-              the thing that changes and the thing you can get wrong. */}
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-            Workspace
-          </p>
-          <h2 className="truncate text-balance font-display text-lg font-semibold">
-            {organization?.name?.trim() || "名称未設定のワークスペース"}
-          </h2>
-        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+          Workspace
+        </p>
         <div className="flex shrink-0 items-center gap-2">
           {!loading && !error && organization ? (
             <span className="tabular-nums text-xs text-ink-faint">
@@ -524,17 +522,13 @@ function SidebarContent({
             workspaceId={organization?.id ?? null}
             onNavigate={onNavigate}
           />
-          <Link
-            href="/"
-            onClick={onNavigate}
-            aria-label="新しいブランドを追加"
-            title="新しいブランドを追加"
-            className="flex size-8 items-center justify-center rounded-full border border-hairline bg-paper text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-          >
-            <PlusIcon />
-          </Link>
         </div>
       </div>
+      {/* Same size as a brand row: the name is a heading for the tree, not a
+          title for the page. */}
+      <h2 className="mt-2 truncate px-2 text-sm font-semibold">
+        {organization?.name?.trim() || "名称未設定のワークスペース"}
+      </h2>
 
       <div className="mt-5">
         {loading ? (
@@ -561,15 +555,27 @@ function SidebarContent({
             </button>
           </div>
         ) : organization ? (
-          <ManagementTree
-            organization={organization}
-            pathname={pathname}
-            expandedBusinesses={expandedBusinesses}
-            prefix={prefix}
-            onToggleBusiness={onToggleBusiness}
-            onNavigate={onNavigate}
-            onAction={onAction}
-          />
+          <>
+            <ManagementTree
+              organization={organization}
+              pathname={pathname}
+              expandedBusinesses={expandedBusinesses}
+              prefix={prefix}
+              onToggleBusiness={onToggleBusiness}
+              onNavigate={onNavigate}
+              onAction={onAction}
+            />
+            {/* Adding sits under the list it adds to. It opens the same URL
+                intake as the top page, scoped to this workspace. */}
+            <button
+              type="button"
+              onClick={onAddBrand}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline px-3 py-2 text-xs font-semibold text-ink-muted hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              <PlusIcon />
+              ブランドを追加
+            </button>
+          </>
         ) : (
           <div>
             <p className="text-pretty text-xs text-ink-muted">
@@ -611,6 +617,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(
     null,
   );
+  const [addingBrand, setAddingBrand] = useState(false);
   // Which world we are in. Read once on mount because localStorage is not
   // available while the server renders this component.
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(
@@ -778,6 +785,10 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     onToggleBusiness: toggleBusiness,
     onRetry: () => void load(),
     onAction: handleAction,
+    onAddBrand: () => {
+      setMobileOpen(false);
+      setAddingBrand(true);
+    },
   };
 
   return (
@@ -845,6 +856,15 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+
+      {workspace ? (
+        <AddBrandDialog
+          open={addingBrand}
+          onOpenChange={setAddingBrand}
+          organizationId={workspace.id}
+          organizationName={workspace.name.trim() || "名称未設定のワークスペース"}
+        />
+      ) : null}
 
       {pendingDelete ? (
         <TreeDeleteDialog
