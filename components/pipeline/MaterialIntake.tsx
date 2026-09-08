@@ -16,6 +16,8 @@ export interface BrandMaterial {
   bytes: number | null;
   source_kind: string;
   source_url: string | null;
+  /** Set on an image taken out of a PDF: the PDF's row (§9.4). */
+  derived_from_material_id?: string | null;
   created_at: string;
 }
 
@@ -67,6 +69,18 @@ export default function MaterialIntake({
   const [dragging, setDragging] = useState(false);
   const [note, setNote] = useState("");
 
+  // A PDF's images are rows of their own (§9.4), but listing a hundred slivers
+  // beside the deck they came out of would bury the deck. The list shows the
+  // files that were handed over, and counts the contents on the PDF's row.
+  const childCount = new Map<string, number>();
+  for (const material of materials) {
+    if (material.derived_from_material_id) {
+      const parent = material.derived_from_material_id;
+      childCount.set(parent, (childCount.get(parent) ?? 0) + 1);
+    }
+  }
+  const listed = materials.filter((material) => !material.derived_from_material_id);
+
   const accept = async (files: FileList | File[]) => {
     for (const file of Array.from(files)) {
       await onUploadFile(file, await toBase64(file));
@@ -96,7 +110,7 @@ export default function MaterialIntake({
               </button>
             </li>
           )}
-          {materials.map((material) => (
+          {listed.map((material) => (
             <li
               key={material.id}
               className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm"
@@ -107,6 +121,11 @@ export default function MaterialIntake({
               <span className="min-w-0 flex-1 truncate text-ink">
                 {material.label}
               </span>
+              {childCount.get(material.id) ? (
+                <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
+                  中身 {childCount.get(material.id)}点
+                </span>
+              ) : null}
               <span className="shrink-0 font-mono text-[11px] text-ink-faint">
                 {readableSize(material.bytes)}
               </span>

@@ -40,8 +40,15 @@ export interface InventoryMaterial {
   ink_ratio: number | null;
   trim_width: number | null;
   trim_height: number | null;
-  /** Set on a normalised copy: the material it was cut from (§11). */
+  /** Set on a derived row: the material it was made from (§11, §9.4). */
   derived_from_material_id: string | null;
+  /**
+   * Which derivation made this row, read off its provenance. `pdf` is an image
+   * taken out of a PDF (§9.4); null is an upload, or a normalised copy of a
+   * mark (§11) — the two derivations are told apart here so the screen does
+   * not call a flyer's sliver a 「正規化版」.
+   */
+  origin: "pdf" | null;
   created_at: string;
 }
 
@@ -62,7 +69,17 @@ const COLUMNS =
   // The geometry the normalisation offer is decided from, and the pointer that
   // says the offer was already taken. Both have to be here or the screen asks a
   // question it has already been answered (docs/asset-normalization.md §11).
-  `ink_ratio, trim_width, trim_height, derived_from_material_id, created_at`;
+  `ink_ratio, trim_width, trim_height, derived_from_material_id, provenance, created_at`;
+
+/** The row as the screen needs it: provenance reduced to what it decides. */
+function toInventoryMaterial(row: Record<string, unknown>): InventoryMaterial {
+  const { provenance, ...rest } = row;
+  const from =
+    provenance && typeof provenance === "object"
+      ? (provenance as { from?: unknown }).from
+      : undefined;
+  return { ...(rest as unknown as InventoryMaterial), origin: from === "pdf" ? "pdf" : null };
+}
 
 export async function GET(
   req: Request,
@@ -124,8 +141,8 @@ export async function GET(
       : {};
 
   const payload: InventoryPayload = {
-    own: (own.data ?? []) as unknown as InventoryMaterial[],
-    base: (base.data ?? []) as unknown as InventoryMaterial[],
+    own: ((own.data ?? []) as unknown as Record<string, unknown>[]).map(toInventoryMaterial),
+    base: ((base.data ?? []) as unknown as Record<string, unknown>[]).map(toInventoryMaterial),
     usage,
   };
   return Response.json(payload, { headers: { "Cache-Control": "no-store" } });

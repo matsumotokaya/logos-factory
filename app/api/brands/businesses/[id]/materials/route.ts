@@ -6,6 +6,8 @@ import {
 } from "@/lib/supabase/server";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
+import { isPdf } from "@/lib/materials/pdf";
+import { registerPdfChildren, type PdfExpansion } from "@/lib/materials/pdf-children";
 
 /**
  * Material a brand is built from: the PDF of a brand book, a guideline page,
@@ -48,7 +50,9 @@ export async function GET(
 
   const result = await supabase
     .from("brand_materials")
-    .select("id, kind, label, media_type, bytes, source_kind, source_url, created_at")
+    .select(
+      "id, kind, label, media_type, bytes, source_kind, source_url, derived_from_material_id, created_at",
+    )
     .eq("brand_id", id)
     .eq("scope", "brand")
     .order("created_at", { ascending: false });
@@ -142,8 +146,33 @@ export async function POST(
       throw new Error("素材を登録できませんでした");
     }
 
+    // A PDF is taken apart in the same request (docs/asset-normalization.md
+    // §9.4): its images become brand-scope rows derived from it, so a deck's
+    // photographs and marks are visible and downloadable, not sealed in the
+    // file. The PDF stays whole and is what the pipeline reads. Failing to list
+    // the contents does not fail the upload — it is reported beside the row.
+    let expansion: PdfExpansion | undefined;
+    let expansionError: string | undefined;
+    if (isPdf(mediaType)) {
+      try {
+        expansion = await registerPdfChildren(
+          supabase,
+          { id: materialId, brand_id: id, scope: "brand", take_id: null, label },
+          buffer,
+          user.id,
+        );
+      } catch (error) {
+        expansionError =
+          error instanceof Error && error.message ? error.message : "PDFの中身を取り出せませんでした";
+      }
+    }
+
     return Response.json(
-      { material: inserted.data },
+      {
+        material: inserted.data,
+        ...(expansion ? { expansion } : {}),
+        ...(expansionError ? { expansionError } : {}),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

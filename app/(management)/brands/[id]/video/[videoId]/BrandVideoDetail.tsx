@@ -48,6 +48,7 @@ import BusyBar from "@/components/pipeline/BusyBar";
 import RunOverlay, { type RunCard } from "@/components/pipeline/RunOverlay";
 import StageAction from "@/components/pipeline/StageAction";
 import { ExtractResults, StructureResults, lastExtractReadIds } from "@/components/pipeline/StageResults";
+import type { PdfChild } from "@/app/api/brands/[id]/videos/[videoId]/materials/route";
 import type { RunnableStage } from "@/app/api/brands/[id]/videos/[videoId]/run/[stage]/route";
 
 /** What the run card calls each step while it is running. */
@@ -234,6 +235,8 @@ export default function BrandVideoDetail({
   >(null);
   const [openStage, setOpenStage] = useState<string | null>(null);
   const [sources, setSources] = useState<BriefSource[]>([]);
+  // The images inside the pinned PDFs, listed under each PDF in the drawer.
+  const [pdfChildren, setPdfChildren] = useState<PdfChild[]>([]);
   const [inventory, setInventory] = useState<InventoryPayload | null>(null);
   const [runs, setRuns] = useState<TakeRunRecord[]>([]);
   // Which pins the last reading read. Splits the input drawer: read ones sit
@@ -595,8 +598,9 @@ export default function BrandVideoDetail({
   const loadSources = useCallback(async () => {
     const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/materials`);
     if (!res.ok) return;
-    const body = (await res.json()) as { materials?: BriefSource[] };
+    const body = (await res.json()) as { materials?: BriefSource[]; children?: PdfChild[] };
     setSources(body.materials ?? []);
+    setPdfChildren(body.children ?? []);
   }, [brandId, videoId]);
 
   const loadRuns = useCallback(async () => {
@@ -781,6 +785,36 @@ export default function BrandVideoDetail({
     form.append("mediaType", file.type);
     form.append("lastModified", String(file.lastModified));
     return submitSource({ method: "POST", body: form }, { showError: false });
+  }
+
+  // Take a PDF apart after the fact — one that arrived before intake did this.
+  async function expandPdf(materialId: string) {
+    busy("PDFの中身を取り出しています…");
+    try {
+      const res = await videoFetch(`/api/brands/${brandId}/materials/${materialId}/expand`, {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => null)) as {
+        error?: string;
+        expansion?: { found: number; unreadable: number };
+      } | null;
+      if (!res.ok) throw new Error(json?.error ?? "PDFの中身を取り出せませんでした");
+      if (json?.expansion) {
+        setNotice(
+          json.expansion.found === 0
+            ? "このPDFに画像はありませんでした（文字とベクタだけです）"
+            : `${json.expansion.found}点を取り出しました${
+                json.expansion.unreadable > 0 ? `（${json.expansion.unreadable}点は読めませんでした）` : ""
+              }`,
+        );
+      }
+      await loadSources();
+      await loadInventory();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "PDFの中身を取り出せませんでした");
+    } finally {
+      idle();
+    }
   }
 
   async function removeSource(materialId: string) {
@@ -1383,8 +1417,10 @@ export default function BrandVideoDetail({
                 <ExtractResults
                   runs={runs}
                   sources={sources}
+                  contents={pdfChildren}
                   busy={saving}
                   onRemove={removeSource}
+                  onExpand={expandPdf}
                 />
               ) : undefined
             }

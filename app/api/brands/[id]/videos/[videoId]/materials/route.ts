@@ -15,6 +15,16 @@ import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
+import { isPdf } from "@/lib/materials/pdf";
+import {
+  PDF_IMAGE_ROLE,
+  registerPdfChildren,
+  unpinPdfChildren,
+  type PdfChildProvenance,
+  type PdfExpansion,
+} from "@/lib/materials/pdf-children";
+import { signedLabsUrl } from "@/lib/labs-output-sign";
+import { takeMaterialSignatureToken } from "@/lib/takes/material-uri";
 import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
 import { withdrawMaterials, type Withdrawal } from "@/lib/event-cm/withdraw";
 import { validateBrief } from "@/lib/templates/brief-schemas";
@@ -24,6 +34,57 @@ const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 40
 
 /** Pin role for anything supplied as briefing material. */
 export const SOURCE_ROLE = "brief_source";
+
+/**
+ * One image taken out of a PDF pinned to this video (§9.4).
+ *
+ * Listed under the PDF's row so the person can see what the model was handed
+ * and take any of it out. `url` is a signed same-origin URL good for an hour:
+ * the thumbnail and the download are the same request.
+ */
+export interface PdfChild {
+  id: string;
+  /** The PDF's material id. */
+  parentId: string;
+  label: string;
+  media_type: string | null;
+  bytes: number | null;
+  width: number | null;
+  height: number | null;
+  page: number;
+  pages: number[];
+  index: number;
+  inline: boolean;
+  url: string;
+}
+
+/**
+ * Take a PDF apart into child materials, without letting that fail the upload.
+ *
+ * The PDF is material whether or not its contents can be listed; an unreadable
+ * one is reported as such next to the row rather than refused.
+ */
+async function expandPdf(
+  supabase: ReturnType<typeof createServerSupabaseForToken>,
+  parent: { id: string; brand_id: string; take_id: string; label: string },
+  buffer: Buffer,
+  userId: string,
+): Promise<{ expansion?: PdfExpansion; expansionError?: string }> {
+  try {
+    const expansion = await registerPdfChildren(
+      supabase,
+      { ...parent, scope: "take" },
+      buffer,
+      userId,
+    );
+    return { expansion };
+  } catch (error) {
+    return {
+      expansionError:
+        error instanceof Error && error.message ? error.message : "PDFの中身を取り出せませんでした",
+    };
+  }
+}
 
 const MAX_BYTES = 12_000_000;
 const ACCEPTED =
@@ -131,7 +192,75 @@ export async function GET(
     })
     .filter((material): material is NonNullable<typeof material> => material !== null);
 
-  return Response.json({ materials }, { headers: { "Cache-Control": "no-store" } });
+  // What the PDFs among them contain. Pinned in their own role, so the list
+  // above — and the staging list and the input stage's set comparison that read
+  // it — never count a child as a document to read.
+  const pinnedChildren = await supabase
+    .from("take_inputs")
+    .select(
+      "material_id, brand_materials(id, label, media_type, bytes, width, height, r2_key, derived_from_material_id, provenance)",
+    )
+    .eq("take_id", loaded.take.id)
+    .eq("role", PDF_IMAGE_ROLE);
+  if (pinnedChildren.error) {
+    return Response.json({ error: "PDFの中身を取得できませんでした" }, { status: 500 });
+  }
+  type ChildRow = {
+    brand_materials:
+      | {
+          id: string;
+          label: string;
+          media_type: string | null;
+          bytes: number | null;
+          width: number | null;
+          height: number | null;
+          r2_key: string | null;
+          derived_from_material_id: string | null;
+          provenance: Partial<PdfChildProvenance> | null;
+        }
+      | Array<{
+          id: string;
+          label: string;
+          media_type: string | null;
+          bytes: number | null;
+          width: number | null;
+          height: number | null;
+          r2_key: string | null;
+          derived_from_material_id: string | null;
+          provenance: Partial<PdfChildProvenance> | null;
+        }>
+      | null;
+  };
+  const children: PdfChild[] = ((pinnedChildren.data ?? []) as ChildRow[])
+    .flatMap((row) => {
+      const material = Array.isArray(row.brand_materials)
+        ? row.brand_materials[0]
+        : row.brand_materials;
+      if (!material?.r2_key || !material.derived_from_material_id) return [];
+      const where = material.provenance ?? {};
+      return [
+        {
+          id: material.id,
+          parentId: material.derived_from_material_id,
+          label: material.label,
+          media_type: material.media_type,
+          bytes: material.bytes,
+          width: material.width,
+          height: material.height,
+          page: typeof where.page === "number" ? where.page : 0,
+          pages: Array.isArray(where.pages) ? where.pages : [],
+          index: typeof where.index === "number" ? where.index : 0,
+          inline: where.inline === true,
+          url: signedLabsUrl(
+            `/api/brands/${brandId}/takes/${loaded.take.id}/materials/${material.id}/${encodeURIComponent(material.label)}?key=${encodeURIComponent(material.r2_key)}`,
+            takeMaterialSignatureToken(brandId, loaded.take.id, material.id, material.r2_key),
+          ),
+        },
+      ];
+    })
+    .sort((a, b) => a.parentId.localeCompare(b.parentId) || a.page - b.page || a.index - b.index);
+
+  return Response.json({ materials, children }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(
@@ -238,7 +367,20 @@ export async function POST(
         });
         if (repinned.error) throw new Error("素材を入力として固定できませんでした");
       }
-      return Response.json({ material: existing.data, duplicate: true }, { status: 200 });
+      // A PDF registered before its contents were listed gets them now, while
+      // the bytes are in hand. Idempotent: one that already has them writes none.
+      const expanded = isPdf(mediaType)
+        ? await expandPdf(
+            supabase,
+            { id: existing.data.id, brand_id: brandId, take_id: loaded.take.id, label },
+            buffer,
+            user.id,
+          )
+        : {};
+      return Response.json(
+        { material: existing.data, duplicate: true, ...expanded },
+        { status: 200 },
+      );
     }
 
     // Content hash in the key, as everywhere else: the same bytes uploaded
@@ -296,7 +438,19 @@ export async function POST(
       throw new Error("素材を入力として固定できませんでした");
     }
 
-    return Response.json({ material: inserted.data }, { status: 201 });
+    // Taken apart in the same request (§9.4): the images inside become child
+    // rows, pinned beside the PDF, listed under it, each one downloadable. The
+    // PDF is still what the reading stage hands over, whole.
+    const expanded = isPdf(mediaType)
+      ? await expandPdf(
+          supabase,
+          { id: materialId, brand_id: brandId, take_id: loaded.take.id, label },
+          buffer,
+          user.id,
+        )
+      : {};
+
+    return Response.json({ material: inserted.data, ...expanded }, { status: 201 });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "素材を追加できませんでした" },
@@ -341,6 +495,17 @@ export async function DELETE(
   }
   // The material row and its bytes stay: another take may pin the same file,
   // and content-addressed objects are cheap to keep and impossible to recreate.
+
+  // A PDF's children leave with it. They were pinned because the PDF was; a
+  // scene that pointed at one is withdrawn below like any other lost pointer.
+  try {
+    await unpinPdfChildren(supabase, loaded.take.id, materialId);
+  } catch (childError) {
+    return Response.json(
+      { error: childError instanceof Error ? childError.message : "PDFの中身を外せませんでした" },
+      { status: 500 },
+    );
+  }
 
   // What the take still holds, in any role. A file pinned again as something
   // else — a normalised copy, the mark — is still here, and nothing of it leaves.

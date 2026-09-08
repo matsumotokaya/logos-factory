@@ -237,6 +237,7 @@ function MaterialRow({
   overriddenBy,
   normalizedAs,
   normalizedFrom,
+  pdfChildren,
   disabled,
   onClassify,
   onPromote,
@@ -252,6 +253,8 @@ function MaterialRow({
   normalizedAs?: string;
   /** The file this one was cut from, if it is itself a normalised copy. */
   normalizedFrom?: string;
+  /** For a PDF: how many images were taken out of it (§9.4). */
+  pdfChildren?: number;
   disabled: boolean;
   onClassify: (id: string, category: MaterialCategory | null) => void;
   /** Widen to the brand. Absent on rows that are already there. */
@@ -304,6 +307,9 @@ function MaterialRow({
         {material.kind === "logo" && material.opaque === true ? <span>地あり</span> : null}
         {material.bytes ? (
           <span className="font-mono tabular-nums">{readableSize(material.bytes)}</span>
+        ) : null}
+        {pdfChildren ? (
+          <span className="tabular-nums">中身 {pdfChildren}点（入力の「抽出した資料」で開く）</span>
         ) : null}
       </div>
       <div className="flex items-baseline gap-3">
@@ -381,14 +387,25 @@ function Tier({
   onNormalize?: (id: string) => void;
   empty: string;
 }) {
-  const folders = groupByFolder(materials);
+  // A PDF's images are listed under the PDF in the input drawer (§9.4), where
+  // they can be opened one at a time. Here they would be a hundred rows of
+  // slivers between the photographs, so the tier counts them on the PDF's row.
+  const pdfChildren = new Map<string, number>();
+  for (const material of materials) {
+    if (material.origin === "pdf" && material.derived_from_material_id) {
+      const parent = material.derived_from_material_id;
+      pdfChildren.set(parent, (pdfChildren.get(parent) ?? 0) + 1);
+    }
+  }
+  const shown = materials.filter((material) => material.origin !== "pdf");
+  const folders = groupByFolder(shown);
   return (
     <section className="flex flex-col gap-2">
       <div>
         <h4 className="text-[12px] font-medium text-ink">
           {title}
           <span className="ml-1.5 font-normal tabular-nums text-ink-faint">
-            {materials.length}
+            {shown.length}
           </span>
         </h4>
         <p className="text-[11px] text-ink-faint">{note}</p>
@@ -416,6 +433,7 @@ function Tier({
                   overriddenBy={overrides?.get(material.id)}
                   normalizedAs={derivations?.normalizedAs.get(material.id)}
                   normalizedFrom={derivations?.normalizedFrom.get(material.id)}
+                  pdfChildren={pdfChildren.get(material.id)}
                   disabled={disabled}
                   onClassify={onClassify}
                   onPromote={onPromote}
@@ -457,7 +475,8 @@ function derivationMap(payload: InventoryPayload): Derivations {
   const normalizedFrom = new Map<string, string>();
   for (const material of rows) {
     const originalId = material.derived_from_material_id;
-    if (!originalId) continue;
+    // Derived, but not a normalisation: an image out of a PDF (§9.4).
+    if (!originalId || material.origin === "pdf") continue;
     const original = byId.get(originalId);
     normalizedAs.set(originalId, nameOf(material));
     // The original may sit outside this inventory (a brand file cut for another

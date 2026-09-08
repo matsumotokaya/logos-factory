@@ -7,8 +7,10 @@
 // step shows the step's own output — the sources it could read, or the facts
 // it worked out — and the decision about whether to carry on is informed.
 
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { TakeRunRecord } from "@/app/api/brands/[id]/videos/[videoId]/runs/route";
+import type { PdfChild } from "@/app/api/brands/[id]/videos/[videoId]/materials/route";
 import type { BriefSource } from "@/components/video/BriefSourceIntake";
 
 interface ExtractedSourceRow {
@@ -69,14 +71,20 @@ export function lastExtractReadIds(runs: TakeRunRecord[]): Set<string> {
 export function ExtractResults({
   runs,
   sources,
+  contents = [],
   busy,
   onRemove,
+  onExpand,
 }: {
   runs: TakeRunRecord[];
   /** Every document pinned to the video now. Rows appear for these only. */
   sources: readonly BriefSource[];
+  /** The images inside the PDFs among them, listed under each PDF's row. */
+  contents?: readonly PdfChild[];
   busy: boolean;
   onRemove: (materialId: string) => Promise<void>;
+  /** Take a PDF apart now — for one that arrived before intake did this. */
+  onExpand?: (materialId: string) => Promise<void>;
 }) {
   const run = lastRun(runs, "extract");
   const byId = new Map(sources.map((source) => [source.id, source]));
@@ -84,6 +92,22 @@ export function ExtractResults({
     const source = row.materialId ? byId.get(row.materialId) : undefined;
     return source ? [{ ...row, source }] : [];
   });
+  const childrenOf = new Map<string, PdfChild[]>();
+  for (const child of contents) {
+    const list = childrenOf.get(child.parentId) ?? [];
+    list.push(child);
+    childrenOf.set(child.parentId, list);
+  }
+  // Which PDFs are open. Closed by default: the point is that the contents CAN
+  // be seen, not that a hundred slivers greet every visit to the drawer.
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div className="flex flex-col gap-3">
@@ -108,36 +132,152 @@ export function ExtractResults({
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
-          {rows.map((row) => (
-            <li
-              key={row.source.id}
-              className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm"
-            >
-              <span
-                className={cn(
-                  "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-                  MODE_STYLE[row.mode],
-                )}
-              >
-                {MODE_LABEL[row.mode]}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-ink">{row.source.label}</span>
-              <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
-                {row.mode === "text" ? `${row.chars}字` : (row.note ?? "")}
-              </span>
-              <button
-                type="button"
-                onClick={() => void onRemove(row.source.id)}
-                disabled={busy}
-                className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
-              >
-                外す
-              </button>
-            </li>
-          ))}
+          {rows.map((row) => {
+            const isPdf = row.source.media_type === "application/pdf";
+            const contents = childrenOf.get(row.source.id) ?? [];
+            const expanded = open.has(row.source.id);
+            return (
+              <li key={row.source.id} className="flex flex-col rounded-lg border border-hairline">
+                <div className="flex items-center gap-3 px-3 py-2 text-sm">
+                  {isPdf ? (
+                    <button
+                      type="button"
+                      onClick={() => toggle(row.source.id)}
+                      aria-expanded={expanded}
+                      aria-label={expanded ? "中身を閉じる" : "中身を開く"}
+                      className="-ml-1 shrink-0 rounded px-1 text-[11px] text-ink-muted hover:text-ink"
+                    >
+                      {expanded ? "▾" : "▸"}
+                    </button>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                      MODE_STYLE[row.mode],
+                    )}
+                  >
+                    {MODE_LABEL[row.mode]}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-ink">{row.source.label}</span>
+                  {isPdf && contents.length > 0 ? (
+                    <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
+                      中身 {contents.length}点
+                    </span>
+                  ) : null}
+                  <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
+                    {row.mode === "text" ? `${row.chars}字` : (row.note ?? "")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void onRemove(row.source.id)}
+                    disabled={busy}
+                    className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
+                  >
+                    外す
+                  </button>
+                </div>
+                {isPdf && expanded ? (
+                  <PdfContents
+                    parentId={row.source.id}
+                    contents={contents}
+                    busy={busy}
+                    onExpand={onExpand}
+                  />
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
+  );
+}
+
+const readableSize = (bytes: number | null): string =>
+  bytes === null
+    ? ""
+    : bytes < 1024
+      ? `${bytes}B`
+      : bytes < 1024 * 1024
+        ? `${(bytes / 1024).toFixed(0)}KB`
+        : `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+
+/**
+ * What is inside one PDF, every image of it (docs/asset-normalization.md §9.4).
+ *
+ * Nothing is thinned. Fragments, slivers and blank plates are shown with the
+ * photographs, because they are what the model is handed too, and seeing them
+ * is how a person understands why a reading came out the way it did. Each row
+ * is a thumbnail, its size, the page, and a download.
+ */
+function PdfContents({
+  parentId,
+  contents,
+  busy,
+  onExpand,
+}: {
+  parentId: string;
+  contents: readonly PdfChild[];
+  busy: boolean;
+  onExpand?: (materialId: string) => Promise<void>;
+}) {
+  if (contents.length === 0) {
+    return (
+      <div className="flex items-center gap-3 border-t border-hairline px-3 py-2 text-[11px] text-ink-muted">
+        <span className="min-w-0 flex-1">
+          中身はまだ取り出していません。この機能より前に入れた資料か、画像を持たないPDFです。
+        </span>
+        {onExpand ? (
+          <button
+            type="button"
+            onClick={() => void onExpand(parentId)}
+            disabled={busy}
+            className="shrink-0 rounded-full border border-hairline px-3 py-1 text-[11px] font-semibold hover:border-ink disabled:opacity-50"
+          >
+            中身を取り出す
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <ul className="flex flex-col divide-y divide-hairline border-t border-hairline">
+      {contents.map((child) => (
+        <li key={child.id} className="flex items-center gap-3 px-3 py-1.5 text-[12px]">
+          {/* Mid-grey behind the thumbnail so both a white mark and a black one
+              can be seen; a white ground erases half the marks in a flyer. */}
+          <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-[#808080]">
+            {/* Signed same-origin URL, not an optimisable asset: a plain <img>,
+                as every other material thumbnail in this app. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={child.url}
+              alt=""
+              width={40}
+              height={40}
+              loading="lazy"
+              className="max-h-10 max-w-10 object-contain"
+            />
+          </span>
+          <span className="w-10 shrink-0 tabular-nums text-ink-faint">p.{child.page}</span>
+          <span className="w-24 shrink-0 font-mono tabular-nums text-ink">
+            {child.width && child.height ? `${child.width}×${child.height}` : "—"}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-ink-faint">
+            {child.pages.length > 1 ? `p.${child.pages.join("・")}に登場 ` : ""}
+            {child.inline ? "インライン " : ""}
+            {readableSize(child.bytes)}
+          </span>
+          <a
+            href={child.url}
+            download={child.label}
+            className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-ink"
+          >
+            ダウンロード
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
