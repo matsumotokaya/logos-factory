@@ -86,6 +86,33 @@ async function expandPdf(
   }
 }
 
+/**
+ * A signed same-origin URL for one of this take's pinned materials.
+ *
+ * The same route the preview player reads bytes through: the signature binds
+ * the exact R2 key to this brand/take/material path and lasts an hour, which
+ * is what lets an <img> and a download link work without an auth header.
+ *
+ * The last segment is the file's base name, never the whole label: a folder
+ * upload stores names like `sake/photo.jpg`, and a slash in there would make
+ * the URL address a path that does not exist. The extension is kept so media
+ * players can still sniff the format; the saved filename comes from the
+ * anchor's `download` attribute either way.
+ */
+const signedMaterialUrl = (
+  brandId: string,
+  takeId: string,
+  materialId: string,
+  label: string,
+  r2Key: string,
+): string => {
+  const name = label.split("/").pop() || "asset";
+  return signedLabsUrl(
+    `/api/brands/${brandId}/takes/${takeId}/materials/${materialId}/${encodeURIComponent(name)}?key=${encodeURIComponent(r2Key)}`,
+    takeMaterialSignatureToken(brandId, takeId, materialId, r2Key),
+  );
+};
+
 const MAX_BYTES = 12_000_000;
 const ACCEPTED =
   /^(application\/pdf|text\/plain|text\/markdown|image\/(png|jpeg|webp|gif|svg\+xml)|audio\/(mpeg|wav|mp4))$/;
@@ -141,7 +168,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("take_inputs")
     .select(
-      "role, pinned_at, brand_materials(id, kind, label, media_type, bytes, created_at, provenance)",
+      "role, pinned_at, brand_materials(id, kind, label, media_type, bytes, width, height, r2_key, created_at, provenance)",
     )
     .eq("take_id", loaded.take.id)
     .eq("role", SOURCE_ROLE);
@@ -149,26 +176,20 @@ export async function GET(
     return Response.json({ error: "素材を取得できませんでした" }, { status: 500 });
   }
 
+  interface SourceMaterial {
+    id: string;
+    kind: string;
+    label: string;
+    media_type: string | null;
+    bytes: number | null;
+    width: number | null;
+    height: number | null;
+    r2_key: string | null;
+    provenance: { upload_fingerprint?: unknown } | null;
+  }
   type Row = {
     pinned_at: string;
-    brand_materials:
-      | {
-          id: string;
-          kind: string;
-          label: string;
-          media_type: string | null;
-          bytes: number | null;
-          provenance: { upload_fingerprint?: unknown } | null;
-        }
-      | Array<{
-          id: string;
-          kind: string;
-          label: string;
-          media_type: string | null;
-          bytes: number | null;
-          provenance: { upload_fingerprint?: unknown } | null;
-        }>
-      | null;
+    brand_materials: SourceMaterial | SourceMaterial[] | null;
   };
   const materials = ((data ?? []) as Row[])
     .map((row) => {
@@ -182,6 +203,16 @@ export async function GET(
             label: material.label,
             media_type: material.media_type,
             bytes: material.bytes,
+            width: material.width,
+            height: material.height,
+            // The document's own file, retrievable. Every material is a
+            // container whose contents begin with itself (§9.4); without this
+            // the original PDF and every uploaded photograph were unreachable,
+            // while a PDF's extracted image was the one downloadable thing in
+            // the application.
+            url: material.r2_key
+              ? signedMaterialUrl(brandId, loaded.take.id, material.id, material.label, material.r2_key)
+              : null,
             pinnedAt: row.pinned_at,
             upload_fingerprint:
               typeof material.provenance?.upload_fingerprint === "string"
@@ -251,9 +282,12 @@ export async function GET(
           pages: Array.isArray(where.pages) ? where.pages : [],
           index: typeof where.index === "number" ? where.index : 0,
           inline: where.inline === true,
-          url: signedLabsUrl(
-            `/api/brands/${brandId}/takes/${loaded.take.id}/materials/${material.id}/${encodeURIComponent(material.label)}?key=${encodeURIComponent(material.r2_key)}`,
-            takeMaterialSignatureToken(brandId, loaded.take.id, material.id, material.r2_key),
+          url: signedMaterialUrl(
+            brandId,
+            loaded.take.id,
+            material.id,
+            material.label,
+            material.r2_key,
           ),
         },
       ];

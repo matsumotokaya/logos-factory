@@ -16,6 +16,17 @@ export interface BriefSource {
   label: string;
   media_type: string | null;
   bytes: number | null;
+  /** Measured at intake. Absent on a row that could not be measured. */
+  width?: number | null;
+  height?: number | null;
+  /**
+   * Signed same-origin URL for the file itself, good for an hour.
+   *
+   * Absent when the row has no addressable bytes. Every material is a
+   * container whose contents start with its own file (§9.4), so this is what
+   * makes an uploaded photograph or the original PDF retrievable at all.
+   */
+  url?: string | null;
   upload_fingerprint?: string | null;
 }
 
