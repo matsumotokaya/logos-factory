@@ -41,7 +41,9 @@ test("資料が無ければ読み取りは押せず、理由を出す", () => {
   assert.equal(own?.reason, "先に資料かテキストを追加してください");
 });
 
-test("すべて読み取り済みなら読み取りは押せない", () => {
+test("すべて読み取り済みなら読み取りは押せず、理由は出さない", () => {
+  // Nothing to do is not a reason: the button is already greyed out and the
+  // stage badge says 「読み取り済み」 (2026-09-08).
   const { own } = stageActions({
     stageId: "input",
     stages: pipeline({ input: "ready" }),
@@ -49,7 +51,7 @@ test("すべて読み取り済みなら読み取りは押せない", () => {
     filmSteps: [],
   });
   assert.equal(own?.enabled, false);
-  assert.equal(own?.reason, "すべて読み取り済みです");
+  assert.equal(own?.reason, null);
 });
 
 test("前の段が古いあいだは次へ進めない", () => {
@@ -102,7 +104,7 @@ test("映像が最新なら押せず、段の状態ではなく残り工程で�
     filmSteps: [],
   });
   assert.equal(fixed.advance?.enabled, false);
-  assert.equal(fixed.advance?.reason, "動画プレビューに反映済みです");
+  assert.equal(fixed.advance?.reason, null, "反映済みは理由として出さない");
 
   const owesVoice = stageActions({
     stageId: "map",

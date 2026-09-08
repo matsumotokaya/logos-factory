@@ -123,12 +123,26 @@ export default function MaterialContents({
                 {body.pages && body.pages.length > 1 ? `p.${body.pages.join("・")}` : ""}
                 {body.inline ? " インライン" : ""}
               </span>
+              {/* An arrow, not the word: the row is narrow and 「ダウンロード」
+                  was the widest thing in it (2026-09-08). The name a screen
+                  reader gets is the file's own. */}
               <a
                 href={body.url}
                 download={body.label}
-                className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-ink"
+                title="ダウンロード"
+                aria-label={`${body.label}をダウンロード`}
+                className="shrink-0 rounded p-1 text-ink-faint transition hover:text-ink"
               >
-                ダウンロード
+                <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true">
+                  <path
+                    d="M10 3.5v9M6.5 9.5L10 13l3.5-3.5M4.5 16h11"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </a>
             </li>
           ))}

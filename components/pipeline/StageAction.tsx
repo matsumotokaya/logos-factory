@@ -108,7 +108,9 @@ export default function StageAction({
 
       {own ? (
         <>
-          <span className="text-[11px] text-ink-faint">{own.reason ?? ""}</span>
+          {own.reason ? (
+            <span className="text-[11px] text-ink-faint">{own.reason}</span>
+          ) : null}
           <button
             type="button"
             onClick={() => run(own.run)}

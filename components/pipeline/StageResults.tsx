@@ -121,7 +121,7 @@ export function ExtractResults({
           ) : null}
         </h3>
         <p className="mt-1 text-[11px] text-ink-muted">
-          読み取り済みで、構造化が読むもの。▸ を押すと中身が開き、1点ずつダウンロードできます。外すと、その資料だけに立っていた値は仮に戻り、下の工程が要更新になります。
+          読み取り済みで、構造化が読むもの。▸ を押すと中身が開き、1点ずつダウンロードできます。この動画から外すと、その資料だけに立っていた値は仮の値に戻り、下の工程が要更新になります。
         </p>
       </div>
       {!run ? (
@@ -172,19 +172,33 @@ export function ExtractResults({
                   <span className="min-w-0 flex-1 truncate text-ink">{row.source.label}</span>
                   {derived.length > 0 ? (
                     <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
-                      中身 {derived.length}点
+                      {derived.length}点
                     </span>
                   ) : null}
                   <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
                     {row.mode === "text" ? `${row.chars}字` : (row.note ?? "")}
                   </span>
+                  {/* A bin rather than the word 「外す」, which was our
+                      vocabulary and nobody else's (2026-09-08). The accessible
+                      name stays exact, because this unpins the document from
+                      this video and does not delete the file. */}
                   <button
                     type="button"
                     onClick={() => void onRemove(row.source.id)}
                     disabled={busy}
-                    className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
+                    title="この動画から外す"
+                    aria-label={`${row.source.label}をこの動画から外す`}
+                    className="shrink-0 rounded p-1 text-ink-faint transition hover:text-red-700 disabled:opacity-50"
                   >
-                    外す
+                    <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true">
+                      <path
+                        d="M4 6h12M8 6V4.5h4V6M6.5 6l.6 9h5.8l.6-9M9 8.5v4M11 8.5v4"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   </button>
                 </div>
                 {expanded ? (

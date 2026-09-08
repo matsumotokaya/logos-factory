@@ -82,11 +82,10 @@ export function stageActions(input: {
           ...own,
           // Nothing new to read: the last run already covers everything supplied.
           enabled: input.hasMaterial && here?.status !== "ready",
-          reason: !input.hasMaterial
-            ? "先に資料かテキストを追加してください"
-            : here?.status === "ready"
-              ? "すべて読み取り済みです"
-              : null,
+          // Only reasons that tell a person what to do. 「すべて読み取り済み」
+          // said nothing actionable next to a button already greyed out, and
+          // the stage's own status badge says it (2026-09-08).
+          reason: !input.hasMaterial ? "先に資料かテキストを追加してください" : null,
         }
       : null,
     advance: advance ? advanceButton(advance, here, input) : null,
@@ -125,15 +124,14 @@ function advanceButton(
         ? steps.map((step) => FILM_STEP_LABEL[step]).join("・")
         : advance.label,
     enabled: !needsMaterial && !waiting && !done,
+    // Same rule as the reading button: a disabled button plus 「反映済みです」
+    // was two ways of saying the same nothing. What survives is the two
+    // reasons that name a next move.
     reason: needsMaterial
       ? "先に資料かテキストを追加してください"
-      : done
-        ? film
-          ? "動画プレビューに反映済みです"
-          : `${advance.label}は反映済みです`
-        : waiting
-          ? `${here?.label ?? "前の段"}が最新になると実行できます`
-          : null,
+      : !done && waiting
+        ? `${here?.label ?? "前の段"}が最新になると実行できます`
+        : null,
   };
 }
 
