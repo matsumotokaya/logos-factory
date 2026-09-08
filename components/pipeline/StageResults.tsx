@@ -7,11 +7,11 @@
 // step shows the step's own output — the sources it could read, or the facts
 // it worked out — and the decision about whether to carry on is informed.
 
-import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { TakeRunRecord } from "@/app/api/brands/[id]/videos/[videoId]/runs/route";
 import type { PdfChild } from "@/app/api/brands/[id]/videos/[videoId]/materials/route";
-import MaterialContents, { type MaterialBody } from "@/components/materials/MaterialContents";
+import type { MaterialBody } from "@/components/materials/MaterialContents";
+import MaterialRow from "@/components/materials/MaterialRow";
 import type { BriefSource } from "@/components/video/BriefSourceIntake";
 
 interface ExtractedSourceRow {
@@ -93,23 +93,23 @@ export function ExtractResults({
     const source = row.materialId ? byId.get(row.materialId) : undefined;
     return source ? [{ ...row, source }] : [];
   });
-  const derivedOf = new Map<string, PdfChild[]>();
+  const derivedOf = new Map<string, MaterialBody[]>();
   for (const child of contents) {
     const list = derivedOf.get(child.parentId) ?? [];
-    list.push(child);
+    list.push({
+      id: child.id,
+      label: child.label,
+      media_type: child.media_type,
+      bytes: child.bytes,
+      width: child.width,
+      height: child.height,
+      url: child.url,
+      page: child.page,
+      pages: child.pages,
+      inline: child.inline,
+    });
     derivedOf.set(child.parentId, list);
   }
-  // Which rows are open. All closed by default, images included: the list is
-  // read to see WHICH documents were taken in, and opening one is the separate
-  // act of getting a file out of it. A hundred slivers must not greet a visit.
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const toggle = (id: string) =>
-    setOpen((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   return (
     <div className="flex flex-col gap-3">
@@ -136,31 +136,20 @@ export function ExtractResults({
         <ul className="flex flex-col gap-1.5">
           {rows.map((row) => {
             const derived = derivedOf.get(row.source.id) ?? [];
-            const expanded = open.has(row.source.id);
             const isPdf = row.source.media_type === "application/pdf";
-            const body = bodyOf(row.source);
             return (
-              <li
+              <MaterialRow
                 key={row.source.id}
-                className={cn(
-                  "flex flex-col rounded-lg border",
-                  expanded ? "border-ink/25" : "border-hairline",
-                )}
-              >
-                <div className="flex items-center gap-3 px-3 py-2 text-sm">
-                  {/* On every row, not only the PDFs: a material is a container
-                      whose contents are its own file plus whatever came out of
-                      it, and an uploaded photograph could not be downloaded at
-                      all while the triangle was reserved for PDFs (§9.4). */}
-                  <button
-                    type="button"
-                    onClick={() => toggle(row.source.id)}
-                    aria-expanded={expanded}
-                    aria-label={expanded ? "中身を閉じる" : "中身を開く"}
-                    className="-ml-1 shrink-0 rounded px-1 text-[11px] text-ink-muted hover:text-ink"
-                  >
-                    {expanded ? "▾" : "▸"}
-                  </button>
+                data={{
+                  id: row.source.id,
+                  name: row.source.label,
+                  media_type: row.source.media_type,
+                  bytes: row.source.bytes,
+                  width: row.source.width ?? null,
+                  height: row.source.height ?? null,
+                  url: row.source.url ?? null,
+                }}
+                lead={
                   <span
                     className={cn(
                       "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
@@ -169,19 +158,14 @@ export function ExtractResults({
                   >
                     {MODE_LABEL[row.mode]}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-ink">{row.source.label}</span>
-                  {derived.length > 0 ? (
-                    <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
-                      {derived.length}点
-                    </span>
-                  ) : null}
-                  <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
-                    {row.mode === "text" ? `${row.chars}字` : (row.note ?? "")}
-                  </span>
-                  {/* A bin rather than the word 「外す」, which was our
-                      vocabulary and nobody else's (2026-09-08). The accessible
-                      name stays exact, because this unpins the document from
-                      this video and does not delete the file. */}
+                }
+                trailing={row.mode === "text" ? `${row.chars}字` : noteOf(row.note)}
+                derived={derived}
+                actions={
+                  /* A bin rather than the word 「外す」, which was our
+                     vocabulary and nobody else's (2026-09-08). The accessible
+                     name stays exact, because this unpins the document from
+                     this video and does not delete the file. */
                   <button
                     type="button"
                     onClick={() => void onRemove(row.source.id)}
@@ -200,45 +184,28 @@ export function ExtractResults({
                       />
                     </svg>
                   </button>
-                </div>
-                {expanded ? (
-                  <MaterialContents
-                    self={body}
-                    derived={derived.map((child) => ({
-                      id: child.id,
-                      label: child.label,
-                      media_type: child.media_type,
-                      bytes: child.bytes,
-                      width: child.width,
-                      height: child.height,
-                      url: child.url,
-                      page: child.page,
-                      pages: child.pages,
-                      inline: child.inline,
-                    }))}
-                    footer={
-                      // Only a PDF has contents to go looking for. One with
-                      // none is either older than this feature or genuinely
-                      // made of text and vectors, and pressing it says which.
-                      isPdf && derived.length === 0 && onExpand ? (
-                        <div className="flex items-center gap-3 text-[11px] text-ink-muted">
-                          <span className="min-w-0 flex-1">
-                            中身はまだ取り出していません。この機能より前に入れた資料か、画像を持たないPDFです。
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void onExpand(row.source.id)}
-                            disabled={busy}
-                            className="shrink-0 rounded-full border border-hairline bg-paper px-3 py-1 text-[11px] font-semibold hover:border-ink disabled:opacity-50"
-                          >
-                            中身を取り出す
-                          </button>
-                        </div>
-                      ) : null
-                    }
-                  />
-                ) : null}
-              </li>
+                }
+                footer={
+                  // Only a PDF has contents to go looking for. One with none is
+                  // either older than this feature or genuinely made of text
+                  // and vectors, and pressing it says which.
+                  isPdf && derived.length === 0 && onExpand ? (
+                    <div className="flex items-center gap-3 text-[11px] text-ink-muted">
+                      <span className="min-w-0 flex-1">
+                        中身はまだ取り出していません。この機能より前に入れた資料か、画像を持たないPDFです。
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void onExpand(row.source.id)}
+                        disabled={busy}
+                        className="shrink-0 rounded-full border border-hairline bg-paper px-3 py-1 text-[11px] font-semibold hover:border-ink disabled:opacity-50"
+                      >
+                        中身を取り出す
+                      </button>
+                    </div>
+                  ) : null
+                }
+              />
             );
           })}
         </ul>
@@ -248,24 +215,15 @@ export function ExtractResults({
 }
 
 /**
- * A document's own file as a downloadable body.
+ * A note worth printing beside the reading's verdict.
  *
- * Null when the list was served without a signed URL, which happens only for a
- * row whose bytes could not be addressed. The panel says so rather than
- * offering a link that would 404.
+ * 「読み取り対象ではありません」 was the 「対象外」 chip said twice, and runs
+ * recorded before 2026-09-08 still carry it, so it is dropped on the way to the
+ * screen as well as at the source (lib/event-cm/extract.ts).
  */
-const bodyOf = (source: BriefSource): MaterialBody | null =>
-  source.url
-    ? {
-        id: source.id,
-        label: source.label,
-        media_type: source.media_type,
-        bytes: source.bytes,
-        width: source.width ?? null,
-        height: source.height ?? null,
-        url: source.url,
-      }
-    : null;
+const REDUNDANT_NOTE = "読み取り対象ではありません";
+const noteOf = (note: string | undefined): string =>
+  !note || note === REDUNDANT_NOTE ? "" : note;
 
 /** Facts the structuring run read out of the material. `null` = not stated. */
 type Facts = Record<string, unknown> & { note?: string | null };

@@ -14,6 +14,7 @@ import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { eventCmUsageRecord, type MaterialUse } from "@/lib/event-cm/material-usage";
 import { MATERIAL_NAMING_COLUMNS } from "@/lib/materials/naming";
+import { signedMaterialUrl } from "@/lib/materials/signed-url";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,6 +50,14 @@ export interface InventoryMaterial {
    * not call a flyer's sliver a 「正規化版」.
    */
   origin: "pdf" | null;
+  /**
+   * Signed same-origin URL for this material's own bytes (§9.4).
+   *
+   * Null when the row has no addressable file. Every list that shows a
+   * material can hand it over; before this the inventory could not, so a
+   * teammate had no way to get a file back out of a video.
+   */
+  url: string | null;
   created_at: string;
 }
 
@@ -69,16 +78,36 @@ const COLUMNS =
   // The geometry the normalisation offer is decided from, and the pointer that
   // says the offer was already taken. Both have to be here or the screen asks a
   // question it has already been answered (docs/asset-normalization.md §11).
-  `ink_ratio, trim_width, trim_height, derived_from_material_id, provenance, created_at`;
+  `ink_ratio, trim_width, trim_height, derived_from_material_id, provenance, r2_key, created_at`;
 
-/** The row as the screen needs it: provenance reduced to what it decides. */
-function toInventoryMaterial(row: Record<string, unknown>): InventoryMaterial {
-  const { provenance, ...rest } = row;
+/**
+ * The row as the screen needs it: provenance reduced to what it decides, and a
+ * URL its bytes can be fetched through.
+ *
+ * `takeId` is passed for the video's own tier and omitted for the brand's,
+ * because the two scopes are delivered by two routes with two signatures
+ * (lib/materials/signed-url.ts).
+ */
+function toInventoryMaterial(
+  brandId: string,
+  row: Record<string, unknown>,
+  takeId?: string,
+): InventoryMaterial {
+  const { provenance, r2_key, ...rest } = row;
   const from =
     provenance && typeof provenance === "object"
       ? (provenance as { from?: unknown }).from
       : undefined;
-  return { ...(rest as unknown as InventoryMaterial), origin: from === "pdf" ? "pdf" : null };
+  const material = rest as unknown as InventoryMaterial;
+  return {
+    ...material,
+    origin: from === "pdf" ? "pdf" : null,
+    url: signedMaterialUrl(
+      brandId,
+      { id: material.id, label: material.label, r2_key: (r2_key as string | null) ?? null },
+      takeId,
+    ),
+  };
 }
 
 export async function GET(
@@ -135,14 +164,19 @@ export async function GET(
   // Only event-cm can name its own slots today. Another template returns an
   // empty map rather than a wrong one: "we do not know where this is used"
   // shows as no usage, which is honest, and inventing a label would not be.
+  const takeId = take.data.id as string;
   const usage =
     take.data.template_id === "event-cm"
       ? eventCmUsageRecord(take.data.brief as EventCmBrief)
       : {};
 
   const payload: InventoryPayload = {
-    own: ((own.data ?? []) as unknown as Record<string, unknown>[]).map(toInventoryMaterial),
-    base: ((base.data ?? []) as unknown as Record<string, unknown>[]).map(toInventoryMaterial),
+    own: ((own.data ?? []) as unknown as Record<string, unknown>[]).map((row) =>
+      toInventoryMaterial(brandId, row, takeId),
+    ),
+    base: ((base.data ?? []) as unknown as Record<string, unknown>[]).map((row) =>
+      toInventoryMaterial(brandId, row),
+    ),
     usage,
   };
   return Response.json(payload, { headers: { "Cache-Control": "no-store" } });

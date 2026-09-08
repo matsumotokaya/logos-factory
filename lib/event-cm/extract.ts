@@ -233,8 +233,10 @@ export async function extractTakeSources(
       continue;
     }
 
-    // Audio and anything else is material for the film, not for reading.
-    sources.push({ ...base, mode: "skipped", note: "読み取り対象ではありません" });
+    // Audio and anything else is material for the film, not for reading. No
+    // note: the row's 「対象外」 chip already says this, and 「読み取り対象で
+    // はありません」 next to it was the same sentence twice (2026-09-08).
+    sources.push({ ...base, mode: "skipped" });
   }
 
   return sources;

@@ -6,6 +6,8 @@
 // signal that the output is now behind its inputs.
 
 import { useRef, useState } from "react";
+import type { MaterialBody } from "@/components/materials/MaterialContents";
+import MaterialRow from "@/components/materials/MaterialRow";
 import { cn } from "@/lib/cn";
 
 export interface BrandMaterial {
@@ -16,6 +18,11 @@ export interface BrandMaterial {
   bytes: number | null;
   source_kind: string;
   source_url: string | null;
+  /** Measured at intake. Null when nothing could be measured. */
+  width?: number | null;
+  height?: number | null;
+  /** Signed URL for its own bytes, so the row can hand the file over (§9.4). */
+  url?: string | null;
   /** Set on an image taken out of a PDF: the PDF's row (§9.4). */
   derived_from_material_id?: string | null;
   created_at: string;
@@ -69,15 +76,24 @@ export default function MaterialIntake({
   const [dragging, setDragging] = useState(false);
   const [note, setNote] = useState("");
 
-  // A PDF's images are rows of their own (§9.4), but listing a hundred slivers
-  // beside the deck they came out of would bury the deck. The list shows the
-  // files that were handed over, and counts the contents on the PDF's row.
-  const childCount = new Map<string, number>();
+  // A PDF's images belong inside the PDF's row (§9.4). Listing a hundred
+  // slivers beside the deck they came out of would bury the deck, and the
+  // shared row already knows how to open a container.
+  const derivedOf = new Map<string, MaterialBody[]>();
   for (const material of materials) {
-    if (material.derived_from_material_id) {
-      const parent = material.derived_from_material_id;
-      childCount.set(parent, (childCount.get(parent) ?? 0) + 1);
-    }
+    if (!material.derived_from_material_id || !material.url) continue;
+    const parent = material.derived_from_material_id;
+    const list = derivedOf.get(parent) ?? [];
+    list.push({
+      id: material.id,
+      label: material.label,
+      media_type: material.media_type,
+      bytes: material.bytes,
+      width: material.width ?? null,
+      height: material.height ?? null,
+      url: material.url,
+    });
+    derivedOf.set(parent, list);
   }
   const listed = materials.filter((material) => !material.derived_from_material_id);
 
@@ -110,34 +126,51 @@ export default function MaterialIntake({
               </button>
             </li>
           )}
+          {/* The same row the input drawer and the inventory draw: a material
+              is a material wherever it is listed, and three implementations
+              were three chances to drift (§9.4). Only the verb differs — here
+              it is a real delete, because a brand's own file has a delete
+              endpoint and a video's pinned document does not. */}
           {listed.map((material) => (
-            <li
+            <MaterialRow
               key={material.id}
-              className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2 text-sm"
-            >
-              <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
-                {KIND_LABEL[material.kind] ?? material.kind}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-ink">
-                {material.label}
-              </span>
-              {childCount.get(material.id) ? (
-                <span className="shrink-0 tabular-nums text-[11px] text-ink-faint">
-                  中身 {childCount.get(material.id)}点
+              data={{
+                id: material.id,
+                name: material.label,
+                media_type: material.media_type,
+                bytes: material.bytes,
+                width: material.width ?? null,
+                height: material.height ?? null,
+                url: material.url ?? null,
+              }}
+              derived={derivedOf.get(material.id)}
+              lead={
+                <span className="shrink-0 rounded bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink-muted">
+                  {KIND_LABEL[material.kind] ?? material.kind}
                 </span>
-              ) : null}
-              <span className="shrink-0 font-mono text-[11px] text-ink-faint">
-                {readableSize(material.bytes)}
-              </span>
-              <button
-                type="button"
-                onClick={() => void onRemove(material.id)}
-                disabled={busy}
-                className="shrink-0 text-xs text-ink-faint underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
-              >
-                削除
-              </button>
-            </li>
+              }
+              trailing={readableSize(material.bytes)}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => void onRemove(material.id)}
+                  disabled={busy}
+                  title="削除"
+                  aria-label={`${material.label}を削除`}
+                  className="shrink-0 rounded p-1 text-ink-faint transition hover:text-red-700 disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true">
+                    <path
+                      d="M4 6h12M8 6V4.5h4V6M6.5 6l.6 9h5.8l.6-9M9 8.5v4M11 8.5v4"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      fill="none"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              }
+            />
           ))}
           {!websiteLabel && materials.length === 0 && (
             <li className="text-sm text-ink-faint">素材がまだありません</li>

@@ -37,6 +37,8 @@ import type {
   InventoryMaterial,
   InventoryPayload,
 } from "@/app/api/brands/[id]/videos/[videoId]/inventory/route";
+import type { MaterialBody } from "./MaterialContents";
+import MaterialRow from "./MaterialRow";
 
 /** Where a file came from, in the second person rather than in schema words. */
 const SOURCE_LABEL: Record<string, string> = {
@@ -230,14 +232,22 @@ function NormalizeAction({
   );
 }
 
-function MaterialRow({
+/**
+ * One inventory row, drawn by the shared material row.
+ *
+ * The shared row owns what a material IS — its name, its measurements, and the
+ * container that opens to the file itself plus whatever came out of it. What is
+ * particular to the inventory goes in the slots: the classification, promotion
+ * to the brand, where the film uses it, and the normalisation offer.
+ */
+function InventoryRow({
   material,
   fileName,
   uses,
   overriddenBy,
   normalizedAs,
   normalizedFrom,
-  pdfChildren,
+  derived,
   disabled,
   onClassify,
   onPromote,
@@ -253,8 +263,8 @@ function MaterialRow({
   normalizedAs?: string;
   /** The file this one was cut from, if it is itself a normalised copy. */
   normalizedFrom?: string;
-  /** For a PDF: how many images were taken out of it (§9.4). */
-  pdfChildren?: number;
+  /** What came out of this file: a PDF's images (§9.4). */
+  derived?: readonly MaterialBody[];
   disabled: boolean;
   onClassify: (id: string, category: MaterialCategory | null) => void;
   /** Widen to the brand. Absent on rows that are already there. */
@@ -264,9 +274,6 @@ function MaterialRow({
 }) {
   const measured =
     material.width && material.height ? `${material.width}×${material.height}` : null;
-  // Worth showing only when it differs: repeating 「miyao.jpg（元: miyao.jpg）」
-  // on every row buries the cases where the name really did change.
-  const renamed = fileName !== material.label;
   // Offered only where the measurements say there is something to gain, and only
   // once: a file that already has a normalised copy has been answered.
   const proposal = normalizationProposal({
@@ -283,81 +290,80 @@ function MaterialRow({
   const offer = Boolean(onNormalize) && proposal.propose && !normalizedAs && !normalizedFrom;
 
   return (
-    <li className="flex flex-col gap-1 rounded-lg border border-hairline px-3 py-2">
-      <div className="flex items-center gap-2.5">
-        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink">
-          {fileName}
-        </span>
+    <MaterialRow
+      data={{
+        id: material.id,
+        name: fileName,
+        originalName: material.label,
+        media_type: material.media_type,
+        bytes: material.bytes,
+        width: material.width,
+        height: material.height,
+        url: material.url,
+      }}
+      derived={derived}
+      actions={
         <CategoryPicker
           material={material}
           disabled={disabled}
           onChange={(category) => onClassify(material.id, category)}
         />
-      </div>
-      {renamed ? (
-        <p className="truncate text-[11px] text-ink-faint">元: {material.label}</p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-faint">
-        <span>{KIND_LABEL[material.kind] ?? material.kind}</span>
-        <span>{SOURCE_LABEL[material.source_kind] ?? material.source_kind}</span>
-        {measured ? <span className="font-mono tabular-nums">{measured}</span> : null}
-        {/* Only said when it is true and load-bearing: an opaque logo is the
-            one that must never be knocked out (§3). Silence means "we have not
-            measured it", which is a third state, not "transparent". */}
-        {material.kind === "logo" && material.opaque === true ? <span>地あり</span> : null}
-        {material.bytes ? (
-          <span className="font-mono tabular-nums">{readableSize(material.bytes)}</span>
-        ) : null}
-        {pdfChildren ? (
-          <span className="tabular-nums">中身 {pdfChildren}点（入力の「抽出した資料」で開く）</span>
-        ) : null}
-      </div>
-      <div className="flex items-baseline gap-3">
-        {uses && uses.length > 0 ? (
-          <p className="min-w-0 flex-1 text-[11px] text-ink-muted">
-            {uses.map((use) => use.label).join("、")}
-          </p>
-        ) : (
-          // Not a defect. A deck is read, never shown; a photograph may simply
-          // not have been placed yet. Saying so beats an empty column.
-          <p className="min-w-0 flex-1 text-[11px] text-ink-faint">
-            この動画には出ていません
-          </p>
-        )}
-        {onPromote ? (
-          <PromoteAction
-            fileName={fileName}
-            disabled={disabled}
-            onPromote={() => onPromote(material.id)}
-          />
-        ) : null}
-      </div>
-      {overriddenBy ? (
-        <p className="text-[11px] text-amber-800">
-          この動画では「{overriddenBy}」を使っています（基盤を上書き中）
-        </p>
-      ) : null}
-      {/* Said on both rows, because the pair only makes sense together: the
-          original is why the copy exists, and the copy is why the original is
-          no longer the one on screen. */}
-      {normalizedAs ? (
-        <p className="truncate text-[11px] text-ink-muted">
-          正規化版「{normalizedAs}」を使っています
-        </p>
-      ) : null}
-      {normalizedFrom ? (
-        <p className="truncate text-[11px] text-ink-muted">
-          正規化版（元: {normalizedFrom}）
-        </p>
-      ) : null}
-      {offer ? (
-        <NormalizeAction
-          reasons={proposal.reasons}
-          disabled={disabled}
-          onNormalize={() => onNormalize?.(material.id)}
-        />
-      ) : null}
-    </li>
+      }
+      meta={
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-faint">
+            <span>{KIND_LABEL[material.kind] ?? material.kind}</span>
+            <span>{SOURCE_LABEL[material.source_kind] ?? material.source_kind}</span>
+            {measured ? <span className="font-mono tabular-nums">{measured}</span> : null}
+            {/* Only said when it is true and load-bearing: an opaque logo is the
+                one that must never be knocked out (§3). Silence means "we have
+                not measured it", which is a third state, not "transparent". */}
+            {material.kind === "logo" && material.opaque === true ? <span>地あり</span> : null}
+            {material.bytes ? (
+              <span className="font-mono tabular-nums">{readableSize(material.bytes)}</span>
+            ) : null}
+          </div>
+          <div className="flex items-baseline gap-3">
+            {uses && uses.length > 0 ? (
+              <p className="min-w-0 flex-1 text-[11px] text-ink-muted">
+                {uses.map((use) => use.label).join("、")}
+              </p>
+            ) : (
+              // Not a defect. A deck is read, never shown; a photograph may
+              // simply not have been placed yet. Saying so beats an empty column.
+              <p className="min-w-0 flex-1 text-[11px] text-ink-faint">
+                この動画には出ていません
+              </p>
+            )}
+            {onPromote ? (
+              <PromoteAction
+                fileName={fileName}
+                disabled={disabled}
+                onPromote={() => onPromote(material.id)}
+              />
+            ) : null}
+          </div>
+          {overriddenBy ? (
+            <p className="text-[11px] text-amber-800">
+              この動画では {overriddenBy} を使用中（この素材を上書き）
+            </p>
+          ) : null}
+          {normalizedAs ? (
+            <p className="text-[11px] text-ink-muted">正規化版あり: {normalizedAs}</p>
+          ) : null}
+          {normalizedFrom ? (
+            <p className="text-[11px] text-ink-muted">{normalizedFrom} の正規化版</p>
+          ) : null}
+          {offer && onNormalize ? (
+            <NormalizeAction
+              reasons={proposal.reasons}
+              disabled={disabled}
+              onNormalize={() => onNormalize(material.id)}
+            />
+          ) : null}
+        </div>
+      }
+    />
   );
 }
 
@@ -387,15 +393,25 @@ function Tier({
   onNormalize?: (id: string) => void;
   empty: string;
 }) {
-  // A PDF's images are listed under the PDF in the input drawer (§9.4), where
-  // they can be opened one at a time. Here they would be a hundred rows of
-  // slivers between the photographs, so the tier counts them on the PDF's row.
-  const pdfChildren = new Map<string, number>();
+  // A PDF's images belong INSIDE the PDF's row, not beside it: a hundred
+  // slivers between the photographs would bury the photographs (§9.4). They
+  // are the same contents the input drawer opens, because both screens ask the
+  // shared row to draw them.
+  const pdfChildren = new Map<string, MaterialBody[]>();
   for (const material of materials) {
-    if (material.origin === "pdf" && material.derived_from_material_id) {
-      const parent = material.derived_from_material_id;
-      pdfChildren.set(parent, (pdfChildren.get(parent) ?? 0) + 1);
-    }
+    if (material.origin !== "pdf" || !material.derived_from_material_id || !material.url) continue;
+    const parent = material.derived_from_material_id;
+    const list = pdfChildren.get(parent) ?? [];
+    list.push({
+      id: material.id,
+      label: material.label,
+      media_type: material.media_type,
+      bytes: material.bytes,
+      width: material.width,
+      height: material.height,
+      url: material.url,
+    });
+    pdfChildren.set(parent, list);
   }
   const shown = materials.filter((material) => material.origin !== "pdf");
   const folders = groupByFolder(shown);
@@ -425,7 +441,7 @@ function Tier({
             </p>
             <ul className="flex flex-col gap-1 pl-3">
               {rows.map(({ material, path }) => (
-                <MaterialRow
+                <InventoryRow
                   key={material.id}
                   material={material}
                   fileName={path.slice(path.lastIndexOf("/") + 1)}
@@ -433,7 +449,7 @@ function Tier({
                   overriddenBy={overrides?.get(material.id)}
                   normalizedAs={derivations?.normalizedAs.get(material.id)}
                   normalizedFrom={derivations?.normalizedFrom.get(material.id)}
-                  pdfChildren={pdfChildren.get(material.id)}
+                  derived={pdfChildren.get(material.id)}
                   disabled={disabled}
                   onClassify={onClassify}
                   onPromote={onPromote}

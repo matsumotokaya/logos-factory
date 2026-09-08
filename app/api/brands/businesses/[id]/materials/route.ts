@@ -7,6 +7,7 @@ import {
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
 import { isPdf } from "@/lib/materials/pdf";
+import { signedMaterialUrl } from "@/lib/materials/signed-url";
 import { registerPdfChildren, type PdfExpansion } from "@/lib/materials/pdf-children";
 
 /**
@@ -51,7 +52,7 @@ export async function GET(
   const result = await supabase
     .from("brand_materials")
     .select(
-      "id, kind, label, media_type, bytes, source_kind, source_url, derived_from_material_id, created_at",
+      "id, kind, label, media_type, bytes, width, height, r2_key, source_kind, source_url, derived_from_material_id, created_at",
     )
     .eq("brand_id", id)
     .eq("scope", "brand")
@@ -59,10 +60,15 @@ export async function GET(
   if (result.error) {
     return Response.json({ error: "素材を取得できませんでした" }, { status: 500 });
   }
-  return Response.json(
-    { materials: result.data ?? [] },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  // Every material is a container whose contents begin with its own file
+  // (docs/asset-normalization.md §9.4), so the list hands over a URL its bytes
+  // can be fetched through. Brand scope, so the brand delivery route signs it.
+  type Row = { id: string; label: string; r2_key: string | null };
+  const materials = ((result.data ?? []) as unknown as Row[]).map((row) => {
+    const { r2_key, ...rest } = row;
+    return { ...rest, url: signedMaterialUrl(id, { ...row, r2_key }) };
+  });
+  return Response.json({ materials }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(
