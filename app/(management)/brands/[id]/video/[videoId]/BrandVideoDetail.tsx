@@ -240,7 +240,7 @@ export default function BrandVideoDetail({
   const [inventory, setInventory] = useState<InventoryPayload | null>(null);
   const [runs, setRuns] = useState<TakeRunRecord[]>([]);
   // Which pins the last reading read. Splits the input drawer: read ones sit
-  // under 「抽出した資料」 with 外す, the rest are staged under 「追加した資料」.
+  // under 「抽出した資料」, the rest are staged under 「追加した資料」.
   const readIds = lastExtractReadIds(runs);
   const [runCards, setRunCards] = useState<RunCard[]>([]);
 
@@ -646,7 +646,7 @@ export default function BrandVideoDetail({
   // row that silently fails to move.
   const promoteMaterial = useCallback(
     async (materialId: string) => {
-      busy("ブランドの基盤に上げています…");
+      busy("ブランドへコピーしています…");
       try {
         const res = await videoFetch(`/api/brands/${brandId}/materials/${materialId}`, {
           method: "PATCH",
@@ -655,12 +655,12 @@ export default function BrandVideoDetail({
         });
         if (!res.ok) {
           const json = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(json?.error ?? "ブランドの基盤に上げられませんでした");
+          throw new Error(json?.error ?? "ブランドへコピーできませんでした");
         }
         await loadInventory();
-        setNotice("ブランドの基盤に上げました。次に作るものからも使えます。");
+        setNotice("ブランドの基盤にコピーしました。この動画の素材はそのまま残り、次に作るものに引き継がれます。");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "ブランドの基盤に上げられませんでした");
+        setError(e instanceof Error ? e.message : "ブランドへコピーできませんでした");
       } finally {
         idle();
       }

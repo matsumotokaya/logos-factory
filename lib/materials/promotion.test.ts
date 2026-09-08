@@ -8,12 +8,12 @@ test("この動画の素材はブランドの基盤へ上げられる", () => {
   assert.equal(decision.can && decision.to, "brand");
 });
 
-test("スコープは広がるだけ（狭めるのは誰にも許さない）", () => {
-  // 0028 のtriggerがそう宣言している。管理者でも同じ——広いスコープに
-  // 依存しているTakeが素材を失うため。
+test("ブランドの素材を動画へ引き込む操作は、まだ無いと言って断る", () => {
+  // コピー型(2026-09-08)では正当な操作だが、提供している画面が無い。
+  // 黙って通すより、無いと名指しする。
   const decision = promotionTo({ scope: "brand" }, "take");
   assert.equal(decision.can, false);
-  assert.equal(decision.can === false && decision.reason, "素材のスコープは広げることしかできません");
+  assert.ok(decision.can === false && decision.reason.includes("まだありません"));
 });
 
 test("すでに基盤にあるものは、そう言って断る", () => {

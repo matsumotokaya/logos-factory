@@ -140,58 +140,31 @@ function CategoryPicker({
 }
 
 /**
- * Widening a material to the brand, in two clicks.
+ * Copying a material to the brand library, in one click.
  *
- * Two because it cannot be undone: 0028's trigger lets a scope widen and
- * refuses every narrowing, for everyone, so 「戻せます」 would be a lie. Not a
- * dialog, though — nothing is destroyed, and a modal for an additive act
- * teaches people to click through modals.
+ * One, because nothing is lost (docs/asset-normalization.md §12, 2026-09-08):
+ * the video keeps its file and the brand receives its own copy, which can be
+ * deleted from the brand's list like any other file there. The two-click shape
+ * belonged to the old model, where promotion moved the row and could not be
+ * undone.
  */
 function PromoteAction({
-  fileName,
   disabled,
   onPromote,
 }: {
-  fileName: string;
   disabled: boolean;
   onPromote: () => void;
 }) {
-  const [asking, setAsking] = useState(false);
-
-  if (!asking) {
-    return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setAsking(true)}
-        className="shrink-0 text-[11px] text-ink-faint underline underline-offset-2 transition-colors hover:text-accent disabled:opacity-50"
-      >
-        ブランドの基盤へ
-      </button>
-    );
-  }
   return (
-    <span className="flex shrink-0 items-center gap-2 text-[11px]">
-      <span className="text-ink-muted">戻せません</span>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          setAsking(false);
-          onPromote();
-        }}
-        className="font-semibold text-accent underline underline-offset-2 disabled:opacity-50"
-      >
-        {fileName} を上げる
-      </button>
-      <button
-        type="button"
-        onClick={() => setAsking(false)}
-        className="text-ink-faint underline underline-offset-2"
-      >
-        やめる
-      </button>
-    </span>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onPromote}
+      title="この素材のコピーをブランドの基盤に置きます。この動画の素材はそのまま残ります"
+      className="shrink-0 text-[11px] text-ink-faint underline underline-offset-2 transition-colors hover:text-accent disabled:opacity-50"
+    >
+      ブランドへコピー
+    </button>
   );
 }
 
@@ -352,11 +325,7 @@ function InventoryRow({
               </p>
             )}
             {onPromote ? (
-              <PromoteAction
-                fileName={fileName}
-                disabled={disabled}
-                onPromote={() => onPromote(material.id)}
-              />
+              <PromoteAction disabled={disabled} onPromote={() => onPromote(material.id)} />
             ) : null}
           </div>
           {overriddenBy ? (
@@ -598,7 +567,7 @@ export default function MaterialInventory({
     <div className="flex flex-col gap-5">
       <Tier
         title="この動画の素材"
-        note="この動画に固定されているもの。分類を直すと、この素材を使う他の成果物にも反映されます。ずっと使うものは「ブランドの基盤へ」上げると、次に作るものからも選べます。"
+        note="この動画だけが持っているもの。作成時にブランドから引き継いだものもコピーで、以後ブランド側の変更は届きません。ずっと使うものは「ブランドへコピー」すると、次に作るものに引き継がれます。"
         materials={payload.own}
         usage={payload.usage}
         derivations={derivations}
@@ -645,7 +614,7 @@ export default function MaterialInventory({
         note={
           baseOff
             ? "この動画では使いません。ブランドのものとしては残っているので、次に作るものからは使えます。"
-            : "このブランドのもの。次に作る動画・LPからも使えます。マークは新しい動画へ自動で入り、それ以外はここから選びます。"
+            : "ブランドが持っているもの。新しい動画を作るとき、マークはここからコピーで入ります。ここを変えても、できている動画は変わりません。"
         }
         materials={payload.base}
         usage={payload.usage}
@@ -654,7 +623,7 @@ export default function MaterialInventory({
         disabled={disabled || saving !== null}
         onClassify={classify}
         onNormalize={onNormalize}
-        empty="このブランドにはまだ基盤の素材がありません。上の素材を「ブランドの基盤へ」上げると、次に作るものからも使えます。"
+        empty="このブランドにはまだ基盤の素材がありません。上の素材を「ブランドへコピー」すると、次に作るものに引き継がれます。"
       />
     </div>
   );

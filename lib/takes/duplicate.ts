@@ -3,24 +3,27 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createTake } from "@/lib/takes/create";
 import { duplicateTitle } from "@/lib/takes/naming";
+import {
+  COPY_COLUMNS,
+  copyMaterials,
+  type CopiedMaterial,
+  type CopySource,
+} from "@/lib/materials/copy";
+import { materialUri, replaceMaterialUris } from "@/lib/takes/material-uri";
 
 // Duplicating a take — a second version of a video or an LP.
 //
 // A take is the editable thing, so "make a variant of this" means a new take
-// carrying the same brief and the same pinned inputs. Nothing is copied in R2:
-// the copy pins the *same* material rows, at the same checksums, which is what
-// makes duplication cheap and what makes the two versions agree about their
-// footage until someone changes one of them.
+// carrying the same brief and its own copies of every material the source
+// holds (docs/asset-normalization.md §12, 2026-09-08). Rows AND bytes are
+// copied: the two versions share nothing, so deleting either one takes exactly
+// its own files and nothing of the other's. Until 2026-09-08 the copy pinned
+// the source's rows instead, which is why `delete_take` had to ask what to do
+// with materials and why deleting a source could blank its duplicate.
 //
-// Two consequences worth being explicit about:
-//
-//   - The copy pins materials still scoped to the source take (a generated
-//     narration WAV, an upload made on that screen). Deleting the source then
-//     asks what to do with them, and `promote` is what keeps the copy playable —
-//     that question exists in `delete_take` precisely because of this.
-//   - The copy is pinned to the template's *current* production version, not the
-//     source's. A take may not be created against a retired version, and a brief
-//     the current schema rejects is reported rather than silently reshaped.
+// The copy is pinned to the template's *current* production version, not the
+// source's. A take may not be created against a retired version, and a brief
+// the current schema rejects is reported rather than silently reshaped.
 //
 // Renders are not copied. `createTake` makes the template's default render rows
 // empty, so the copy starts as "not rendered yet" — carrying over the source's
@@ -107,12 +110,15 @@ export async function duplicateTake(
     }
   }
 
+  // What the source holds: every row scoped to it, plus anything it pinned
+  // from elsewhere (a take made before 2026-09-08 pins the brand's mark row
+  // directly). All of it becomes this take's own.
   const { data: pins, error: pinsError } = await supabase
     .from("take_inputs")
     .select("role, material_id, checksum")
     .eq("take_id", input.takeId);
   if (pinsError) {
-    // The take exists and its brief is complete; only the input pins are
+    // The take exists and its brief is complete; only the materials are
     // missing. Saying so beats deleting the copy the user is now looking at.
     return {
       ok: false,
@@ -120,13 +126,77 @@ export async function duplicateTake(
       error: "複製は作成しましたが、素材の固定を引き継げませんでした",
     };
   }
+  const pinnedIds = [...new Set((pins ?? []).map((pin) => pin.material_id as string))];
+  const [own, pinned] = await Promise.all([
+    supabase.from("brand_materials").select(COPY_COLUMNS).eq("take_id", input.takeId),
+    pinnedIds.length > 0
+      ? supabase.from("brand_materials").select(COPY_COLUMNS).in("id", pinnedIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (own.error || pinned.error) {
+    return { ok: false, status: 500, error: "複製は作成しましたが、素材を読めませんでした" };
+  }
+  const byId = new Map<string, CopySource>();
+  for (const row of [...(own.data ?? []), ...(pinned.data ?? [])] as unknown as CopySource[]) {
+    byId.set(row.id, row);
+  }
 
-  const rows = (pins ?? []).map((pin) => ({
-    take_id: created.takeId,
-    role: pin.role as string,
-    material_id: pin.material_id as string,
-    checksum: pin.checksum as string | null,
-  }));
+  let copies: CopiedMaterial[];
+  try {
+    copies = await copyMaterials(
+      supabase,
+      [...byId.values()],
+      { scope: "take", brandId: input.brandId, takeId: created.takeId },
+      input.createdBy,
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      status: 500,
+      error: `複製は作成しましたが、素材をコピーできませんでした: ${
+        error instanceof Error ? error.message : ""
+      }`,
+    };
+  }
+  const newIdOf = new Map(copies.map((copy) => [copy.fromId, copy.id]));
+
+  // The briefs point at material:<uuid>; every pointer moves onto the copy.
+  // Both briefs, always together (docs/data-model.md §4.1): a pointer moved in
+  // one and not the other would make the played film and the workbench
+  // disagree about which bytes they mean.
+  const repoint = (value: unknown) =>
+    replaceMaterialUris(value, (id) => {
+      const next = newIdOf.get(id);
+      return next ? materialUri(next) : null;
+    });
+  const { error: repointError } = await supabase
+    .from("takes")
+    .update({
+      brief: repoint(source.brief),
+      ...(source.baked_brief ? { baked_brief: repoint(source.baked_brief) } : {}),
+    })
+    .eq("id", created.takeId);
+  if (repointError) {
+    return {
+      ok: false,
+      status: 500,
+      error: `複製は作成しましたが、素材の参照を書き換えられませんでした: ${repointError.message}`,
+    };
+  }
+
+  const rows = (pins ?? []).flatMap((pin) => {
+    const materialId = newIdOf.get(pin.material_id as string);
+    return materialId
+      ? [
+          {
+            take_id: created.takeId,
+            role: pin.role as string,
+            material_id: materialId,
+            checksum: pin.checksum as string | null,
+          },
+        ]
+      : [];
+  });
   if (rows.length > 0) {
     const { error: insertError } = await supabase.from("take_inputs").insert(rows);
     if (insertError) {

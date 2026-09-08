@@ -1,15 +1,17 @@
-// What a material's scope may become, and what to say when it may not.
+// Whether a material may be promoted to the brand, and what to say when not.
 //
-// docs/asset-normalization.md §12 / §14-5. The rules are not this module's
-// invention — they are migration 0056's promotion trigger and its two update
-// policies, stated in Japanese. The screen is not the authority; the server
-// checks the same things again, and the database refuses regardless.
+// docs/asset-normalization.md §12. Since 2026-09-08 promotion is a COPY: the
+// take keeps its row and the brand receives its own. The only questions left
+// are whether the source is a take's file (a brand file is already there) and
+// whether the caller may write into the brand library, which the insert policy
+// (0028) decides on the core rung. The screen is not the authority; the server
+// counts again with this function, and the database refuses regardless.
 //
 // Kept separate from the route so the wording can be tested without a
 // database, the same split lib/brand-tree-actions.ts and
 // lib/event-cm/panel-actions.ts already use.
 
-/** take → brand. Widening only; the trigger refuses every narrowing. */
+/** The two owners a material can have. */
 export const SCOPE_RANK = { take: 1, brand: 2 } as const;
 
 export type MaterialScope = keyof typeof SCOPE_RANK;
@@ -22,11 +24,11 @@ export type PromotionDecision =
   | { can: false; reason: string };
 
 /**
- * May this material be widened to that scope?
+ * May this material be copied to that scope?
  *
- * Widening is one-way and permanent, which is why the screen asks twice. It is
- * not destructive — the id and the R2 key never change, so everything already
- * pointing at the material keeps working — but 「戻せます」 would be false.
+ * Only take → brand exists today. The copy is additive and the source is
+ * untouched, so the screen asks once: nothing is lost, and the brand's copy can
+ * be deleted from the brand library like any other file there.
  */
 export function promotionTo(
   material: { scope: string },
@@ -51,21 +53,21 @@ export function promotionTo(
           : "この素材はすでにそのスコープにあります",
     };
   }
-  // Stated as a property of the material rather than of the request: narrowing
-  // is refused for everyone, admins included, because it would strand takes
-  // that depend on the wider scope (0028).
+  // Pulling a brand file into one video is a real operation in the copy model
+  // — it is how a take would pick up a photograph added after it was made —
+  // but nothing offers it yet, so it is named rather than silently allowed.
   if (to < from) {
-    return { can: false, reason: "素材のスコープは広げることしかできません" };
+    return { can: false, reason: "ブランドの素材を動画へ引き込む操作はまだありません" };
   }
   return { can: true, from: material.scope, to: target };
 }
 
 /**
- * What to say when the database refused the widening.
+ * What to say when the database refused the copy into the brand library.
  *
- * RLS makes a forbidden update return zero rows rather than an error, so a
- * refusal and a missing row look identical from the client. The route tells
- * them apart by reading first; this supplies the sentence.
+ * The insert policy (0028) asks for the core rung on a scope='brand' row, and
+ * the failure arrives as a policy error the person cannot read. This supplies
+ * the sentence.
  */
 export const promotionRefusal = (target: string): string =>
   target === "brand"

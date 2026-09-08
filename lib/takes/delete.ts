@@ -47,8 +47,15 @@ export type DeleteTakeOutcome =
 
 const DISPOSITIONS: MaterialDisposition[] = ["require_decision", "promote", "discard"];
 
+/**
+ * Absent means `discard`. Since 2026-09-08 a take's materials are copies that
+ * belong to it alone (docs/asset-normalization.md §12), so there is nothing to
+ * decide: deleting the take deletes its files. `promote` and
+ * `require_decision` stay accepted for the RPC's sake and for callers that
+ * still send them.
+ */
 export function parseMaterialDisposition(value: unknown): MaterialDisposition | null {
-  if (value === undefined || value === null || value === "") return "require_decision";
+  if (value === undefined || value === null || value === "") return "discard";
   return typeof value === "string" && (DISPOSITIONS as string[]).includes(value)
     ? (value as MaterialDisposition)
     : null;

@@ -18,6 +18,13 @@ import { videoState, type VideoState, type VideoSummary } from "@/lib/video/asse
 import { emptyEventBrief } from "@/remotion/event/briefs";
 import { createTake } from "@/lib/takes/create";
 import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
+import {
+  COPY_COLUMNS,
+  copyMaterials,
+  type CopiedMaterial,
+  type CopySource,
+} from "@/lib/materials/copy";
+import { materialUri, replaceMaterialUris } from "@/lib/takes/material-uri";
 import { UNTITLED_VIDEO } from "@/lib/event-cm/title";
 import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/event-cm/narration";
 
@@ -381,14 +388,53 @@ async function createVideoTake({
   if (!created.ok) throw new CreateFailure(created.error);
 
   if (pinMaterial) {
-    // The brief points at material:<uuid>; the pin is what lets both the
-    // preview resolver and the renderer read those bytes, and what fixes the
-    // exact version this take consumes.
+    // The mark is COPIED into the take, not referenced (docs/asset-normalization
+    // §12, 2026-09-08). The brand's row stays the brand's; this take gets its
+    // own row under its own prefix, so whatever the brand does to its mark
+    // later — replace it, delete it — reaches no film already made, and
+    // deleting this take takes exactly this take's files with it.
+    step("ブランドのマークをこの動画へコピーしています");
+    const source = await supabase
+      .from("brand_materials")
+      .select(COPY_COLUMNS)
+      .eq("id", pinMaterial.id)
+      .maybeSingle();
+    if (source.error || !source.data) {
+      throw new CreateFailure("ブランドのマークを読めませんでした");
+    }
+    let copies: CopiedMaterial[];
+    try {
+      copies = await copyMaterials(
+        supabase,
+        [source.data as unknown as CopySource],
+        { scope: "take", brandId, takeId: created.takeId },
+        userId,
+      );
+    } catch (error) {
+      throw new CreateFailure(
+        error instanceof Error ? error.message : "ブランドのマークをコピーできませんでした",
+      );
+    }
+    const copy = copies[0];
+
+    // The brief was saved pointing at the brand's row; repoint it at the copy
+    // the take now owns. The pin is what lets the preview resolver and the
+    // renderer read those bytes, and what fixes the exact version consumed.
+    const repointed = replaceMaterialUris(brief, (id) =>
+      id === pinMaterial.id ? materialUri(copy.id) : null,
+    );
+    const { error: briefError } = await supabase
+      .from("takes")
+      .update({ brief: repointed })
+      .eq("id", created.takeId);
+    if (briefError) {
+      throw new CreateFailure(`マークの参照を書き換えられませんでした: ${briefError.message}`);
+    }
     const { error: pinError } = await supabase.from("take_inputs").insert({
       take_id: created.takeId,
-      material_id: pinMaterial.id,
+      material_id: copy.id,
       role: "logo",
-      checksum: pinMaterial.checksum,
+      checksum: copy.checksum ?? pinMaterial.checksum,
     });
     if (pinError) {
       throw new CreateFailure(`ロゴを入力として固定できませんでした: ${pinError.message}`);

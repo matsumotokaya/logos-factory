@@ -22,12 +22,7 @@ import {
   type PdfChildProvenance,
   type PdfExpansion,
 } from "@/lib/materials/pdf-children";
-import {
-  destroyFamily,
-  heldByOtherTakes,
-  resolveMaterialFamily,
-  unpinFamily,
-} from "@/lib/materials/delete";
+import { destroyFamily, resolveMaterialFamily, unpinFamily } from "@/lib/materials/delete";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { takeMaterialSignatureToken } from "@/lib/takes/material-uri";
 import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
@@ -548,20 +543,6 @@ export async function DELETE(
     return Response.json({ error: resolved.error }, { status: resolved.status });
   }
   const { family } = resolved;
-
-  const shared = await heldByOtherTakes(supabase, loaded.take.id, family);
-  if ("error" in shared) {
-    return Response.json({ error: shared.error }, { status: shared.status });
-  }
-  if (shared.others > 0) {
-    return Response.json(
-      {
-        error:
-          "この素材は他の動画も入力として使っているため削除できません。この動画からだけ外すことはできません",
-      },
-      { status: 409 },
-    );
-  }
 
   const unpinned = await unpinFamily(supabase, loaded.take.id, family);
   if (unpinned) {

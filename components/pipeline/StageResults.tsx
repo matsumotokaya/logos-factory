@@ -66,9 +66,10 @@ export function lastExtractReadIds(runs: TakeRunRecord[]): Set<string> {
  * does not need the reading re-run to stop being listed — the pipeline says
  * 「外した1件が未反映」 instead, and re-running is how that is cleared.
  *
- * 「外す」 lives here and only here (docs/asset-normalization.md §9.4): a
- * staged document has not been read, so there is nothing of it in the video to
- * take out; a read one has, and removing it withdraws what rested on it.
+ * Deleting lives here and in the inventory, and does the same thing in both
+ * (docs/asset-normalization.md §9.4): the file, its bytes and whatever came out
+ * of it go, and the values that rested on it go back to being proposals. A
+ * staged document has not been read, so nothing in the video rests on it yet.
  */
 export function ExtractResults({
   runs,

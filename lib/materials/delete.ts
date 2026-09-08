@@ -12,15 +12,23 @@ import { deleteR2Object } from "@/lib/r2";
 // icon was a promise the code did not keep. A material has one lifetime and one
 // bin, and this is it.
 //
-// Three properties the schema already guarantees, which this code has to work
-// with rather than around:
+// Since 2026-09-08 a material has exactly one owner (docs/asset-normalization
+// §12): rows are copied between takes and the brand, never shared. So the only
+// take that can be holding a take's file is that take, and the brand's files
+// are pinned by nobody. Three properties the schema guarantees still shape the
+// code:
 //
 //   * `take_inputs.material_id` is ON DELETE RESTRICT (0028). Pins have to go
-//     first, which is also what makes a dangling pin impossible.
+//     first, which is also what makes a dangling pin impossible — and what
+//     stops a video made BEFORE the copy model, which still pins the brand's
+//     mark row directly, from losing it under its feet. That refusal arrives
+//     as FK error 23503 and is reported in one sentence.
 //   * `derived_from_material_id` is ON DELETE SET NULL. Deleting a PDF would
 //     leave its images as 79 parentless rows, so the family goes together.
-//   * R2 keys are content-addressed, so an object may be shared by more than
-//     one row. It goes only when the last row pointing at it is gone.
+//   * R2 keys are content-addressed. A copy re-uploads under its own prefix,
+//     so sharing no longer happens for new rows, but a promoted row from
+//     before the change keeps the key it was uploaded under. An object goes
+//     only when the last row pointing at it is gone.
 
 /** One row of the family, with what the delete needs off it. */
 export interface FamilyMaterial {
@@ -86,6 +94,29 @@ export async function resolveMaterialFamily(
 }
 
 /**
+ * The brand-library twin: a brand's own file and its descendants.
+ *
+ * Nothing pins a brand file in the copy model, so there are no pins to release
+ * — the FK does the refusing if a pre-2026-09-08 video still points at it.
+ */
+export async function resolveBrandMaterialFamily(
+  supabase: SupabaseClient,
+  input: { brandId: string; materialId: string },
+): Promise<{ family: FamilyMaterial[] } | FamilyRefusal> {
+  const rows = await supabase
+    .from("brand_materials")
+    .select(COLUMNS)
+    .eq("brand_id", input.brandId)
+    .eq("scope", "brand");
+  if (rows.error) return { error: "素材を確認できませんでした", status: 500 };
+  const all = (rows.data ?? []) as unknown as Row[];
+  if (!all.some((row) => row.id === input.materialId)) {
+    return { error: "素材が見つかりません", status: 404 };
+  }
+  return { family: collectFamily(all, input.materialId) };
+}
+
+/**
  * The target and its descendants, in the order they were found.
  *
  * Pure so the shape can be asserted: a PDF's images are children, a normalised
@@ -120,31 +151,6 @@ export function collectFamily<T extends FamilyMaterial>(
   const target = rows.find((row) => row.id === targetId);
   if (target) walk(target);
   return family;
-}
-
-/**
- * Whether another take is holding any of these files.
- *
- * A duplicated video pins the original's materials (lib/takes/duplicate.ts), so
- * deleting one here would take a file out from under a deliverable nobody was
- * looking at. Refusing is the same stance the brand library takes, and for the
- * same reason: a take has to stay reproducible from its recorded inputs.
- */
-export async function heldByOtherTakes(
-  supabase: SupabaseClient,
-  takeId: string,
-  family: readonly FamilyMaterial[],
-): Promise<{ others: number } | FamilyRefusal> {
-  const pins = await supabase
-    .from("take_inputs")
-    .select("take_id, material_id")
-    .in(
-      "material_id",
-      family.map((row) => row.id),
-    )
-    .neq("take_id", takeId);
-  if (pins.error) return { error: "素材の利用状況を確認できませんでした", status: 500 };
-  return { others: (pins.data ?? []).length };
 }
 
 /** Release this take's pins on the family, in every role they were pinned in. */
@@ -190,6 +196,16 @@ export async function destroyFamily(
     .in("id", ids)
     .select("id");
   if (removed.error) {
+    // 23503: a take still pins one of these rows. In the copy model that can
+    // only be a video made before 2026-09-08, which points at the brand's mark
+    // directly rather than at a copy of its own.
+    if (removed.error.code === "23503") {
+      return {
+        error:
+          "この素材を入力として固定している動画があります（素材のコピー型より前に作られたもの）。その動画を削除してから消してください",
+        status: 409,
+      };
+    }
     return { error: "素材を削除できませんでした", status: 500 };
   }
   const gone = new Set((removed.data ?? []).map((row) => row.id as string));

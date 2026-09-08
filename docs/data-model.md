@@ -86,7 +86,7 @@ Takeのbriefは必要なKnowledgeだけを作成時に投影し、その後は�
 
 ## 4. MaterialとTake
 
-Materialのscopeは**BrandかTakeの2段**(Workはv3で廃止し、イベントは子Brandになった)。R2オブジェクトのchecksumとサイズを保存し、`take_inputs`がroleとchecksumを固定する。レンダー時に「現在のBrand素材」を再解決せず、Takeが固定した入力だけを使う。
+Materialのscopeは**BrandかTakeの2段**(Workはv3で廃止し、イベントは子Brandになった)。**行の所有者は1つで、所有者をまたぐときは行もバイトもコピーする**(2026-09-08。正本は [asset-normalization.md §12](asset-normalization.md))——動画作成時にBrandのマークはTakeスコープへコピーされ、複製はコピーの行を持ち、昇格はBrandスコープにコピーを作る。R2オブジェクトのchecksumとサイズを保存し、`take_inputs`がroleとchecksumを固定する。レンダー時に「現在のBrand素材」を再解決せず、Takeが固定した入力だけを使う。Brand側の変更・削除はできているTakeに届かない。
 
 **ファイルと情報は別の軸で分類する**(正本は [asset-normalization.md §5](asset-normalization.md))。
 

@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteR2Object, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
 import { extractPdfImages, type PdfImage } from "@/lib/materials/pdf";
+import { forEachLimited } from "@/lib/materials/copy";
 
 // The images inside a PDF, registered as materials of their own.
 //
@@ -74,24 +75,6 @@ const childLabel = (parent: PdfParent, image: PdfImage): string => {
   const ext = image.mediaType === "image/png" ? "png" : "jpg";
   return `${stem}_p${image.page}_${String(image.index).padStart(2, "0")}.${ext}`.slice(0, 200);
 };
-
-/** Upload with a small amount of parallelism: a hundred sequential PUTs is
- *  slow, a hundred concurrent ones is a burst nobody asked for. */
-async function forEachLimited<T>(
-  items: readonly T[],
-  limit: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const item = items[cursor];
-      cursor += 1;
-      await fn(item);
-    }
-  });
-  await Promise.all(workers);
-}
 
 /**
  * Take a PDF apart and register what is inside as children of its row.
