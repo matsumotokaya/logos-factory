@@ -19,10 +19,15 @@ import { isPdf } from "@/lib/materials/pdf";
 import {
   PDF_IMAGE_ROLE,
   registerPdfChildren,
-  unpinPdfChildren,
   type PdfChildProvenance,
   type PdfExpansion,
 } from "@/lib/materials/pdf-children";
+import {
+  destroyFamily,
+  heldByOtherTakes,
+  resolveMaterialFamily,
+  unpinFamily,
+} from "@/lib/materials/delete";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { takeMaterialSignatureToken } from "@/lib/takes/material-uri";
 import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
@@ -493,6 +498,19 @@ export async function POST(
   }
 }
 
+/**
+ * Delete a material this video holds, and everything that came out of it.
+ *
+ * A real deletion, not an unpin (2026-09-08). Unpinning left the row in the
+ * inventory for ever: a file uploaded by mistake could not be taken back, the
+ * two lists disagreed about what the video had, and the bin icon promised
+ * something the code did not do. One material, one lifetime, one bin.
+ *
+ * The order is deliberate. Pins go first because the schema forbids deleting a
+ * pinned material at all; the brief is withdrawn next, while the rows still
+ * exist, so a failure there leaves a recoverable state rather than pointers
+ * into nothing; the rows and then the bytes go last.
+ */
 export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
@@ -518,27 +536,36 @@ export async function DELETE(
     return Response.json({ error: "素材IDが必要です" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("take_inputs")
-    .delete()
-    .eq("take_id", loaded.take.id)
-    .eq("material_id", materialId)
-    .eq("role", SOURCE_ROLE);
-  if (error) {
-    return Response.json({ error: "素材を外せませんでした" }, { status: 500 });
+  // The file and everything derived from it: a PDF leaves with its images,
+  // because `derived_from_material_id` is ON DELETE SET NULL and orphans would
+  // surface as parentless rows in the inventory.
+  const resolved = await resolveMaterialFamily(supabase, {
+    brandId,
+    takeId: loaded.take.id,
+    materialId,
+  });
+  if ("error" in resolved) {
+    return Response.json({ error: resolved.error }, { status: resolved.status });
   }
-  // The material row and its bytes stay: another take may pin the same file,
-  // and content-addressed objects are cheap to keep and impossible to recreate.
+  const { family } = resolved;
 
-  // A PDF's children leave with it. They were pinned because the PDF was; a
-  // scene that pointed at one is withdrawn below like any other lost pointer.
-  try {
-    await unpinPdfChildren(supabase, loaded.take.id, materialId);
-  } catch (childError) {
+  const shared = await heldByOtherTakes(supabase, loaded.take.id, family);
+  if ("error" in shared) {
+    return Response.json({ error: shared.error }, { status: shared.status });
+  }
+  if (shared.others > 0) {
     return Response.json(
-      { error: childError instanceof Error ? childError.message : "PDFの中身を外せませんでした" },
-      { status: 500 },
+      {
+        error:
+          "この素材は他の動画も入力として使っているため削除できません。この動画からだけ外すことはできません",
+      },
+      { status: 409 },
     );
+  }
+
+  const unpinned = await unpinFamily(supabase, loaded.take.id, family);
+  if (unpinned) {
+    return Response.json({ error: unpinned.error }, { status: unpinned.status });
   }
 
   // What the take still holds, in any role. A file pinned again as something
@@ -556,7 +583,7 @@ export async function DELETE(
   // the template's proposal for this brand, which is what the take opened with.
   let withdrawn: Withdrawal[] = [];
   const brief = (loaded.take.brief as EventCmBrief | null) ?? null;
-  if (loaded.take.template_id === "event-cm" && brief && !held.has(materialId)) {
+  if (loaded.take.template_id === "event-cm" && brief) {
     const seeded = await seedEventCmFromBrand(supabase, {
       brandId,
       userId: user.id,
@@ -568,7 +595,7 @@ export async function DELETE(
         const validated = validateBrief("event-cm", result.brief);
         if (!validated.ok) {
           return Response.json(
-            { error: `外した資料の値を戻せませんでした: ${validated.issues.join(", ")}` },
+            { error: `削除した資料の値を戻せませんでした: ${validated.issues.join(", ")}` },
             { status: 500 },
           );
         }
@@ -577,11 +604,23 @@ export async function DELETE(
           .update({ brief: validated.brief, updated_at: new Date().toISOString() })
           .eq("id", loaded.take.id);
         if (saved.error) {
-          return Response.json({ error: "外した資料の値を戻せませんでした" }, { status: 500 });
+          return Response.json({ error: "削除した資料の値を戻せませんでした" }, { status: 500 });
         }
         withdrawn = result.withdrawn;
       }
     }
   }
-  return Response.json({ ok: true, withdrawn });
+
+  const destroyed = await destroyFamily(supabase, family);
+  if ("error" in destroyed) {
+    // The pins and the brief are already released, which is the recoverable
+    // half. Saying so beats reporting success over a file still in the list.
+    return Response.json({ error: destroyed.error, withdrawn }, { status: destroyed.status });
+  }
+
+  return Response.json({
+    ok: true,
+    withdrawn,
+    deleted: destroyed.destroyed.deleted.map((row) => ({ id: row.id, label: row.label })),
+  });
 }

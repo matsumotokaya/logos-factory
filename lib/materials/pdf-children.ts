@@ -209,33 +209,3 @@ export async function registerPdfChildren(
     ms: contents.ms,
   };
 }
-
-/**
- * Unpin a PDF's children from a take, when the PDF itself is taken out.
- *
- * The rows and bytes stay, as the PDF's do: content-addressed objects are
- * cheap to keep and impossible to recreate. Returns the children's ids so the
- * caller can leave them out of what the take still holds.
- */
-export async function unpinPdfChildren(
-  supabase: SupabaseClient,
-  takeId: string,
-  parentId: string,
-): Promise<string[]> {
-  const children = await supabase
-    .from("brand_materials")
-    .select("id")
-    .eq("derived_from_material_id", parentId)
-    .eq("take_id", takeId);
-  if (children.error) throw new Error("PDFの中身を確認できませんでした");
-  const ids = (children.data ?? []).map((row) => row.id as string);
-  if (ids.length === 0) return ids;
-  const removed = await supabase
-    .from("take_inputs")
-    .delete()
-    .eq("take_id", takeId)
-    .eq("role", PDF_IMAGE_ROLE)
-    .in("material_id", ids);
-  if (removed.error) throw new Error("PDFの中身を外せませんでした");
-  return ids;
-}

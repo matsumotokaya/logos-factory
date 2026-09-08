@@ -817,8 +817,13 @@ export default function BrandVideoDetail({
     }
   }
 
+  /**
+   * Delete a material this video holds — the row, its bytes, and whatever came
+   * out of it. Reached from the input drawer and from the inventory, because
+   * after 2026-09-08 the two lists lose a file at the same moment.
+   */
   async function removeSource(materialId: string) {
-    busy("資料を外しています…");
+    busy("資料を削除しています…");
     try {
       const res = await videoFetch(
         `/api/brands/${brandId}/videos/${videoId}/materials?materialId=${materialId}`,
@@ -827,21 +832,34 @@ export default function BrandVideoDetail({
       const json = (await res.json().catch(() => null)) as {
         error?: string;
         withdrawn?: Array<{ label: string }>;
+        deleted?: Array<{ label: string }>;
       } | null;
-      if (!res.ok) throw new Error(json?.error ?? "資料を外せませんでした");
-      // What left with it. Said here because the values changed on a screen
-      // the user is not looking at — the board behind the drawer.
+      if (!res.ok) throw new Error(json?.error ?? "資料を削除できませんでした");
+      // What left with it. Said here because the change lands on screens the
+      // user is not looking at: the board behind the drawer, and the inventory.
+      const parts: string[] = [];
+      if (json?.deleted?.length) {
+        // A PDF takes its images with it, so the count is worth saying: 「1件
+        // 削除」 over a flyer that removed eighty rows would be a surprise.
+        parts.push(
+          json.deleted.length === 1
+            ? `${json.deleted[0].label}を削除しました`
+            : `${json.deleted[0].label}と中身${json.deleted.length - 1}点を削除しました`,
+        );
+      }
       if (json?.withdrawn?.length) {
-        setNotice(
+        parts.push(
           `${json.withdrawn.length}件を仮の値に戻しました（${json.withdrawn
             .map((entry) => entry.label)
             .join("、")}）`,
         );
       }
+      if (parts.length > 0) setNotice(parts.join("。"));
       await loadSources();
+      await loadInventory();
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "資料を外せませんでした");
+      setError(e instanceof Error ? e.message : "資料を削除できませんでした");
     } finally {
       idle();
     }
@@ -1490,6 +1508,7 @@ export default function BrandVideoDetail({
                       onClassify={(id, category) => void classifyMaterial(id, category)}
                       onPromote={(id) => void promoteMaterial(id)}
                       onNormalize={(id) => void normalizeMaterial(id)}
+                      onDelete={(id) => void removeSource(id)}
                       baseOff={brandBaseIsOff(video.brief as EventCmBrief)}
                       onToggleBase={(off) =>
                         void editFact({ path: BRAND_BASE_PATH, suppressed: off })
@@ -1812,6 +1831,7 @@ export default function BrandVideoDetail({
               onClassify={(id, category) => void classifyMaterial(id, category)}
               onPromote={(id) => void promoteMaterial(id)}
               onNormalize={(id) => void normalizeMaterial(id)}
+              onDelete={(id) => void removeSource(id)}
               // Declining the base is an ordinary suppression, so it goes
               // through the same endpoint every other 「この項目を出さない」
               // does — no new route, and it lands in provenance where a re-run

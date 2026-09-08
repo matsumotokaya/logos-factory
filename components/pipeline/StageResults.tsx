@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import type { TakeRunRecord } from "@/app/api/brands/[id]/videos/[videoId]/runs/route";
 import type { PdfChild } from "@/app/api/brands/[id]/videos/[videoId]/materials/route";
 import type { MaterialBody } from "@/components/materials/MaterialContents";
+import DeleteAction from "@/components/materials/DeleteAction";
 import MaterialRow from "@/components/materials/MaterialRow";
 import type { BriefSource } from "@/components/video/BriefSourceIntake";
 
@@ -83,6 +84,7 @@ export function ExtractResults({
   /** What came out of the containers among them, keyed to their parent. */
   contents?: readonly PdfChild[];
   busy: boolean;
+  /** Delete the document: the row, its bytes, and whatever came out of it. */
   onRemove: (materialId: string) => Promise<void>;
   /** Take a PDF apart now — for one that arrived before intake did this. */
   onExpand?: (materialId: string) => Promise<void>;
@@ -121,7 +123,7 @@ export function ExtractResults({
           ) : null}
         </h3>
         <p className="mt-1 text-[11px] text-ink-muted">
-          読み取り済みで、構造化が読むもの。▸ を押すと中身が開き、1点ずつダウンロードできます。この動画から外すと、その資料だけに立っていた値は仮の値に戻り、下の工程が要更新になります。
+          読み取り済みで、構造化が読むもの。▸ を押すと中身が開き、1点ずつダウンロードできます。削除するとファイルごと消え、その資料だけに立っていた値は仮の値に戻り、下の工程が要更新になります。
         </p>
       </div>
       {!run ? (
@@ -162,28 +164,16 @@ export function ExtractResults({
                 trailing={row.mode === "text" ? `${row.chars}字` : noteOf(row.note)}
                 derived={derived}
                 actions={
-                  /* A bin rather than the word 「外す」, which was our
-                     vocabulary and nobody else's (2026-09-08). The accessible
-                     name stays exact, because this unpins the document from
-                     this video and does not delete the file. */
-                  <button
-                    type="button"
-                    onClick={() => void onRemove(row.source.id)}
+                  /* A real bin (2026-09-08): the row, the bytes, and a PDF's
+                     images go together, and the values that rested on the
+                     document go back to being proposals. The inventory loses
+                     it at the same moment, which is what makes the two lists
+                     agree about what this video has. */
+                  <DeleteAction
+                    name={row.source.label}
                     disabled={busy}
-                    title="この動画から外す"
-                    aria-label={`${row.source.label}をこの動画から外す`}
-                    className="shrink-0 rounded p-1 text-ink-faint transition hover:text-red-700 disabled:opacity-50"
-                  >
-                    <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true">
-                      <path
-                        d="M4 6h12M8 6V4.5h4V6M6.5 6l.6 9h5.8l.6-9M9 8.5v4M11 8.5v4"
-                        stroke="currentColor"
-                        strokeWidth="1.3"
-                        fill="none"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
+                    onDelete={() => void onRemove(row.source.id)}
+                  />
                 }
                 footer={
                   // Only a PDF has contents to go looking for. One with none is

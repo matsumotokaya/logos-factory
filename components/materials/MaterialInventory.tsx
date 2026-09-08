@@ -37,6 +37,7 @@ import type {
   InventoryMaterial,
   InventoryPayload,
 } from "@/app/api/brands/[id]/videos/[videoId]/inventory/route";
+import DeleteAction from "./DeleteAction";
 import type { MaterialBody } from "./MaterialContents";
 import MaterialRow from "./MaterialRow";
 
@@ -252,6 +253,7 @@ function InventoryRow({
   onClassify,
   onPromote,
   onNormalize,
+  onDelete,
 }: {
   material: InventoryMaterial;
   /** The normalised name — what the export writes and the download hands over. */
@@ -271,6 +273,8 @@ function InventoryRow({
   onPromote?: (id: string) => void;
   /** Make the normalised copy. Absent = the action is not offered. */
   onNormalize?: (id: string) => void;
+  /** Delete the file. Absent on the brand tier, which the video may not touch. */
+  onDelete?: (id: string) => void;
 }) {
   const measured =
     material.width && material.height ? `${material.width}×${material.height}` : null;
@@ -303,11 +307,23 @@ function InventoryRow({
       }}
       derived={derived}
       actions={
-        <CategoryPicker
-          material={material}
-          disabled={disabled}
-          onChange={(category) => onClassify(material.id, category)}
-        />
+        <>
+          <CategoryPicker
+            material={material}
+            disabled={disabled}
+            onChange={(category) => onClassify(material.id, category)}
+          />
+          {/* The same bin the input drawer has, doing the same thing: the two
+              lists now lose a file at the same moment (§9.4). Absent on the
+              brand tier — that library has its own screen and its own rung. */}
+          {onDelete ? (
+            <DeleteAction
+              name={fileName}
+              disabled={disabled}
+              onDelete={() => onDelete(material.id)}
+            />
+          ) : null}
+        </>
       }
       meta={
         <div className="flex flex-col gap-1">
@@ -378,6 +394,7 @@ function Tier({
   onClassify,
   onPromote,
   onNormalize,
+  onDelete,
   empty,
 }: {
   title: string;
@@ -391,6 +408,7 @@ function Tier({
   onClassify: (id: string, category: MaterialCategory | null) => void;
   onPromote?: (id: string) => void;
   onNormalize?: (id: string) => void;
+  onDelete?: (id: string) => void;
   empty: string;
 }) {
   // A PDF's images belong INSIDE the PDF's row, not beside it: a hundred
@@ -454,6 +472,7 @@ function Tier({
                   onClassify={onClassify}
                   onPromote={onPromote}
                   onNormalize={onNormalize}
+                  onDelete={onDelete}
                 />
               ))}
             </ul>
@@ -529,6 +548,7 @@ export default function MaterialInventory({
   payload,
   busy,
   onClassify,
+  onDelete,
   onPromote,
   onNormalize,
   baseOff,
@@ -542,6 +562,14 @@ export default function MaterialInventory({
   onPromote?: (id: string) => void;
   /** Make the normalised copy of an awkward file. Absent = not offered. */
   onNormalize?: (id: string) => void;
+  /**
+   * Delete a file this deliverable holds, with whatever came out of it (§9.4).
+   *
+   * Offered on the upper tier only. The brand's base is deleted from the brand
+   * library, where the permission for it is checked: a video must not be able
+   * to remove the mark every other deliverable draws.
+   */
+  onDelete?: (id: string) => void;
   /** Whether this deliverable has declined the brand's base. */
   baseOff?: boolean;
   /** Decline or restore it. Absent = the switch is not offered (the template
@@ -578,6 +606,7 @@ export default function MaterialInventory({
         onClassify={classify}
         onPromote={onPromote}
         onNormalize={onNormalize}
+        onDelete={onDelete}
         empty="まだ素材がありません。パイプラインの「入力」から資料や写真を入れてください。"
       />
       {/* Declining the base is a property of THIS deliverable, so it sits on

@@ -7,6 +7,7 @@
 
 import { useRef, useState } from "react";
 import type { MaterialBody } from "@/components/materials/MaterialContents";
+import DeleteAction from "@/components/materials/DeleteAction";
 import MaterialRow from "@/components/materials/MaterialRow";
 import { cn } from "@/lib/cn";
 
@@ -151,24 +152,11 @@ export default function MaterialIntake({
               }
               trailing={readableSize(material.bytes)}
               actions={
-                <button
-                  type="button"
-                  onClick={() => void onRemove(material.id)}
+                <DeleteAction
+                  name={material.label}
                   disabled={busy}
-                  title="削除"
-                  aria-label={`${material.label}を削除`}
-                  className="shrink-0 rounded p-1 text-ink-faint transition hover:text-red-700 disabled:opacity-50"
-                >
-                  <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true">
-                    <path
-                      d="M4 6h12M8 6V4.5h4V6M6.5 6l.6 9h5.8l.6-9M9 8.5v4M11 8.5v4"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                      fill="none"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
+                  onDelete={() => void onRemove(material.id)}
+                />
               }
             />
           ))}
