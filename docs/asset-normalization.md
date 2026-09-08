@@ -373,7 +373,7 @@ assets/audio/narration_ja_female-1.wav
 
 `/brands/[id]` 配下にブランド素材ライブラリの画面を立てる(基盤スロットの指名・全成果物を横断した素材の一覧・ダウンロード)。これは §14 の後半の段。まず Take の中で2段が見えることが先——利用者が最初に素材と出会うのは成果物を作っている最中だから。
 
-### 9.4 入力ドロワーの素材リスト: オン/オフと PDF の子(2026-09-07 決定)
+### 9.4 入力ドロワーの素材リスト: オン/オフと PDF の子(2026-09-07 決定・PDF展開は 2026-09-08 実装)
 
 入力段の「追加した資料」([components/video/BriefSourceIntake.tsx](../components/video/BriefSourceIntake.tsx))は、インベントリ(§9.1)とは役割が違う。インベントリは「何を持っているか」、このリストは**「何を読ませ、何を候補にするか」**。
 
@@ -385,7 +385,10 @@ assets/audio/narration_ja_female-1.wav
 - **目的は「素材をブラックボックスにしない」**(2026-09-08 依頼者)。雑多な資料を入れたとき、中に何が入っているかが見え、資料を取り出して単純にもう一度試す、という試行錯誤ができること。PDF の中身は目で見える通りには入っていない——断片化した画像や見えないゴミ画像が大量にあることも普通で、**それも隠さずそのまま見せる**。「このPDFはこういう中身だから精度が出ない」「LLMはなぜ読みづらいのか」を利用者が理解する助けになるので、取れたものを間引かない
 - **UIは最初は単純に。** 「抽出した資料」の PDF 行の左に右向きの三角(▸)。押すと下向きになり、その下に中身の一覧がずらっと出る。100個あれば100個出す。各行にサムネイル・寸法・ページ番号・**ダウンロード**。整理・フィルタ・小素材の既定は後
 - **最初の到達点は「子を1点ずつダウンロードして、別のイベントにアップロードできる」**。それだけで PDF から素材を抜き出す手間が消える。シーンの候補に並ぶ・スコープを上げて別の成果物で使う(§12、祖先への昇格)はその次。依頼者は次にモダンジャパニーズに代わる新しいイベント動画のセット(シリーズ物・素材あり)を作る予定で、**シリーズ内で素材を流用できること**がこの機能と §12 の背景にある
-- **実装の入口(次のセッション向け)。** 取り込み: [app/api/brands/[id]/videos/[videoId]/materials/route.ts](../app/api/brands/[id]/videos/[videoId]/materials/route.ts) の POST(行を作りピンする)。派生素材の前例: [normalize/route.ts](../app/api/brands/[id]/materials/[materialId]/normalize/route.ts)(`source_kind='derived'` + `derived_from_material_id`、原本のピン先に別役割でピン)。**子のピンの役割は `brief_source` にしない**(読み取り段 [extract.ts](../lib/event-cm/extract.ts) がその役割だけを読む。PDF 本体は従来どおり丸ごと渡す)。表示: [StageResults.tsx](../components/pipeline/StageResults.tsx) の `ExtractResults`(「抽出した資料」。ここに ▸ を置く)。GET materials は子も返し(`derived_from_material_id` 付き)、[BriefSourceIntake](../components/video/BriefSourceIntake.tsx) のステージング一覧と入力段の集合判定([video.ts](../lib/pipeline/video.ts))は `brief_source` だけを数えるので子は影響しない。ダウンロードは既存の署名付き配信 [takes/[takeId]/materials/[materialId]/[name]](../app/api/brands/[id]/takes/[takeId]/materials/[materialId]/[name]/route.ts)。測定は [measure.ts](../lib/materials/measure.ts) を子にも通す。**PDF を外したら子のピンも外し**、ポインタは [withdraw.ts](../lib/event-cm/withdraw.ts) が戻す。ライブラリは `unpdf`(pdf.js のサーバーレス向け)を第一候補に、手元の `pdfimages` / `pdftoppm`(poppler、本番の Vercel には無い)で当たりを取る
+- **実装(2026-09-08)。** 取り出しは [lib/materials/pdf.ts](../lib/materials/pdf.ts)(`unpdf` = pdf.js のサーバーレス向けビルド。ページの描画オペレータを順に歩き、名前付き XObject と inline 画像の両方を取る。unpdf 自身の `extractImages` は inline を落とすので使っていない)。登録は [lib/materials/pdf-children.ts](../lib/materials/pdf-children.ts) の `registerPdfChildren`——動画の資料アップロード・ブランドの素材アップロード・後から取り出す `POST /api/brands/[id]/materials/[materialId]/expand` の3経路が同じ関数を呼ぶ。子は `kind='photo'`、`source_kind='derived'`、`derived_from_material_id`=PDF、`provenance={ source:"pdf_extraction", from:"pdf", page, pages, index, inline, channels }`。ピンの役割は **`pdf_image`**(`brief_source` ではないので読み取り段・ステージング一覧・入力段の集合判定には出ない)。PDF を外すと子のピンも外れる。同一バイトの画像は1行にして `pages` に登場ページを持つ(間引きはこれだけ)。α付きは PNG、不透明で 100万画素超だけ JPEG q90。展開に失敗しても PDF の登録は失敗させず、`expansionError` を返す
+- **実測(2026-09-08、Canva 製 A4 2ページのフライヤー 6.7MB)。** 79点(XObject 46・inline 33)を 1.4秒で取得。poppler の `pdfimages -list` と XObject・inline とも一致し、smask は α として合成、CMYK→RGB も正しい。中身は写真4・ロゴ2・QR 6・SNS アイコン数点と、**2〜30px 幅の断片 60点以上**(Canva が写真を帯状に割った残り)。ベクタで落ちたのは家のアイコン3・飾り罫。ページ画像化は `renderPageAsImage` + `@napi-rs/canvas` で動作を確認(1ページ約2.5秒、ネイティブ依存 26MB)したが**今回は入れていない**——入れる判断は次の段(ベクタの切り出し)と一緒にする
+- **画面。** [StageResults.tsx](../components/pipeline/StageResults.tsx) の `ExtractResults` が PDF 行の左に ▸ を置き、開くと全件(サムネイル・ページ・寸法・登場ページ・inline・サイズ・**ダウンロード**)。子のサムネイルとダウンロードは既存の署名付き配信 [takes/[takeId]/materials/[materialId]/[name]](../app/api/brands/[id]/takes/[takeId]/materials/[materialId]/[name]/route.ts)(GET materials が `children` に署名URLを付けて返す。有効1時間)。この機能より前に入れた PDF は行に「中身を取り出す」が出る。インベントリ(§9.1)とブランドの素材一覧では子を行として並べず、PDF の行に「中身 N点」と数える(`InventoryMaterial.origin='pdf'` で正規化版と区別)
+- **残り。** シーンの「選ぶ／差し替え」候補に子を出す(ピンはあるので候補側の役割フィルタだけ)、テキスト層を抽出 run の出力に残す(取り出し関数は返している)、ページ画像化とベクタの切り出し、取り込みの一本化(§14-9)
 - **ベクタで描かれたロゴは埋め込み画像として取れない**(InDesign 製フライヤーの典型)。ページ画像化を併走させ、ベクタの切り出しは後続(ページ画像を VLM に見せて bbox → crop)
 - **取り込みは1本にする。** トップ `/`・ブランドの素材アップロード・動画の資料アップロードの3経路が「受ける→測る→分類→行を作る→ピン」を別々に書いている。スコープ引数付きの1関数(`lib/materials/intake.ts`)に寄せ、PDF 展開はそこに置く。動画ルートに先に作るとブランド側へ持っていく時に二重実装になる
 
@@ -528,7 +531,7 @@ public/assets/person/miyao-yoshiaki_portrait_1600w.jpg
 8. **持ち出し**。書き出しの `public/assets/` 化と、素材だけのZIP
 9. **取り込みの一本化**。3経路が呼ぶ `lib/materials/intake.ts`(§9.4)
 10. ~~**素材のオン/オフ**~~ **実装後に撤回(2026-09-07)**。資料の層に有効/無効は無い(§9.4)。代わりに項目ごとの由来(§13-8)
-11. **PDF 展開**。埋め込み画像を子素材として作り、展開表示・ダウンロード・シーンの候補に出す。モデルには渡さない(§9.4)
+11. ~~**PDF 展開**~~ **✅ 2026-09-08 実装**(§9.4)。埋め込み画像(XObject・inline)を子素材として作り、「抽出した資料」の PDF 行で全件展開・1点ずつダウンロード。モデルには渡さない。**残り: シーンの候補に出す・ページ画像化・ベクタの切り出し**
 12. **祖先の可視化と昇格**。基盤段と注入が祖先を辿る。trigger を祖先移動を許す形に改める(§12)
 13. ~~**項目ごとの由来と撤回**~~ **✅ 2026-09-07 実装**(§9.5)。構造化が根拠IDを返して検証し、map / place-images が `sources` を書き、「外す」が撤回する
 
