@@ -347,7 +347,6 @@ function AddVideoOverlay({
   }, [onCancel]);
 
   const { templateId } = parseVideoStyle(style);
-  const selected = VIDEO_TEMPLATES[templateId];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
@@ -361,15 +360,11 @@ function AddVideoOverlay({
         <h2 id="add-video-title" className="font-display text-lg font-semibold">
           動画を追加
         </h2>
-        <p className="mt-2 text-[12px] text-ink-muted">
-          テンプレートを選択してください。動画のテンプレートは変更ができないため、別のテンプレートを利用する場合は動画を新規作成してください。
-        </p>
+        <p className="mt-2 text-[12px] text-ink-muted">テンプレートを選択してください。</p>
 
         <fieldset className="mt-5">
-          <legend className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-            テンプレート
-          </legend>
-          <div className="mt-2.5 space-y-2">
+          <legend className="sr-only">テンプレート</legend>
+          <div className="space-y-2">
             {VIDEO_TEMPLATE_FAMILIES.map((family) => {
               const active = family.styles.some((item) => item.key === style);
               return (
@@ -436,11 +431,7 @@ function AddVideoOverlay({
               あとから変更できます。
             </span>
           </label>
-        ) : (
-          <p className="mt-5 rounded-xl border border-hairline bg-ink/[0.03] px-4 py-3 text-[11px] leading-relaxed text-ink-muted">
-            {selected.requires}が必要です。トップ（CM Maker）でソースから生成したBrand Kitを使います。
-          </p>
-        )}
+        ) : null}
 
         {/* What the wait is for, while it is happening.
             「追加」 sounds instant and is not: the take is seeded from the brand,
