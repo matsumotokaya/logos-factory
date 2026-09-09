@@ -19,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { videoFetch } from "@/lib/video/client";
 import { cn } from "@/lib/cn";
-import CampaignDetail from "@/app/campaigns/[id]/CampaignDetail";
 import EventVideoWorkspace from "@/components/video/EventVideoWorkspace";
 import EventCmWorkspace from "@/components/video/EventCmWorkspace";
 import VoiceDialog from "@/components/video/VoiceDialog";
@@ -1317,25 +1316,6 @@ export default function BrandVideoDetail({
     const measured = film.timingSource === "voice";
     return `16:9 / ${EVENT_WIDTH}×${EVENT_HEIGHT} / ${measured ? "" : "約"}${seconds}秒`;
   })();
-
-  // A Product CM Take is created before narration is generated. Keep that
-  // draft in the established authoring screen until the voice RPC pins the
-  // WAV and timing into the Take; a refresh then lands in the V2 workspace.
-  if (
-    video.template === "product-cm" &&
-    video.campaignJobId &&
-    !hasPinnedProductVoice(video.brief)
-  ) {
-    return (
-      <CampaignDetail
-        id={video.campaignJobId}
-        sampleHtml={null}
-        embedded
-        view="video"
-        brandId={brandId}
-      />
-    );
-  }
 
   return (
     // Full width on purpose. The storyboard is the working surface now, and a
