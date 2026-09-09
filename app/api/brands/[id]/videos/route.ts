@@ -71,30 +71,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (brandError) return Response.json({ error: "ブランドを確認できませんでした" }, { status: 500 });
   if (!brand) return Response.json({ error: "ブランドが見つかりません" }, { status: 404 });
 
-  const [takeResult, lpTakeResult] = await Promise.all([
-    supabase
-      .from("takes")
-      .select(
-        "id, brand_id, template_id, title, brief, created_at, take_renders(status, latest_artifact_id, publications(status))",
-      )
-      .eq("brand_id", brandId)
-      .eq("tool_kind", "video")
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("takes")
-      .select("brief")
-      .eq("brand_id", brandId)
-      .eq("template_id", "campaign-lp")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  if (takeResult.error || lpTakeResult.error) {
+  const takeResult = await supabase
+    .from("takes")
+    .select(
+      "id, brand_id, template_id, title, brief, created_at, take_renders(status, latest_artifact_id, publications(status))",
+    )
+    .eq("brand_id", brandId)
+    .eq("tool_kind", "video")
+    .order("created_at", { ascending: true });
+  if (takeResult.error) {
     return Response.json({ error: "アセットを取得できませんでした" }, { status: 500 });
   }
-  const lpBrief = lpTakeResult.data?.brief as Record<string, unknown> | null;
-  const campaignJobId =
-    typeof lpBrief?.campaignJobId === "string" ? lpBrief.campaignJobId : null;
 
   const videos: VideoSummary[] = [];
   const v2Videos = (takeResult.data ?? []) as unknown as TakeVideoRow[];
@@ -107,9 +94,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const published = (take.take_renders ?? []).some((render) =>
       (render.publications ?? []).some((publication) => publication.status === "live"),
     );
-    const takeJobId =
-      typeof brief?.campaignJobId === "string" ? brief.campaignJobId : null;
-    const jobId = takeJobId ?? campaignJobId;
+    // Its OWN job, never a sibling's. This used to fall back to the newest
+    // campaign-lp take of the brand, which meant a video's state could be
+    // decided by an LP nobody had connected it to (docs/template-contract.md
+    // §2.1). A deliverable reads its own brief and no other.
+    const jobId = typeof brief?.campaignJobId === "string" ? brief.campaignJobId : null;
     videos.push({
       id: take.id,
       brandId: take.brand_id,
@@ -342,36 +331,17 @@ async function createVideoTake({
     brief = emptyEventBrief(title || UNTITLED_VIDEO);
     if (!title) title = UNTITLED_VIDEO;
   } else {
-    // product-cm is driven by the campaign pipeline; the row records which job
-    // owns the Brand Kit and narration.
-    const { data: lpTake, error: lpTakeError } = await supabase
-      .from("takes")
-      .select("brief")
-      .eq("brand_id", brandId)
-      .eq("template_id", "campaign-lp")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (lpTakeError) {
-      throw new CreateFailure("製品紹介動画のBrand Kitを確認できませんでした");
-    }
-    const lpTakeBrief = lpTake?.brief as Record<string, unknown> | null;
-    const jobId =
-      typeof lpTakeBrief?.campaignJobId === "string" ? lpTakeBrief.campaignJobId : null;
-    const job = jobId ? getCampaignJob(jobId) : null;
-    brief = {
-      kit: lpTakeBrief?.kit ?? job?.kit ?? null,
-      campaignJobId: jobId,
-      sourceUrl:
-        (typeof lpTakeBrief?.sourceUrl === "string" ? lpTakeBrief.sourceUrl : null) ??
-        job?.input.url ??
-        null,
-      theme:
-        (typeof lpTakeBrief?.theme === "string" ? lpTakeBrief.theme : null) ??
-        job?.kit?.theme ??
-        null,
-    };
-    if (!title) title = VIDEO_TEMPLATES["product-cm"].name;
+    // A product CM used to be born from the brand's newest LP: its brief was
+    // built by reading that take's Brand Kit and job id. That is the coupling
+    // docs/template-contract.md §2.1 forbids — an LP and a video are siblings,
+    // and neither is the source of the other.
+    //
+    // Refused rather than seeded from nothing until the template is re-founded
+    // on brand knowledge (§4). It is already out of the add dialog
+    // (`addable: false`), so this closes the direct-API path to the same state.
+    throw new CreateFailure(
+      "製品紹介動画は作り直しの途中です。ブランドから投影する新しい版ができるまで追加できません",
+    );
   }
 
   step("動画を保存しています");
