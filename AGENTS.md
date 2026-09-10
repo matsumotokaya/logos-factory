@@ -22,6 +22,14 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## When an MCP server you need is disconnected, ask
+
+If a tool you need for the task is unavailable because its MCP server failed to connect, **stop and ask the user to reconnect it.** Say which server it is, and that the work is blocked on it. Do not work around it.
+
+This is not a preference. Working around a disconnected server — hand-rolling a script, reading migration files instead of the live schema, guessing at data — costs tokens and time, produces worse answers, and ends with the user reconnecting the server anyway, at which point the whole detour was waste (2026-09-09, requester).
+
+Applies to any configured server, `supabase_logos` included. A connection failure is not a missing capability: the access exists and the user can restore it in seconds.
+
 ## Supabase MCP safety
 
 - This machine has multiple Supabase accounts and projects. Never assume that a tool named only `supabase` is connected to this repository's database.
@@ -31,3 +39,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Tell the user that the current session is connected to the wrong Supabase MCP and must be restarted or reconnected. Do not work around the mismatch by creating a substitute local database, Docker database, schema, or migration target.
 - The project-scoped MCP server is named `supabase_logos`. A differently named Supabase server belongs to another project unless its project URL has been explicitly verified.
 - The project-scoped `supabase_logos` server is write-capable. Before every remote write, verify the exact project URL again, review the migration or SQL, and obtain explicit user authorization for that write. Write capability never substitutes for confirmation.
+- **The RPCs check `auth.uid()`, so the service role cannot call them.** `delete_take` and its siblings guard on `private.can_admin_brand()`, which reads the JWT — a service-role client is refused with 「権限がありません」. Through the MCP, impersonate in one statement: a CTE calling `set_config('request.jwt.claims', '{"sub":"<user uuid>"}', true)` in the FROM, with the RPC in the target list.
+- **`delete_take` cannot reach R2.** It returns `objectKeys` and queues them; the objects have to be deleted by code that holds the R2 credentials, then `complete_r2_cleanup` closes the queue row. Deleting rows through SQL alone leaves the bytes behind.
