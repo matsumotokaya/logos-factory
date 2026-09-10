@@ -22,7 +22,7 @@
 - ワークスペースは1つずつ表示、ブランド追加はツリー下のダイアログ(URLのみ)。アセットは本体と詳細(`…/info`)の2面、Brand未所属のロゴは `/logos/[id]` が詳細。URL→ロゴ取得はStage 1c。**依頼者のUI確認はまだ**
 - 取り込みの枠は64項目([lib/brand/capture-frame.ts](lib/brand/capture-frame.ts))、実測/推定/まだわからないの3状態。サイトの画像はR2へ(`brand_materials` scope=brand)。再取り込みは `POST /api/brands/[id]/recapture`。**依頼者のUI確認はまだ**
 - main に直接コミット済み(2026-09-07〜09、**未push 30件**)。lint エラー0(警告4件は既存の未使用変数)、テスト458件・tsc・`next build`・docs:check 通過。**push はまだ**
-- **migration 0057 は依頼者が手で適用する**([0057_take_material_delete.sql](supabase/migrations/0057_take_material_delete.sql))。未適用のあいだ、take スコープの素材を消せるのはブランド管理者だけ
+- **migration 0057 適用済み**(2026-09-09 依頼者が手で実行。[0057_take_material_delete.sql](supabase/migrations/0057_take_material_delete.sql))。`brand_materials_delete_take` が入り、編集者が自分の動画の素材を削除できる。0056 と同じく `supabase_migrations` には記録が無いので再適用しないこと
 - 日本酒イベントは [labs/event/sake-2026/](labs/event/sake-2026/README.md) に保全。event-cm の `sumi` は承認済み、`standard` は静止画しか確認していない
 
 ## 次の作業
