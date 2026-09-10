@@ -16,19 +16,19 @@
 
 import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
-import { extractSummary, extractTakeSources } from "@/lib/event-cm/extract";
+import { extractSummary, extractTakeSources } from "@/lib/deliverable/extract";
 import {
   structureEventFacts,
   structuringAvailable,
   type EventFacts,
-} from "@/lib/event-cm/structure";
-import { mapFactsIntoBrief } from "@/lib/event-cm/map";
+} from "@/lib/templates/event-cm/structure";
+import { mapFactsIntoBrief } from "@/lib/templates/event-cm/map";
 import {
   placeImagesIntoBrief,
   type ImageMaterial,
-} from "@/lib/event-cm/place-images";
+} from "@/lib/templates/event-cm/place-images";
 import { storeImageClassifications } from "@/lib/materials/classify";
-import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/event-cm/narration";
+import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/templates/event-cm/narration";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 

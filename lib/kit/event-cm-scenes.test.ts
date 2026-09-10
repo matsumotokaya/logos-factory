@@ -14,7 +14,7 @@ import {
   eventCmScenePlan,
   type EventCmBrief,
 } from "@/remotion/event-cm/types";
-import { seedEventCmBrief } from "@/lib/event-cm/seed";
+import { seedEventCmBrief } from "@/lib/templates/event-cm/seed";
 
 // The acceptance test for the whole rewrite: can the vocabulary rebuild
 // 世界が恋する日本酒? The brief below is the real one, copied from the take in

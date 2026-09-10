@@ -21,7 +21,7 @@ import {
   isSuppressed,
   photoOf,
   previewOf,
-} from "@/lib/event-cm/facts";
+} from "@/lib/templates/event-cm/facts";
 import { resolveSrc } from "@/remotion/kit/paint";
 import type { BriefSource } from "./BriefSourceIntake";
 import type { EventCmBrief } from "@/remotion/event-cm/types";

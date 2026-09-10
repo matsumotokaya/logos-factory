@@ -18,7 +18,7 @@ import {
   isEditable,
   markUserEdited,
   setSuppressed,
-} from "@/lib/event-cm/facts";
+} from "@/lib/templates/event-cm/facts";
 import { DEFAULT_ASSETS } from "@/lib/assets/defaults";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 

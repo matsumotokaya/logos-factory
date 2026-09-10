@@ -12,8 +12,8 @@ import {
   voicePresetById,
   voicePresetByName,
 } from "@/lib/voice/voices";
-import { EVENT_CM_PERSONA } from "@/lib/event-cm/delivery";
-import { isSuppressed, setSuppressed } from "@/lib/event-cm/facts";
+import { EVENT_CM_PERSONA } from "@/lib/templates/event-cm/delivery";
+import { isSuppressed, setSuppressed } from "@/lib/templates/event-cm/facts";
 import { attachTakeNarration } from "@/lib/takes/narration";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { validateBrief } from "@/lib/templates/brief-schemas";

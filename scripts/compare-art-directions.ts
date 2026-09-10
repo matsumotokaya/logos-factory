@@ -10,7 +10,7 @@
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
-import { seedEventCmBrief } from "@/lib/event-cm/seed";
+import { seedEventCmBrief } from "@/lib/templates/event-cm/seed";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { THEMES } from "@/remotion/kit/theme";
 import type { EventCmBrief } from "@/remotion/event-cm/types";

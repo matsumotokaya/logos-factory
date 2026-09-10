@@ -19,7 +19,7 @@
 
 現状はこの原則を満たしていない。動画詳細ページ（[BrandVideoDetail.tsx](../app/(management)/brands/[id]/video/[videoId]/BrandVideoDetail.tsx)）は `event-cm` 限定のゲートを7箇所持ち、パイプラインの結果表示・絵コンテ・ナレーション・焼き付け・インベントリはすべてその内側にある。`product-cm` と `event-promo` はゲートの外なので、代わりに小さな入力スタブが出る。
 
-**これは設計ではなく実装の欠落である。** `event-cm` だけが編集面の要求する部品を揃えている（[lib/event-cm/](../lib/event-cm/) が約7,800行）。他の2つはそれより前の世代で、事実のオントロジーも初期投影も焼き付けも持たない。画面は描くものが無く、スタブに落ちる。
+**これは設計ではなく実装の欠落である。** `event-cm` だけが編集面の要求する部品を揃えている（[lib/event-cm/](../lib/templates/event-cm/) が約7,800行）。他の2つはそれより前の世代で、事実のオントロジーも初期投影も焼き付けも持たない。画面は描くものが無く、スタブに落ちる。
 
 **構造の負債として認識する。** 2026-08〜09 の改修（素材の正規化、由来と撤回、PDF展開、素材のコピー型）はすべて `event-cm` の側だけに入った。同じ機能が製品紹介動画には無い。片方だけを直し続けると差は開く。
 
@@ -44,30 +44,34 @@
 | # | 供給するもの | 現在の所在（event-cm） | product-cm | campaign-lp |
 | --- | --- | --- | --- | --- |
 | 1 | ブリーフのスキーマ | [brief-schema.ts](../remotion/event-cm/brief-schema.ts) | 有（Kit のまま） | 有（Kit のまま） |
-| 2 | **項目のオントロジー**（何が事実で、どのラベルで呼ぶか） | `FACT_LABELS` / [facts.ts](../lib/event-cm/facts.ts) | 無 | 無 |
-| 3 | **ブランドからの初期投影**（seed） | [seed-from-brand.ts](../lib/event-cm/seed-from-brand.ts) | 無（Kit を外から受ける） | 無（同） |
-| 4 | **読み取りと構造化**（抽出→構造化→マッピング） | [extract.ts](../lib/event-cm/extract.ts) / [structure.ts](../lib/event-cm/structure.ts) / [map.ts](../lib/event-cm/map.ts) | 無 | 無 |
+| 2 | **項目のオントロジー**（何が事実で、どのラベルで呼ぶか） | `FACT_LABELS` / [facts.ts](../lib/templates/event-cm/facts.ts) | 無 | 無 |
+| 3 | **ブランドからの初期投影**（seed） | [seed-from-brand.ts](../lib/templates/event-cm/seed-from-brand.ts) | 無（Kit を外から受ける） | 無（同） |
+| 4 | **読み取りと構造化**（抽出→構造化→マッピング） | [extract.ts](../lib/deliverable/extract.ts) / [structure.ts](../lib/templates/event-cm/structure.ts) / [map.ts](../lib/templates/event-cm/map.ts) | 無 | 無 |
 | 5 | **シーン／スロットの語彙**（絵コンテが何を並べるか） | `EVENT_CM_SCENE_LABELS` | 無 | 無（節構成は Kit 固定） |
-| 6 | **焼き付け**（編集と成果物の差分） | [bake.ts](../lib/event-cm/bake.ts) | 無 | 無 |
+| 6 | **焼き付け**（編集と成果物の差分） | [bake.ts](../lib/templates/event-cm/bake.ts) | 無 | 無 |
 | 7 | ゴール（充足すべき項目） | `EVENT_BRIEF_GOAL` / [video.ts](../lib/pipeline/video.ts) | 有（`PRODUCT_CM_BRIEF_GOAL`、1項目） | 無 |
 | 8 | 描画（コンポジション） | [EventCmComposition.tsx](../remotion/event-cm/EventCmComposition.tsx) | **有・チューニング済み** | 有（HTML） |
-| 9 | 由来と撤回 | [attribution.ts](../lib/event-cm/attribution.ts) / [withdraw.ts](../lib/event-cm/withdraw.ts) | 無 | 無 |
+| 9 | 由来と撤回 | [attribution.ts](../lib/templates/event-cm/attribution.ts) / [withdraw.ts](../lib/templates/event-cm/withdraw.ts) | 無 | 無 |
 
 **2〜6 と 9 が欠けているものは編集できない。** これが画面が分岐している理由であり、契約を満たせば分岐は消える。
 
-### 3.1 置き場: 汎用と固有を分ける（2026-09-09 決定）
+### 3.1 置き場: 汎用と固有を分ける（2026-09-09 決定・実施済み）
 
-いま編集面の中核は `lib/event-cm/`（34ファイル・約7,800行）にある。**ディレクトリ名がテンプレート名**なので、2つ目のテンプレートがそこを参照するのは筋が通らない。中身は2種類が混ざっている。
+編集面の中核は `lib/event-cm/`（34ファイル・約7,800行）にあった。**ディレクトリ名がテンプレート名**なので、2つ目のテンプレートがそこを参照するのは筋が通らない。分けた。
 
-| 分類 | 何が入るか | 移す先 |
+**分類は依存関係を数えて決めた。** 当初この節は「骨格はほぼ汎用で、名前だけがイベント専用に見えている」と書いていたが、実測すると**違った**。テンプレートを一切知らないものは2つだけだった。
+
+| 分類 | 何が入るか | 置き場 |
 | --- | --- | --- |
-| **契約の骨格**（他のテンプレートも使う） | 抽出（[extract.ts](../lib/event-cm/extract.ts)）、由来の付与（[attribution.ts](../lib/event-cm/attribution.ts)）、撤回（[withdraw.ts](../lib/event-cm/withdraw.ts)）、素材の使用先（[material-usage.ts](../lib/event-cm/material-usage.ts)）、焼き付けの差分判定（[bake.ts](../lib/event-cm/bake.ts)） | `lib/deliverable/` |
-| **テンプレート固有** | イベントの事実の語彙（[facts.ts](../lib/event-cm/facts.ts)）、シーンの archetype、イベント用の初期投影（[seed-from-brand.ts](../lib/event-cm/seed-from-brand.ts)）、絵コンテのラベル | `lib/templates/event-cm/` |
+| **テンプレートを一切知らない** | 資料の読み取りと画像の準備（[extract.ts](../lib/deliverable/extract.ts)）、人名の同一判定（[names.ts](../lib/deliverable/names.ts)） | `lib/deliverable/` |
+| **構造は汎用だが語彙に縛られている** | 由来の付与（[attribution.ts](../lib/templates/event-cm/attribution.ts)）、下書きの掃除（[sanitize.ts](../lib/templates/event-cm/sanitize.ts)）、撤回（[withdraw.ts](../lib/templates/event-cm/withdraw.ts)）、素材の使用先（[material-usage.ts](../lib/templates/event-cm/material-usage.ts)）、焼き付けの差分判定（[bake.ts](../lib/templates/event-cm/bake.ts)） | いまは `lib/templates/event-cm/`。**段階3で一般化する** |
+| **テンプレート固有** | 事実の語彙（[facts.ts](../lib/templates/event-cm/facts.ts)）、archetype、初期投影（[seed-from-brand.ts](../lib/templates/event-cm/seed-from-brand.ts)）、構造化（[structure.ts](../lib/templates/event-cm/structure.ts)）、マッピング（[map.ts](../lib/templates/event-cm/map.ts)）、ナレーション、尺の検査、効果音、読み方 | `lib/templates/event-cm/` |
 
-- **骨格の中身はほぼ汎用で、名前だけがイベント専用に見えている。** 撤回も由来も使用先も、イベントの語彙を知らずに動く
-- **2つ目のテンプレートが何を再利用できるかが、ディレクトリで分かる**ことが目的。分けずに場所だけ移すと、製品CMを作るときに同じ判断をもう一度することになる
-- **テンプレートIDから契約を引くレジストリを `lib/templates/` に置き、画面はレジストリだけを見る。** 画面が `lib/event-cm/` を直接読むのをやめる
-- **インポート元は100箇所を超えるので、一度に動かす。** 段階1でやりきる（分割コミットにすると中間状態が型エラーだらけになる）
+- **2番目の群を今は一般化しない。** 撤回は `logos.N.src` / `guests.N.photo` / `visuals.*` / `bgm` というパスの正規表現を持ち、使用先はシーンのラベルを引く。汎用にするには**テンプレートがスロットの語彙を供給する**形が要る。語彙が1つしか無い状態でその境界を設計するのは当て推量なので、**製品紹介動画という2つ目の語彙が出た段階3で、2例に対して設計する**
+- **由来と掃除は型だけで縛られている**（`EventFacts` を受けるだけで、中身は事実の集合を走る）。同じ理由で段階3
+- **目的は、2つ目のテンプレートが何を再利用できるかがディレクトリで分かること。** 場所だけ移して分けないと、製品CMを作るときに同じ判断をもう一度することになる
+- **画面はレジストリだけを見る。** テンプレートIDから編集面の実装を引く登録を `lib/templates/` に置き、画面が `lib/templates/event-cm/` を直接読むのをやめる。既存の [contract.ts](../lib/templates/event-cm/contract.ts) は**ナレーションの尺検査**であって契約レジストリではない（名前が衝突するので混同しない）
+- **移動は一度にやった。** 25ファイルがこのディレクトリを参照し、内部の相対インポートは17本、ドキュメントは12本が指していた。見た目と挙動は変わらない
 
 ## 4. 製品紹介動画: 描画は残し、入力を作り直す
 
@@ -97,7 +101,7 @@
 
 **利用者が適切な分量を渡すとは限らない。** 50ページのパンフレットが1つ入ってくることは普通に起こる。何が有益かを分別するのは**動画生成プロセスの責務**であって、利用者の作業ではない。
 
-**現状はそうなっていない。** ピンされた資料は全部そのままモデルへ渡され、入り切らないと「1回に読む資料を減らすか、長いPDFを分けてからお試しください」で失敗する（[structure.ts](../lib/event-cm/structure.ts)）。**選別を利用者に押し付けている。** 画像だけは12枚・6MBの上限を持ち、送らなかった分を報告して続行する（[extract.ts](../lib/event-cm/extract.ts)）が、テキストとPDFにはそれが無い。
+**現状はそうなっていない。** ピンされた資料は全部そのままモデルへ渡され、入り切らないと「1回に読む資料を減らすか、長いPDFを分けてからお試しください」で失敗する（[structure.ts](../lib/templates/event-cm/structure.ts)）。**選別を利用者に押し付けている。** 画像だけは12枚・6MBの上限を持ち、送らなかった分を報告して続行する（[extract.ts](../lib/deliverable/extract.ts)）が、テキストとPDFにはそれが無い。
 
 要件:
 
@@ -160,9 +164,9 @@ CM Maker の「URL を1つ入れると、ブランドと LP と CM が出てく�
 
 順序は「壊れないこと」ではなく「**次の1つが前の1つに依存すること**」で決める。既存インスタンスを捨てるので、互換の段は無い。
 
-1. **テンプレート契約のレジストリを立て、汎用と固有を分ける。** `lib/deliverable/` と `lib/templates/event-cm/` へ分割し（§3.1）、契約の型と登録を `lib/templates/` に置く。画面はレジストリ越しに見る。**この段では見た目も挙動も変わらない**（変わったら失敗）
+1. **テンプレート契約のレジストリを立て、汎用と固有を分ける。** ~~分割~~ **2026-09-09 実施済み**（§3.1）。残りは契約の型と登録を `lib/templates/` に置き、画面をレジストリ越しにすること。**この段では見た目も挙動も変わらない**（変わったら失敗）
 2. **動画詳細ページのテンプレート分岐を消す。** 7箇所のゲートを契約の有無に置き換える。契約を満たさないテンプレートは「このテンプレートはまだ編集に対応していません」の1文だけを出す（別画面にしない）
-3. **製品紹介動画を契約に載せる。** §4。オントロジー定義 → seed → 抽出/構造化/マッピング → 焼き付け。コンポジションは触らない。旧インスタンス2件を削除し、`addable: true` に戻す
+3. **製品紹介動画を契約に載せる。** §4。オントロジー定義 → seed → 抽出/構造化/マッピング → 焼き付け。コンポジションは触らない。旧インスタンス2件を削除し、`addable: true` に戻す。**あわせて §3.1 の2番目の群（由来・掃除・撤回・使用先・焼き付け）を、2つの語彙に対して一般化して `lib/deliverable/` へ出す**
 4. **LP を契約に載せる。** §5。ブランドから作れるようにし、旧インスタンス3件を削除する
 5. **CM Maker を外す。** `/campaigns/*`・job ストア・`kit`・`campaignJobId`・`AI判定` を削除し、トップページを製品サイトに差し替える（§6.1）。ブランド作成に「LPと動画も作る」を足す（§6.0）
 6. **`event-promo` を退役させる。** 既に `addable: false`、インスタンス0件。契約に載せる価値が無いので削除する

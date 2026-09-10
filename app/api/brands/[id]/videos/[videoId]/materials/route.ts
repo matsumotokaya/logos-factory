@@ -25,8 +25,8 @@ import {
 import { destroyFamily, resolveMaterialFamily, unpinFamily } from "@/lib/materials/delete";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { takeMaterialSignatureToken } from "@/lib/takes/material-uri";
-import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
-import { withdrawMaterials, type Withdrawal } from "@/lib/event-cm/withdraw";
+import { seedEventCmFromBrand } from "@/lib/templates/event-cm/seed-from-brand";
+import { withdrawMaterials, type Withdrawal } from "@/lib/templates/event-cm/withdraw";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 

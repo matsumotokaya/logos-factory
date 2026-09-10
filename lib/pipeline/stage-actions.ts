@@ -18,7 +18,7 @@
 // endpoints the page owns. So `run: "film"` hands the work back to the page and
 // this file only decides whether there is any (§9.6).
 
-import { FILM_STEP_LABEL, type FilmStep } from "@/lib/event-cm/bake";
+import { FILM_STEP_LABEL, type FilmStep } from "@/lib/templates/event-cm/bake";
 import type { PipelineStage, PipelineStageId } from "@/lib/pipeline/stages";
 import type { RunnableStage } from "@/app/api/brands/[id]/videos/[videoId]/run/[stage]/route";
 

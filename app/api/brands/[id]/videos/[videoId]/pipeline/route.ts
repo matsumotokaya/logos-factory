@@ -4,7 +4,7 @@ import {
   requireUser,
 } from "@/lib/supabase/server";
 import { videoPipeline } from "@/lib/pipeline/video";
-import { bakeChanges } from "@/lib/event-cm/bake";
+import { bakeChanges } from "@/lib/templates/event-cm/bake";
 import { VIDEO_TEMPLATES } from "@/lib/video/templates";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 

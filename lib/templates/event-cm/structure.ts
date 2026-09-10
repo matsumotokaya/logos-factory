@@ -5,7 +5,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { LLM_BUDGET, LLM_MODEL, parseOrExplain } from "@/lib/llm";
 import { MATERIAL_CATEGORIES } from "@/lib/materials/category";
 import { z } from "zod";
-import type { ExtractedSource } from "./extract";
+import type { ExtractedSource } from "@/lib/deliverable/extract";
 import { sanitizeFacts, type SanitizeReport } from "./sanitize";
 import { attributeFacts, FACT_KEYS, type FactAttribution } from "./attribution";
 

@@ -11,7 +11,7 @@ import {
   draftEventCmNarration,
   eventCmNarrationAvailable,
   type EventCmNarrationInput,
-} from "@/lib/event-cm/narration";
+} from "@/lib/templates/event-cm/narration";
 import {
   EVENT_CM_CHARS_PER_SECOND,
   EVENT_CM_MAX_CHARS,

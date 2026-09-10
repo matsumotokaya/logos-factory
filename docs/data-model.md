@@ -117,7 +117,7 @@ Takeは以下を必須とする。
 
 **焼き付けを持つのは現時点で`event-cm`だけ**。他のテンプレートは`baked_brief`がnullのままで、レンダーは従来どおり`brief`を読む(`baked_brief ?? brief`)。書き込むのは`POST /api/brands/[id]/videos/[videoId]/bake`だけで、一括実行の最終段だけが呼ぶ。
 
-分けた理由は、**編集が即座に成果物へ届いてしまう**状態を無くすため——ナレーションを1行保存すると、その場でプレイヤーの尺と字幕が変わっていた。「作業場と成果は違っていてよい。違いは画面が言う」が現在の契約で、差分判定の正本は [../lib/event-cm/bake.ts](../lib/event-cm/bake.ts)(設計の経緯は [event-cm-refactor-plan.md §9.5 / §11.1](old/event-cm-refactor-plan.md)・アーカイブ)。**差分の見せ方(フィールド単位のマニフェスト・琥珀/緑/赤の3色)は [video-state-model.md](video-state-model.md) が仕様**(2026-08-15確定・実装前)。
+分けた理由は、**編集が即座に成果物へ届いてしまう**状態を無くすため——ナレーションを1行保存すると、その場でプレイヤーの尺と字幕が変わっていた。「作業場と成果は違っていてよい。違いは画面が言う」が現在の契約で、差分判定の正本は [../lib/templates/event-cm/bake.ts](../lib/templates/event-cm/bake.ts)(設計の経緯は [event-cm-refactor-plan.md §9.5 / §11.1](old/event-cm-refactor-plan.md)・アーカイブ)。**差分の見せ方(フィールド単位のマニフェスト・琥珀/緑/赤の3色)は [video-state-model.md](video-state-model.md) が仕様**(2026-08-15確定・実装前)。
 
 **2つある列は、briefのキーを改名するときも2つある**。migration 0051(`script` → `narration`)は同じ式を`brief`と`baked_brief`の両方に当てている。片方だけ改名すると既存の動画が「ナレーション空」として想定尺へ落ちるので、以後 brief のキーを変える migration はこの2列を必ずセットで扱う。
 
@@ -179,7 +179,7 @@ POST `/api/brands/{id}/videos` の `templateTakeId` パラメータがこの経�
 
 `/brands/[id]/video/[videoId]` ページ上部に、Slide-Factory 流のステージを表示する(`lib/pipeline/video.ts` + `components/pipeline/VideoPipelinePanel.tsx`)。**入力と抽出は1段**(2026-08-13統合)。
 
-- **input(入力・抽出)** — pinされた素材と、その読み取り実行。素材があって未読み取りなら `stale`。テキストは決定論で読み、PDF・画像は「次の段で直接見る」と印をつけて運ぶだけ(`lib/event-cm/extract.ts`)。分けていたときは「読み取り成功」で止まった利用者が、反映されない動画を見ることになった
+- **input(入力・抽出)** — pinされた素材と、その読み取り実行。素材があって未読み取りなら `stale`。テキストは決定論で読み、PDF・画像は「次の段で直接見る」と印をつけて運ぶだけ(`lib/deliverable/extract.ts`)。分けていたときは「読み取り成功」で止まった利用者が、反映されない動画を見ることになった
 - **structure** — テンプレートのブリーフスキーマに対する充足率(EventBriefは title / kind / startsAt / venue / headline / ctaLabel 必須)
 - **map** — テンプレートの選択状況(event-promo / product-cm)
 - **output** — `take_renders.status` と `render_artifacts.created_at`(timestamp差分で `stale` 判定)

@@ -1,6 +1,6 @@
 import type { ImageReading } from "./structure";
 import { isSuppressed } from "./facts";
-import { sameName } from "./names";
+import { sameName } from "@/lib/deliverable/names";
 import { materialUri, MATERIAL_URI_PREFIX } from "@/lib/takes/material-uri";
 import { opticalScales, type MeasuredMark } from "@/lib/materials/optical";
 import type { EventPhoto } from "@/remotion/event/types";

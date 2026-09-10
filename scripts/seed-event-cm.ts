@@ -8,9 +8,9 @@
 //   npm run event-cm:seed -- --brand <UUID> [--narration]
 
 import { createAdminSupabase } from "@/lib/supabase/server";
-import { seedEventCmBrief } from "@/lib/event-cm/seed";
-import { archetypeFor } from "@/lib/event-cm/archetypes";
-import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/event-cm/narration";
+import { seedEventCmBrief } from "@/lib/templates/event-cm/seed";
+import { archetypeFor } from "@/lib/templates/event-cm/archetypes";
+import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/templates/event-cm/narration";
 import { eventCmGoalState } from "@/lib/pipeline/event-cm";
 import { EVENT_CM_CHARS_PER_SECOND } from "@/remotion/event-cm/types";
 import { ORIGIN_LABELS } from "@/lib/pipeline/stages";

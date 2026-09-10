@@ -74,7 +74,7 @@ npm run render
 5. ✅(静止画のぶんだけ)**地の見え方**: `ThemeBackdrop.directional`(方向性スクリム・向きは `LayoutSpec.copySide` が知っている)+ opacity 1.0/0.88。タイトルはプログラム写真の上に立つ(1素材Nショットの配役をシーンビルダーに固定)。**video / collage / sequence の Ground はまだ**(brief契約に触るのでPhase C)
 6. ✅ Ken Burns は既存の `backdrop.push` がそのまま担う(新語彙は不要だった)
 7. ✅ **部品のバリアント**: `people` の `presentation:"panels"`(全画面分割パネル+縫い目)/ `stat` の `variant:"seal"`(印章numeral・一二三)。縦書きタイトルは見送り(地がまだ写真1枚なので効果が薄い。Ground実装後に再訪)
-8. ✅ **SFXキューシート** = [lib/event-cm/sfx-cues.ts](../../lib/event-cm/sfx-cues.ts)(delivery.ts と同格)。既定プールの実測gain(catalog.json)× presence。**あわせて `themeForBrand` は色だけ継ぐ**(組版は据え置き——LPテンプレートと同じ規則)
+8. ✅ **SFXキューシート** = [lib/templates/event-cm/sfx-cues.ts](../../lib/templates/event-cm/sfx-cues.ts)(delivery.ts と同格)。既定プールの実測gain(catalog.json)× presence。**あわせて `themeForBrand` は色だけ継ぐ**(組版は据え置き——LPテンプレートと同じ規則)
    - **既定プールは63音・R2に配置済み**(2026-08-19)。置き場所は3つ: `public/defaults/`(ローカル)/ R2 `defaults/sfx/`(本番・`npm run sfx:sync`)/ スクリプト(レシピ)。**gitはバイトを持たない**——このリポジトリは公開で、効果音ラボは音素材そのものの再配布を禁じているため
    - **出自は測定で確定した**: 支給32ファイルのうち30個はプールと**バイト完全一致**(=効果音ラボ)。残る2つ(`スポッ` / `歓声と拍手`)は `artist=My Recording` のID3タグを持ち、同サイトの全7カテゴリーに存在しない別出典なので、**既定プールには入れない**(`UNSOURCED` に名前だけ残した)。既定素材は「誰のMP4に焼いても安全」が仕事で、出自不明はその仕事ができない
    - **残っている穴**: 本番レンダラーが R2 の既定素材を読む解決経路(`resolveSrc` は今 `staticFile()` を返す)。**BGMも同じ穴**なので、まとめて塞ぐ

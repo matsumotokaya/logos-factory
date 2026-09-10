@@ -36,7 +36,7 @@
 
 2. **ブリーフの型を写す**: `event-cm.json` の `brief` が全フィールドの実例。`title` / `subtitle` / `seriesLabel` / `schedule` / `programs` / `guests` / `valueLines` / `valueChip` / `cta` / `footnote` / `logos` / `visuals` / `bgm` / `theme` / `narration` / `voice`。**`guests` は登壇者が居なければ節ごと消える**(居ない人を紹介しないため)ので、無ければ書かない
 
-3. **アーキタイプを選ぶ**: [lib/event-cm/archetypes.ts](../../../lib/event-cm/archetypes.ts) の6種 — `finance-talk` / `learning-session` / `tech-meetup` / `tasting` / `public-lecture` / `general-seminar`。日本酒は `tasting` だった。バイオリンの演奏会なら `public-lecture` か `general-seminar` が近い
+3. **アーキタイプを選ぶ**: [lib/templates/event-cm/archetypes.ts](../../../lib/templates/event-cm/archetypes.ts) の6種 — `finance-talk` / `learning-session` / `tech-meetup` / `tasting` / `public-lecture` / `general-seminar`。日本酒は `tasting` だった。バイオリンの演奏会なら `public-lecture` か `general-seminar` が近い
 
 4. **通しで焼いて確認する**: シード→ナレーション執筆→読み上げ→MP4を1コマンドで通す。LLMとTTSを呼ぶので課金される
 

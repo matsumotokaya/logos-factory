@@ -34,14 +34,14 @@ import {
   type BakeState,
   type FilmPending,
   type FilmStep,
-} from "@/lib/event-cm/bake";
+} from "@/lib/templates/event-cm/bake";
 import { eventCmFilm } from "@/remotion/event-cm/film";
-import { BRAND_BASE_PATH, brandBaseIsOff } from "@/lib/event-cm/facts";
+import { BRAND_BASE_PATH, brandBaseIsOff } from "@/lib/templates/event-cm/facts";
 import { EVENT_WIDTH, EVENT_HEIGHT } from "@/remotion/event/palette";
 import type { FactEdit } from "@/components/video/FactList";
 import BriefSourceIntake, { type BriefSource } from "@/components/video/BriefSourceIntake";
 import TitleOffer from "@/components/video/TitleOffer";
-import { titleOffer } from "@/lib/event-cm/title";
+import { titleOffer } from "@/lib/templates/event-cm/title";
 import FactList from "@/components/video/FactList";
 import BusyBar from "@/components/pipeline/BusyBar";
 import RunOverlay, { type RunCard } from "@/components/pipeline/RunOverlay";

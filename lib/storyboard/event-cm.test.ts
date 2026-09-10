@@ -4,8 +4,8 @@ import { eventCmStoryboard } from "./event-cm";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { fitScene } from "@/remotion/kit/fit";
 import { sceneForRole } from "@/remotion/kit/scenes/event-cm";
-import { setSuppressed } from "@/lib/event-cm/facts";
-import { seedEventCmBrief } from "@/lib/event-cm/seed";
+import { setSuppressed } from "@/lib/templates/event-cm/facts";
+import { seedEventCmBrief } from "@/lib/templates/event-cm/seed";
 import {
   eventCmTimeline,
   EVENT_CM_INTRO_MS,

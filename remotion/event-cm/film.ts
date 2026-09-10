@@ -30,7 +30,7 @@ import {
 } from "@/remotion/kit/layout";
 import { sceneForRole } from "@/remotion/kit/scenes/event-cm";
 import { themeById, themeForBrand, type Theme } from "@/remotion/kit/theme";
-import { BRAND_BASE_PATH, suppressedPaths } from "@/lib/event-cm/facts";
+import { BRAND_BASE_PATH, suppressedPaths } from "@/lib/templates/event-cm/facts";
 import { captionsFor, type Caption } from "./captions";
 import { eventCmTimeline, type TimingSource } from "./timeline";
 import {

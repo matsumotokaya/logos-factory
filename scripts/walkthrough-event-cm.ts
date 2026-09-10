@@ -24,9 +24,9 @@
 
 import path from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { seedEventCmBrief } from "@/lib/event-cm/seed";
-import { draftEventCmNarration } from "@/lib/event-cm/narration";
-import { EVENT_CM_PERSONA } from "@/lib/event-cm/delivery";
+import { seedEventCmBrief } from "@/lib/templates/event-cm/seed";
+import { draftEventCmNarration } from "@/lib/templates/event-cm/narration";
+import { EVENT_CM_PERSONA } from "@/lib/templates/event-cm/delivery";
 import { generateVoice } from "@/lib/voice/synthesize";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { EVENT_CM_SCENE_GAP_MS } from "@/remotion/event-cm/timeline";

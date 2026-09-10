@@ -16,8 +16,8 @@
 import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { validateBrief } from "@/lib/templates/brief-schemas";
-import { setSuppressed } from "@/lib/event-cm/facts";
-import { panelDeletion } from "@/lib/event-cm/panel-actions";
+import { setSuppressed } from "@/lib/templates/event-cm/facts";
+import { panelDeletion } from "@/lib/templates/event-cm/panel-actions";
 import {
   EVENT_CM_SCENES,
   type EventCmBrief,

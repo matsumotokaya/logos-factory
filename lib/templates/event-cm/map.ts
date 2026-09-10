@@ -1,7 +1,7 @@
 import type { EventFacts } from "./structure";
 import type { FactAttribution, FactKey } from "./attribution";
 import { isSuppressed } from "./facts";
-import { sameName } from "./names";
+import { sameName } from "@/lib/deliverable/names";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
 
 // Stage ④: putting what was read into the film.

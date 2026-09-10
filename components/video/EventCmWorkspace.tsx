@@ -25,14 +25,14 @@ import {
   type BakeState,
   type FilmStatus,
   type FilmStep,
-} from "@/lib/event-cm/bake";
+} from "@/lib/templates/event-cm/bake";
 import type { BriefSource } from "./BriefSourceIntake";
 import { type FactEdit } from "./FactList";
 import Storyboard from "./Storyboard";
 import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { eventCmStoryboard } from "@/lib/storyboard/event-cm";
-import { eventCmContract } from "@/lib/event-cm/contract";
+import { eventCmContract } from "@/lib/templates/event-cm/contract";
 import {
   eventCmSceneKey,
   narrationChars,

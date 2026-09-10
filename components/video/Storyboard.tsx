@@ -58,9 +58,9 @@ import {
   isSuppressed,
   photoOf,
   previewOf,
-} from "@/lib/event-cm/facts";
+} from "@/lib/templates/event-cm/facts";
 import type { BriefSource } from "./BriefSourceIntake";
-import { panelDeletion, type PanelDeletion } from "@/lib/event-cm/panel-actions";
+import { panelDeletion, type PanelDeletion } from "@/lib/templates/event-cm/panel-actions";
 import FactList, { type FactEdit } from "./FactList";
 
 /** Roles are English in the contract; the names shown here are the template's

@@ -17,7 +17,7 @@ import { artDirectionIds, currentTemplate } from "@/lib/templates/catalog";
 import { videoState, type VideoState, type VideoSummary } from "@/lib/video/asset";
 import { emptyEventBrief } from "@/remotion/event/briefs";
 import { createTake } from "@/lib/takes/create";
-import { seedEventCmFromBrand } from "@/lib/event-cm/seed-from-brand";
+import { seedEventCmFromBrand } from "@/lib/templates/event-cm/seed-from-brand";
 import {
   COPY_COLUMNS,
   copyMaterials,
@@ -25,8 +25,8 @@ import {
   type CopySource,
 } from "@/lib/materials/copy";
 import { materialUri, replaceMaterialUris } from "@/lib/takes/material-uri";
-import { UNTITLED_VIDEO } from "@/lib/event-cm/title";
-import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/event-cm/narration";
+import { UNTITLED_VIDEO } from "@/lib/templates/event-cm/title";
+import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/templates/event-cm/narration";
 
 type TakeVideoRow = {
   id: string;

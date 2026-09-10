@@ -16,7 +16,7 @@
 // control over the whole pipeline (the "動画を作り直す" button).
 
 import { stageActions, type StageRun } from "@/lib/pipeline/stage-actions";
-import type { FilmStep } from "@/lib/event-cm/bake";
+import type { FilmStep } from "@/lib/templates/event-cm/bake";
 import type { PipelineStage, PipelineStageId } from "@/lib/pipeline/stages";
 import type { RunnableStage } from "@/app/api/brands/[id]/videos/[videoId]/run/[stage]/route";
 

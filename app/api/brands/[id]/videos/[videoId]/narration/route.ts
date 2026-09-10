@@ -16,7 +16,7 @@
 
 import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
-import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/event-cm/narration";
+import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/templates/event-cm/narration";
 import { eventCmFilm } from "@/remotion/event-cm/film";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import {

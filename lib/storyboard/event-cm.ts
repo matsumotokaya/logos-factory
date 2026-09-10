@@ -33,7 +33,7 @@ import type { TimingSource } from "@/remotion/event-cm/timeline";
 import type { EventCmBrief, EventCmSceneRole } from "@/remotion/event-cm/types";
 import type { LogoTreatment } from "@/remotion/event/types";
 import { EVENT_CM_GOAL, eventCmGoalState } from "@/lib/pipeline/event-cm";
-import { FACT_FIELDS, isPhotoSlot, isSuppressed } from "@/lib/event-cm/facts";
+import { FACT_FIELDS, isPhotoSlot, isSuppressed } from "@/lib/templates/event-cm/facts";
 import type { FieldOrigin } from "@/lib/pipeline/stages";
 
 /** What each component kind is called on the storyboard. The vocabulary is

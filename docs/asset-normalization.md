@@ -142,9 +142,9 @@ LPが必要とする「価格」「お客様の声」は**ファイルの軸で�
 
 ### 5.3 分類は誰がするか
 
-構造化LLMが画像を読むときに**2つの軸を別々に答える**([lib/event-cm/structure.ts](../lib/event-cm/structure.ts) の `ImageReading`)。
+構造化LLMが画像を読むときに**2つの軸を別々に答える**([lib/templates/event-cm/structure.ts](../lib/templates/event-cm/structure.ts) の `ImageReading`)。
 
-- `role` = **この動画での使い道**(`speaker-portrait` / `key-visual` / `venue` …)。配置([place-images.ts](../lib/event-cm/place-images.ts))が読む。event-cm の語彙のままでよい
+- `role` = **この動画での使い道**(`speaker-portrait` / `key-visual` / `venue` …)。配置([place-images.ts](../lib/templates/event-cm/place-images.ts))が読む。event-cm の語彙のままでよい
 - `category` = **写っているもの**。素材の行に残る。テンプレート非依存
 
 以前は1語で両方を答えさせていた。だから `key-visual`(使い道)と `venue`(内容)が同じ列に並び、`product` が存在しなかった。**同じ写真が「この動画ではキービジュアル」かつ「内容は製品」であることは普通に起きる**ので、1語では足りない。
@@ -410,8 +410,8 @@ assets/audio/narration_ja_female-1.wav
 brief の各項目は `provenance[path]` に由来を持つ。`origin`(brand / extracted / inferred / user)と表示用の `source`(読んだ資料名)に加えて、**`sources: materialId[]`**——その値が何に立っているかを素材IDで、複数持てる。
 
 - **複数の根拠は配列で表す。** 開催日がフライヤーと貼り付けテキストの両方に書いてあれば2つ。写真を登壇者に付けた根拠が資料のキャプションなら、画像と資料の2つ(`personEvidenceRef`)。ロゴの行は1つのパスに複数のマークが載るので、根拠は蓄積する
-- **モデルが名指しし、規則が検証する。** 構造化LLMは項目ごとに根拠IDを返す(資料・画像とも見出しにIDを付けて渡す)。テキスト由来の引用は**本文にその値が現れるか**で検証し(空白と全角は無視)、無ければ落として実行ログに残す。PDF・画像は丸ごと渡しているので検証できず、そのまま信じる。名指しが無い項目は「読んだ資料すべて」が根拠([lib/event-cm/attribution.ts](../lib/event-cm/attribution.ts))
-- **外すと、その資料だけに立っていた値は仮に戻る。** 「外す」はピン解除で、そのとき同時に([lib/event-cm/withdraw.ts](../lib/event-cm/withdraw.ts)): (1) 外した素材を指すスロット(写真・ロゴ・BGM)はテンプレートの既定へ戻る、(2) 根拠の素材がひとつも残っていない項目は、このブランド向けの提案(seed)へ戻り `inferred` + 「根拠の資料が外されたため、仮の値に戻しました」が付く。別の資料にも書かれている値は残る。人が入れた値(`user`)と由来未記録の値は触らない。話す項目が戻ればナレーションは古くなる(`factsUpdatedAt`)
+- **モデルが名指しし、規則が検証する。** 構造化LLMは項目ごとに根拠IDを返す(資料・画像とも見出しにIDを付けて渡す)。テキスト由来の引用は**本文にその値が現れるか**で検証し(空白と全角は無視)、無ければ落として実行ログに残す。PDF・画像は丸ごと渡しているので検証できず、そのまま信じる。名指しが無い項目は「読んだ資料すべて」が根拠([lib/templates/event-cm/attribution.ts](../lib/templates/event-cm/attribution.ts))
+- **外すと、その資料だけに立っていた値は仮に戻る。** 「外す」はピン解除で、そのとき同時に([lib/templates/event-cm/withdraw.ts](../lib/templates/event-cm/withdraw.ts)): (1) 外した素材を指すスロット(写真・ロゴ・BGM)はテンプレートの既定へ戻る、(2) 根拠の素材がひとつも残っていない項目は、このブランド向けの提案(seed)へ戻り `inferred` + 「根拠の資料が外されたため、仮の値に戻しました」が付く。別の資料にも書かれている値は残る。人が入れた値(`user`)と由来未記録の値は触らない。話す項目が戻ればナレーションは古くなる(`factsUpdatedAt`)
 - **マッピングは撤回しない。** 「null は何も上書きしない」は維持する。撤回はピンが外れた瞬間に決定論で1回だけ起こり、再構造化は残った資料から読み直すだけ。だから「外して再構造化」は新しい構造になる——外した瞬間に半分、読み直しで残り半分
 - **既存の brief は `source` 文字列のまま**「由来未記録」として読める。撤回の対象にならないだけで、次に読み直せば `sources` が付く
 - コスト: 出力トークンが1回あたり数百、brief の jsonb が項目ごとに数十バイト。テーブルは増えない。ブランド層の `brand_knowledge_claims.source_ref` と同じ形を Take 層に持ってきたもの
@@ -457,7 +457,7 @@ public/assets/person/miyao-yoshiaki_portrait_1600w.jpg
 | 残す | migration 0055 + [measure.ts](../lib/materials/measure.ts) | 取り込み3経路すべてが `ink_ratio` / `trim_width` / `trim_height` を行へ書く(`measurementColumns` に足しただけ) |
 | 提案する | [MaterialInventory.tsx](../components/materials/MaterialInventory.tsx) | インベントリの各行。**押せるのは1回**——派生が既にある行は聞かない |
 | 作る | `POST /api/brands/[id]/materials/[materialId]/normalize` | 派生行(`source_kind='derived'` + `derived_from_material_id`)、原本と同じスコープ、原本のピン先すべてに `role='normalized'` でピン、**原本を指していたブリーフを派生へ差し替える** |
-| 使う | [place-images.ts](../lib/event-cm/place-images.ts) | 映像に載せるのは派生(`normalizedId`)、モデルに読ませるのは原本。**マークが2つ以上並んだらインク量で大きさを揃える**(`logos[].scale`) |
+| 使う | [place-images.ts](../lib/templates/event-cm/place-images.ts) | 映像に載せるのは派生(`normalizedId`)、モデルに読ませるのは原本。**マークが2つ以上並んだらインク量で大きさを揃える**(`logos[].scale`) |
 
 **測定はkindで絞らない。** 取り込み時の `kind` はメディアタイプから出るので、パートナーのロゴを webp で受け取ると `photo` になる——実データ(`Miss-sake_赤ロゴ-1536x542.webp`)がまさにそれで、kindで絞ると**この機能が書かれた理由の素材だけを外す**。測定は全画像に走り、絞るのは提案の側。
 
@@ -532,7 +532,7 @@ public/assets/person/miyao-yoshiaki_portrait_1600w.jpg
    - **効きは測定と分類に乗る**。未測定・未分類のままだと `unsorted/` に `kato.jpg` と出るだけで、幅も地の有無も名前に出ない
    - **問い合わせ側は [MATERIAL_NAMING_COLUMNS](../lib/materials/naming.ts) を使う**。測定が欠けているのは正常な状態なので型はすべて optional で、**列を取りこぼしても例外にならず、名前が静かに貧しくなるだけ**。実際にインベントリの select が `luminance` を落とし、DBに0.003が入っているのに全マークから `dark`/`light` が消えていた。列名を1つの定数に寄せてある(テストが結合を守る)
 4. ~~**インベントリUIを立てる**~~ **✅ 2026-08-16 実装**([components/materials/MaterialInventory.tsx](../components/materials/MaterialInventory.tsx))。絵コンテ下とマッピング段ドロワーが**同じ要素**を描く。2段が見え、`assets/<category>/` のディレクトリ表示、各行に種別・由来・寸法・**使用先**が出て、**分類はプルダウンで直せる**(`PATCH /api/brands/[id]/materials/[materialId]` が `category_source='user'` を立て、以後の実行が上書きしない)
-   - **使用先の導出は [lib/event-cm/material-usage.ts](../lib/event-cm/material-usage.ts)**。`take_inputs.role` では答えられない——47件中27件が `brief_source` で、それは「読ませるために上げた」であって「映像のここに出る」ではない。**ポインタを持っていることが使われていること**なので、ブリーフのどのパスに `material:` があるかが答え([collectMaterialPaths](../lib/takes/material-uri.ts))。シーン名は `EVENT_CM_SCENE_LABELS` から採るので、絵コンテと同じ言葉になる
+   - **使用先の導出は [lib/templates/event-cm/material-usage.ts](../lib/templates/event-cm/material-usage.ts)**。`take_inputs.role` では答えられない——47件中27件が `brief_source` で、それは「読ませるために上げた」であって「映像のここに出る」ではない。**ポインタを持っていることが使われていること**なので、ブリーフのどのパスに `material:` があるかが答え([collectMaterialPaths](../lib/takes/material-uri.ts))。シーン名は `EVENT_CM_SCENE_LABELS` から採るので、絵コンテと同じ言葉になる
    - **名前は未対応**(段階3)。表示名はまだ `label` そのままで、`sake/AdobeStock_1894358160.jpeg` のような名前が並ぶ。ディレクトリの枠は先にできたので、段階3は名前だけを差し替える
    - **昇格(「ブランドの基盤へ」)は未実装**。段階5
 5. ~~**基盤を実在させる**~~ **✅ 2026-08-16 一部実装**。**昇格UI**をインベントリの1段目に置いた(各行の「ブランドの基盤へ」)。規則の正本は [lib/materials/promotion.ts](../lib/materials/promotion.ts)(テストは [promotion.test.ts](../lib/materials/promotion.test.ts))で、独自の閾値は持たず **0028 の trigger と2つのupdateポリシーを日本語にしただけ**。画面は判定の権威ではなく、**サーバーが同じ関数でもう一度数える**
@@ -541,7 +541,7 @@ public/assets/person/miyao-yoshiaki_portrait_1600w.jpg
    - **実データで検証済み**(2026-08-16): `bgm.mp3` を take → brand へ昇格。`take_id` が null になり `promoted_at` が入り、**`id` と `r2_key` は不変**で `take_inputs` のピンは checksum 一致のまま生きていた。インベントリの2段目に現れ、使用先「BGM」も保たれた
    - **残り: 取り込み時の提案**(「この素材をブランドの基盤に登録しますか」)。いま基盤にあるものは「次に作るものから選べる」であって「自動で注入される」ではない——**自動で入るのはマーク(ブランド)とBGM(テンプレート)で、どちらも指名を必要としない**(§7.2)
 6. ~~**注入とオフ**~~ **✅ 2026-08-17 実装**。注入の側は既に動いていた(マークは `seedEventCmFromBrand`、BGMは `defaultBgm`)。**オフを足した**——インベントリの基盤セクションの「ブランドの基盤を使う」で、コラボ案件など自社の雰囲気を出さないときに外せる
-   - **正本は [lib/event-cm/facts.ts](../lib/event-cm/facts.ts) の `BRAND_BASE_PATH`**、適用は `applySuppression`(テストは [brand-base.test.ts](../lib/event-cm/brand-base.test.ts))。**新しいAPIも列も作っていない**——既存の suppression をそのまま使うので、既存の `PATCH /facts` が通り、`provenance` に決定として残る。**値を消すだけだと次の実行が戻してしまう**(読み上げのオフと同じ理由)
+   - **正本は [lib/templates/event-cm/facts.ts](../lib/templates/event-cm/facts.ts) の `BRAND_BASE_PATH`**、適用は `applySuppression`(テストは [brand-base.test.ts](../lib/templates/event-cm/brand-base.test.ts))。**新しいAPIも列も作っていない**——既存の suppression をそのまま使うので、既存の `PATCH /facts` が通り、`provenance` に決定として残る。**値を消すだけだと次の実行が戻してしまう**(読み上げのオフと同じ理由)
    - **外れるのは見た目とマークだけ**。自社のマーク(`logos[0]`)と、採用済みの配色・書体(`theme` → `SUMI_THEME` に戻る)。**事実は残る**——主催者名・イベント名・日程はそのまま。誰が主催かは雰囲気ではないので、隠すと restyle ではなく嘘になる
    - **相手のマークは残る**。パートナーのマークは `logos[1..]` にあるので、自社のものが外れると**相手のマークが冒頭を飾る**——コラボ先のトンマナで作るとはそういうこと
    - **ナレーションは古くならない**。配色もマークも読み上げないので `factsUpdatedAt` を動かさない(`UNSPOKEN` に `theme` / `brandBase` を追加)。何も壊れていないのに警告が出る状態を作らない

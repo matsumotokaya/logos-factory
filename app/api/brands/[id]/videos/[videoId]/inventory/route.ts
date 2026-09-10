@@ -12,7 +12,7 @@
 
 import { guardLabsRequest } from "@/lib/labs-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
-import { eventCmUsageRecord, type MaterialUse } from "@/lib/event-cm/material-usage";
+import { eventCmUsageRecord, type MaterialUse } from "@/lib/templates/event-cm/material-usage";
 import { MATERIAL_NAMING_COLUMNS } from "@/lib/materials/naming";
 import { signedMaterialUrl } from "@/lib/materials/signed-url";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
