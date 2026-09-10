@@ -68,7 +68,7 @@ import VideoPipelinePanel, {
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { bulkRunPlan, pendingReadStages } from "@/lib/pipeline/stage-actions";
 import { VIDEO_STATE_LABEL, type VideoState } from "@/lib/video/asset";
-import type { VideoTemplateId } from "@/lib/video/templates";
+import { videoTemplate, type VideoTemplateId } from "@/lib/video/templates";
 import type { EventBrief } from "@/remotion/event/types";
 import type { EventCmBrief, EventCmSceneRole } from "@/remotion/event-cm/types";
 
@@ -246,8 +246,18 @@ export default function BrandVideoDetail({
   // The two briefs, for DRAWING: the storyboard renders one and the player the
   // other. These are the resolved copies, which is what drawing needs — an
   // <img> cannot fetch `material:<uuid>`.
+  // Whether this template is authored on this surface, asked of the template
+  // ledger rather than by comparing an id (lib/templates/catalog.ts). The id
+  // used to be compared in fifteen places, which is how the storyboard, the
+  // pipeline results and the film step became facts about one string instead
+  // of properties of a template (docs/template-contract.md §3).
+  //
+  // Declared here, above the effects that read it: a const further down is out
+  // of scope for a callback on the renders that return early.
+  const authored = videoTemplate(resolved?.video.template ?? "")?.authoring ?? false;
+
   const eventCm =
-    resolved?.video.template === "event-cm" && resolved.video.brief
+    authored && resolved?.video.brief
       ? {
           working: resolved.video.brief as EventCmBrief,
           baked: (resolved.video.bakedBrief ?? null) as EventCmBrief | null,
@@ -723,7 +733,7 @@ export default function BrandVideoDetail({
   // Kept off the synchronous effect path, same as the take load: setting state
   // during the effect body triggers cascading renders.
   useEffect(() => {
-    if (resolved?.kind !== "asset" || resolved.video.template !== "event-cm") return;
+    if (resolved?.kind !== "asset" || !authored) return;
     let cancelled = false;
     void (async () => {
       await Promise.resolve();
@@ -735,7 +745,7 @@ export default function BrandVideoDetail({
     return () => {
       cancelled = true;
     };
-  }, [resolved, loadSources, loadRuns, loadInventory]);
+  }, [resolved, authored, loadSources, loadRuns, loadInventory]);
 
   async function submitSource(
     init: RequestInit,
@@ -1310,7 +1320,7 @@ export default function BrandVideoDetail({
   // property of the film somebody can watch. Quoting the working brief's length
   // would move the number while the player kept running the old one.
   const eventCmMeta = (() => {
-    if (video.template !== "event-cm" || !eventCm) return null;
+    if (!authored || !eventCm) return null;
     const film = eventCmFilm(eventCm.baked ?? eventCm.working);
     const seconds = (film.totalMs / 1000).toFixed(1);
     const measured = film.timingSource === "voice";
@@ -1334,7 +1344,7 @@ export default function BrandVideoDetail({
           </div>
           {/* Outside the flow on purpose: the stages are one step each, and
               "do the rest" is a statement about the whole pipeline. */}
-          {video?.template === "event-cm" ? (
+          {authored ? (
             <button
               type="button"
               onClick={() => void runAll()}
@@ -1398,7 +1408,7 @@ export default function BrandVideoDetail({
             payload={pipeline}
             runs={runs}
             intake={
-              video?.template === "event-cm" ? (
+              authored ? (
                 <BriefSourceIntake
                   sources={sources}
                   busy={saving}
@@ -1411,7 +1421,7 @@ export default function BrandVideoDetail({
               ) : undefined
             }
             extracted={
-              video?.template === "event-cm" ? (
+              authored ? (
                 <ExtractResults
                   runs={runs}
                   sources={sources}
@@ -1423,11 +1433,11 @@ export default function BrandVideoDetail({
               ) : undefined
             }
             structured={
-              video?.template === "event-cm" ? <StructureResults runs={runs} /> : undefined
+              authored ? <StructureResults runs={runs} /> : undefined
             }
             // The reading button, drawn under the list of documents it reads.
             ownAction={
-              video?.template === "event-cm" ? (
+              authored ? (
                 <StageAction
                   part="own"
                   stageId={openStageDef.id}
@@ -1442,7 +1452,7 @@ export default function BrandVideoDetail({
               ) : undefined
             }
             action={
-              video?.template === "event-cm" ? (
+              authored ? (
                 <StageAction
                   part="advance"
                   stageId={openStageDef.id}
@@ -1465,7 +1475,7 @@ export default function BrandVideoDetail({
               ) : undefined
             }
             facts={
-              video?.template === "event-cm" && video.brief ? (
+              authored && video.brief ? (
                 <div className="flex flex-col gap-6">
                   <FactList
                     brief={video.brief as EventCmBrief}
@@ -1503,7 +1513,7 @@ export default function BrandVideoDetail({
             // same stage, one of them longer, is how the drawer ended up
             // explaining the bake to somebody who had opened 入力・抽出.
             output={
-              video?.template === "event-cm" && bake ? (
+              authored && bake ? (
                 <div className="flex flex-col gap-2">
                   <h3 className="text-sm font-medium text-ink">動画プレビューに反映する</h3>
                   <p className="text-sm text-ink-muted">
@@ -1541,7 +1551,7 @@ export default function BrandVideoDetail({
         <div className="min-w-0 max-w-3xl">
           <p className="text-xs font-semibold text-ink-muted">{video.templateName.toUpperCase()}</p>
           <h1 className="mt-2 text-balance font-display text-3xl font-semibold">{video.title}</h1>
-          {video.template === "event-cm" && video.brief
+          {authored && video.brief
             ? (() => {
                 const proposed = titleOffer(
                   video.title,
@@ -1582,7 +1592,7 @@ export default function BrandVideoDetail({
               公開動画 ↗
             </a>
           ) : null}
-          {video.template === "event-cm"
+          {authored
             ? (() => {
                 // The brief arrives with its pointers resolved so the player can
                 // fetch them, so `brief.bgm` is a signed URL. Inverting the map
@@ -1607,7 +1617,7 @@ export default function BrandVideoDetail({
                 );
               })()
             : null}
-          {video.template === "event-cm"
+          {authored
             ? (() => {
                 // A finishing step, not an authoring one: the narration is written
                 // in the pipeline, and speaking it costs money and half a
@@ -1638,7 +1648,7 @@ export default function BrandVideoDetail({
                 );
               })()
             : null}
-          {video.template === "event-cm" && video.brief
+          {authored && video.brief
             ? (() => {
                 // The narration's other output. Nothing to choose, so the
                 // control is a switch — but it sits with BGM and ボイス because
@@ -1670,7 +1680,7 @@ export default function BrandVideoDetail({
                 ? "MP4を作り直す"
                 : "MP4を作成"}
           </button>
-          {video.template === "event-cm" ? (
+          {authored ? (
             <ProjectExportDialog
               // Which defaults this video uses is decided from the brief's own
               // pointer, so the dialog names the ones actually at stake instead
@@ -1782,7 +1792,7 @@ export default function BrandVideoDetail({
         </section>
       ) : null}
 
-      {video.template === "event-cm" && eventCm && bake ? (
+      {authored && eventCm && bake ? (
         <EventCmWorkspace
           brief={eventCm.working}
           // Never run = play the workbench. The take's opening move is a

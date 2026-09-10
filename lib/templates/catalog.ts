@@ -126,6 +126,25 @@ export interface TemplateEntry {
    */
   bakesBrief?: boolean;
   /**
+   * Whether this template's brief is authored on the deliverable surface —
+   * the pipeline, the storyboard, the fact list, the narration and the film
+   * step (docs/template-contract.md §3).
+   *
+   * Declared here rather than compared as a template id in the screen. The
+   * screen used to ask `video.template === "event-cm"` in seven places, which
+   * made a property of the template a fact about one string, and put the
+   * decision 1,900 lines deep in a component.
+   *
+   * A template may only declare this once it supplies the whole contract:
+   * a fact ontology, a seed from the brand, the reading stages, a scene
+   * vocabulary, the bake, and provenance. Setting it true with a piece missing
+   * gives the surface nothing to draw. The operations themselves still resolve
+   * to lib/templates/event-cm directly; turning this on for a SECOND template
+   * is what forces them into a lookup, and that is where the interface should
+   * be designed — against two vocabularies rather than one (§3.1).
+   */
+  authoring?: boolean;
+  /**
    * Video-specific: the id of the pool track a new take starts with.
    *
    * THE DEFAULT BGM BELONGS TO THE TEMPLATE, not to the brand and not to the
@@ -427,6 +446,8 @@ export const TEMPLATES: TemplateEntry[] = [
     // The storyboard is a workbench: edits collect there and reach the film
     // only when the user asks. The only template that works this way today.
     bakesBrief: true,
+    // The only template that supplies the whole authoring contract today.
+    authoring: true,
     // The script is written by an LLM from the brief, then spoken. Both are
     // charged, and both re-run only when asked.
     //

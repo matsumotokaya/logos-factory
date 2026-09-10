@@ -47,6 +47,9 @@ export interface VideoTemplate {
   playableFromBrief: boolean;
   /** Whether edits collect in a workbench brief and reach the film on request. */
   bakesBrief: boolean;
+  /** Whether this template's brief is authored on the deliverable surface
+   *  (catalog.ts). False = the detail page has nothing to draw for it. */
+  authoring: boolean;
   /** Every brand gets exactly one of these by default, unpublished. */
   isBrandDefault: boolean;
   /** The kind of film, e.g. 製品紹介動画. Falls back to `name`. */
@@ -77,6 +80,7 @@ const toVideoTemplate = (template: TemplateEntry): VideoTemplate => ({
   narration: template.narration ?? false,
   playableFromBrief: template.playableFromBrief ?? true,
   bakesBrief: template.bakesBrief ?? false,
+  authoring: template.authoring ?? false,
   isBrandDefault: template.isBrandDefault,
   family: template.family ?? templateName(template),
   variant: template.variant ?? templateName(template),
