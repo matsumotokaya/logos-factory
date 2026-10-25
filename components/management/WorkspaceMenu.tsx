@@ -38,7 +38,8 @@ export default function WorkspaceMenu({
     <Menu.Root>
       <Menu.Trigger
         aria-label={`${name}のメニュー`}
-        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-paper text-ink-faint hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink data-[popup-open]:border-ink data-[popup-open]:text-ink"
+        title={`${name}のメニュー`}
+        className="flex size-6 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-ink/10 hover:text-ink focus-visible:outline-2 focus-visible:outline-ink data-[popup-open]:bg-ink/10 data-[popup-open]:text-ink"
       >
         <MoreIcon />
       </Menu.Trigger>
