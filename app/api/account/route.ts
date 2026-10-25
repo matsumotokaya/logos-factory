@@ -22,8 +22,18 @@ type DeleteResult = {
   preview: DeletionPreview;
 };
 
-const R2_ACCOUNT_OBJECT_RE =
+const R2_LOGO_MOCKUP_RE =
   /^logos\/[A-Za-z0-9]{8,24}\/candidates\/[0-9a-f-]{36}\/mockups\/[a-z0-9][a-z0-9-]{0,79}\.png$/;
+// A brand's files (brand_materials, render_artifacts): brands/{id}/materials/…
+// or brands/{id}/takes/{id}/{materials|renders|output}/…. Without this the
+// RPC's brand keys were all filed as invalid and left in the bucket.
+const R2_BRAND_OBJECT_RE =
+  /^brands\/[0-9a-f-]{36}\/(?:materials|takes\/[0-9a-f-]{36}\/(?:materials|renders|output))\/[A-Za-z0-9._/-]+$/;
+
+function isAccountObjectKey(key: string): boolean {
+  if (key.includes("..")) return false;
+  return R2_LOGO_MOCKUP_RE.test(key) || R2_BRAND_OBJECT_RE.test(key);
+}
 
 function registeredUser(user: VerifiedUser): boolean {
   return !user.isAnonymous;
@@ -40,6 +50,9 @@ function errorResponse(error: unknown): Response {
       { status: 503 },
     );
   }
+  // The body stays generic; the cause goes to the server log, where it was
+  // missing when a foreign-key violation blocked every deletion (0058).
+  console.error("Account request failed:", message);
   return Response.json({ error: "アカウント処理に失敗しました。" }, { status: 500 });
 }
 
@@ -154,11 +167,11 @@ export async function DELETE(req: Request) {
     const queuedKeys = Array.isArray(result.objectKeys) ? result.objectKeys : [];
     const objectKeys = queuedKeys.filter(
       (key): key is string =>
-        typeof key === "string" && R2_ACCOUNT_OBJECT_RE.test(key),
+        typeof key === "string" && isAccountObjectKey(key),
     );
     const invalidKeys = queuedKeys.filter(
       (key): key is string =>
-        typeof key === "string" && !R2_ACCOUNT_OBJECT_RE.test(key),
+        typeof key === "string" && !isAccountObjectKey(key),
     );
     const failedKeys = await deleteR2Keys(objectKeys);
     const queuedFailures = [...invalidKeys, ...failedKeys];
