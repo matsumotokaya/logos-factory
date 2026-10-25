@@ -19,7 +19,10 @@ import {
 } from "@/lib/supabase/server";
 import type { SourceFile } from "@/lib/campaign/creative";
 import { runCampaignPipeline } from "@/lib/campaign/pipeline";
-import { persistCampaignCatalog } from "@/lib/campaign/catalog";
+import {
+  createProvisionalBrand,
+  persistCampaignCatalog,
+} from "@/lib/campaign/catalog";
 import { createCampaignLpTake } from "@/lib/takes/campaign-lp";
 import {
   createCampaignJob,
@@ -185,6 +188,34 @@ export async function POST(req: Request) {
     );
   }
 
+  // The Brand exists from the first second, so the user is taken to its page
+  // and the run fills it in; the run is not a place of its own (template
+  // contract §2: CM Maker's job page is folded into the brand).
+  let provisionalWorkspaceName: string | null = null;
+  const provisionalBrand = !brandEntityId;
+  if (!brandEntityId) {
+    try {
+      const created = await createProvisionalBrand(
+        createServerSupabaseForToken(user.token),
+        user.id,
+        {
+          organizationId: newWorkspace ? null : organizationId,
+          url,
+          name: body.name?.trim() || null,
+        },
+      );
+      brandEntityId = created.brandId;
+      organizationId = created.organizationId;
+      provisionalWorkspaceName = created.provisionalWorkspaceName;
+    } catch (error) {
+      console.error("Provisional brand creation failed:", error);
+      return NextResponse.json(
+        { error: "ブランドを作成できませんでした" },
+        { status: 500 },
+      );
+    }
+  }
+
   const job = createCampaignJob(user.id, {
     url,
     name: body.name?.trim() || null,
@@ -193,7 +224,8 @@ export async function POST(req: Request) {
     hasText: Boolean(body.pastedText?.trim()),
     brandEntityId,
     organizationId,
-    newWorkspace,
+    provisionalBrand,
+    provisionalWorkspaceName,
   });
 
   // Detached run: progress and result live in the job store, not in this
@@ -277,5 +309,8 @@ export async function POST(req: Request) {
       );
     });
 
-  return NextResponse.json({ jobId: job.id }, { status: 202 });
+  return NextResponse.json(
+    { jobId: job.id, brandId: brandEntityId, organizationId },
+    { status: 202 },
+  );
 }

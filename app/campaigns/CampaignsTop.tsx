@@ -443,26 +443,21 @@ export default function CampaignsTop() {
       });
       const json = ((await res.json().catch(() => null)) ?? {}) as {
         jobId?: string;
+        brandId?: string;
+        organizationId?: string | null;
         error?: string;
       };
-      if (!res.ok || !json.jobId) {
-        // Generation is still limited to approved accounts, and the endpoint
-        // answers 404 to keep itself undiscoverable. Say that in the
-        // visitor's terms rather than passing the endpoint's own wording
-        // ("Not found.") through to the page.
-        if (res.status === 401 || res.status === 403 || res.status === 404) {
-          throw new Error(
-            "このアカウントでは、まだ生成をご利用いただけません。",
-          );
-        }
+      if (!res.ok || !json.brandId) {
+        // The gate and the route both answer in the visitor's terms.
         throw new Error(
           json.error ?? `生成を開始できませんでした (HTTP ${res.status})`,
         );
       }
-      if (askWorkspace && effectiveWorkspace && effectiveWorkspace !== NEW_WORKSPACE)
-        writeCurrentWorkspaceId(effectiveWorkspace);
-      // The run lives on its own page from here on.
-      router.push(`/campaigns/${json.jobId}`);
+      // The brand page shows the workspace it is in, so make that the
+      // current one — it may have just been created.
+      if (json.organizationId) writeCurrentWorkspaceId(json.organizationId);
+      // The brand exists already; its page follows the run.
+      router.push(`/brands/${json.brandId}`);
     } catch (e) {
       setStarting(false);
       // No session at all: the next step is signing in, so open the dialog

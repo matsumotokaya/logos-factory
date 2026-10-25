@@ -81,6 +81,23 @@ export async function GET(req: Request) {
     );
   }
 
+  // ?brandId= — the latest run that fills this Brand, for the brand page's
+  // status line. A run made the Brand when it started (brandEntityId), or —
+  // for runs from before that — registered it when it ended (catalog).
+  const brandId = search.get("brandId");
+  if (brandId) {
+    const latestForBrand = listCampaignJobsForUser(user.id).find(
+      (job) =>
+        job.input.brandEntityId === brandId || job.catalog?.brandId === brandId,
+    );
+    if (!latestForBrand)
+      return Response.json(
+        { job: null },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    return jobResponse(latestForBrand);
+  }
+
   const id = search.get("id");
   if (id) {
     const job = getCampaignJob(id);

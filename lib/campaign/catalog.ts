@@ -106,29 +106,149 @@ async function resolveWorkspace(supabase: SupabaseClient): Promise<string> {
   return organizationId;
 }
 
+/** A source's name before anything has read it: the host, without www. */
+function hostName(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * A new workspace for this registration, named after the company the source
- * names. A workspace is one company's world, so the operator the kit found is
- * the right name — but only when the kit is reasonably sure of it; a low-
- * confidence guess would put a wrong company name on the whole workspace.
- * The creator becomes owner through the on_organization_created trigger.
+ * The Brand a generation fills, made the moment it starts so the user can be
+ * taken to its page instead of to the run. Named after the source until the
+ * kit knows better (finalizeProvisionalBrand), and given the classifier's
+ * fallback kind until the classifier speaks. A new workspace, when one was
+ * asked for, is made here too and named the same way. The creator becomes its
+ * owner through the on_organization_created trigger.
  */
-async function createWorkspaceForKit(
+export async function createProvisionalBrand(
   supabase: SupabaseClient,
   userId: string,
+  input: {
+    /** The workspace to file it in; null to make a new one. */
+    organizationId: string | null;
+    url: string | null;
+    name: string | null;
+  },
+): Promise<{
+  organizationId: string;
+  brandId: string;
+  /** Set when the workspace was made for this brand: the name to replace. */
+  provisionalWorkspaceName: string | null;
+}> {
+  const provisionalName = input.name || hostName(input.url) || "新しいブランド";
+  let organizationId = input.organizationId;
+  let provisionalWorkspaceName: string | null = null;
+  if (!organizationId) {
+    organizationId = randomUUID();
+    provisionalWorkspaceName = hostName(input.url) ?? "Personal";
+    const workspace = await supabase.from("organizations").insert({
+      org_id: organizationId,
+      name: provisionalWorkspaceName,
+      created_by: userId,
+    });
+    throwOn(workspace.error);
+  }
+
+  const brandId = randomUUID();
+  const brand = await supabase.from("brand_entities").insert({
+    id: brandId,
+    name: provisionalName,
+    website: normalizedCatalogWebsite(input.url),
+    status: "inferred",
+    source_kind: input.url ? "scraped" : "uploaded",
+    source_url: normalizedCatalogWebsite(input.url) || null,
+    provenance: {
+      name: { source: "provisional" },
+      brand_kind: { source: "provisional" },
+    },
+    created_by: userId,
+    organization_id: organizationId,
+    brand_kind: resolveSubjectCategory(undefined).brandKind,
+  });
+  throwOn(brand.error);
+  return { organizationId, brandId, provisionalWorkspaceName };
+}
+
+/**
+ * Give a provisional Brand what the kit found: its name, description, industry
+ * and kind, and its workspace the operator's name. A field the user set while
+ * the run was going (provenance user_confirmed) is theirs and is left alone,
+ * and so is a workspace they renamed. The operator names the workspace only
+ * when the kit is reasonably sure of it; a low-confidence guess would put the
+ * wrong company on the whole workspace.
+ */
+async function finalizeProvisionalBrand(
+  supabase: SupabaseClient,
+  target: BrandTarget,
+  job: CampaignJob,
   kit: CampaignBrandKit,
-): Promise<string> {
+  brandKind: BrandKind,
+): Promise<BrandTarget> {
+  const current = await supabase
+    .from("brand_entities")
+    .select("provenance")
+    .eq("id", target.brandId)
+    .maybeSingle();
+  throwOn(current.error);
+  const provenance = (current.data?.provenance as Record<string, { source?: string }> | null) ?? {};
+  const userSet = (field: string) => provenance[field]?.source === "user_confirmed";
+
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    provenance: {
+      ...provenance,
+      ...(userSet("name") ? {} : { name: { source: "generation_brand_kit", confidence: "medium" } }),
+      ...(userSet("description")
+        ? {}
+        : { description: { source: "generation_brand_kit", confidence: "medium" } }),
+      ...(userSet("brand_kind")
+        ? {}
+        : {
+            brand_kind: {
+              source: "generation_classification",
+              confidence: kit.classification?.confidence ?? "low",
+            },
+          }),
+    },
+  };
+  if (!userSet("name")) {
+    patch.name = kit.service.name || kit.organization?.name || "名称未設定のブランド";
+  }
+  if (!userSet("description")) patch.description = kit.service.description;
+  if (!userSet("industry")) patch.industry = kit.service.industry;
+  if (!userSet("brand_kind")) patch.brand_kind = brandKind;
+  const updated = await supabase
+    .from("brand_entities")
+    .update(patch)
+    .eq("id", target.brandId)
+    .select("brand_kind")
+    .maybeSingle();
+  throwOn(updated.error);
+
+  const provisionalWorkspaceName = job.input.provisionalWorkspaceName;
   const operator = kit.organization;
-  const name =
-    operator && operator.confidence !== "low" && operator.name.trim()
-      ? operator.name.trim().slice(0, 200)
-      : "Personal";
-  const organizationId = randomUUID();
-  const inserted = await supabase
-    .from("organizations")
-    .insert({ org_id: organizationId, name, created_by: userId });
-  throwOn(inserted.error);
-  return organizationId;
+  if (
+    provisionalWorkspaceName &&
+    operator &&
+    operator.confidence !== "low" &&
+    operator.name.trim()
+  ) {
+    const renamed = await supabase
+      .from("organizations")
+      .update({ name: operator.name.trim().slice(0, 200) })
+      .eq("org_id", target.organizationId)
+      .eq("name", provisionalWorkspaceName);
+    throwOn(renamed.error);
+  }
+
+  return {
+    ...target,
+    brandKind: (updated.data?.brand_kind as BrandKind | undefined) ?? target.brandKind,
+  };
 }
 
 /**
@@ -484,18 +604,21 @@ export async function persistCampaignCatalog({
     job.input.registrationScope,
   );
 
-  // Either the user pointed at a Brand they already have, or this registration
-  // makes a new one. There is no third path that guesses which existing row
-  // this "really" is (§19.3).
-  const target: BrandTarget = job.input.brandEntityId
+  // Either the user pointed at a Brand they already have, or the generation
+  // made one when it started (createProvisionalBrand) and now fills it. There
+  // is no third path that guesses which existing row this "really" is (§19.3).
+  const selected = job.input.brandEntityId
     ? await selectedBrandTarget(supabase, job.input.brandEntityId)
+    : null;
+  const target: BrandTarget = selected
+    ? job.input.provisionalBrand
+      ? await finalizeProvisionalBrand(supabase, selected, job, kit, category.brandKind)
+      : selected
     : await (async () => {
-        // The workspace the user chose on the entry form, or a new one they
-        // asked for (or got because they had none). Jobs created before the
-        // form asked carry neither; those keep the old default.
-        const organizationId = job.input.newWorkspace
-          ? await createWorkspaceForKit(supabase, userId, kit)
-          : (job.input.organizationId ?? (await resolveWorkspace(supabase)));
+        // Jobs from before brands were made at the start carry no Brand;
+        // those keep the old default workspace.
+        const organizationId =
+          job.input.organizationId ?? (await resolveWorkspace(supabase));
         return {
           organizationId,
           brandId: await createBrand(

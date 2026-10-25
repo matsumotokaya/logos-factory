@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { requestAuthDialog } from "@/lib/auth";
+import { refreshBrandTree } from "@/lib/brand-events";
 import { authedFetch, AuthRequiredError } from "@/app/campaigns/campaign-ui";
 
 // "ブランドを追加" from the bottom of the sidebar.
@@ -51,19 +52,21 @@ export default function AddBrandDialog({
       });
       const json = ((await res.json().catch(() => null)) ?? {}) as {
         jobId?: string;
+        brandId?: string;
         error?: string;
       };
-      if (!res.ok || !json.jobId) {
-        // Same wording as the top page: the endpoint answers 404 to stay
-        // undiscoverable, which is not what the user should read.
-        if (res.status === 401 || res.status === 403 || res.status === 404) {
-          throw new Error("このアカウントでは、まだ生成をご利用いただけません。");
-        }
+      if (!res.ok || !json.brandId) {
         throw new Error(
           json.error ?? `生成を開始できませんでした (HTTP ${res.status})`,
         );
       }
-      router.push(`/campaigns/${json.jobId}`);
+      // The brand exists already, in this workspace; its page follows the run.
+      // The dialog stays mounted with the shell, so it is reset as it closes.
+      setStarting(false);
+      setUrl("");
+      onOpenChange(false);
+      refreshBrandTree();
+      router.push(`/brands/${json.brandId}`);
     } catch (e) {
       setStarting(false);
       if (e instanceof AuthRequiredError) {
@@ -96,7 +99,7 @@ export default function AddBrandDialog({
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-pretty text-sm text-ink-muted">
               URLを入れると、「{organizationName}」にブランドが1つ立ちます。
-              Organization、ブランドプロフィール、仮ロゴ、LPがまとめて登録されます。
+              ブランドプロフィール、仮ロゴ、LPがまとめて登録されます。
             </Dialog.Description>
 
             <form
