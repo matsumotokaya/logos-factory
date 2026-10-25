@@ -9,7 +9,7 @@
 // manual mockup generation.
 
 import { NextResponse } from "next/server";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { generateCmVoice, cmVoiceAvailable } from "@/lib/campaign/voice";
 import {
@@ -25,7 +25,7 @@ import { renderProductCmJob } from "@/lib/takes/product-cm";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
 

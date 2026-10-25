@@ -13,7 +13,7 @@
 // decided. It deliberately does not regenerate deliverables — remaking an LP or
 // a video stays each deliverable's own button.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import {
   createServerSupabaseForToken,
   requireUser,
@@ -55,7 +55,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const { id: brandId } = await ctx.params;

@@ -13,7 +13,7 @@
 // apart. Now the client asks for a picture to be removed and the template
 // decides what that means.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import { setSuppressed } from "@/lib/templates/event-cm/facts";
@@ -33,7 +33,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

@@ -1,4 +1,4 @@
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { currentTemplate } from "@/lib/templates/catalog";
@@ -124,7 +124,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string; takeId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -147,7 +147,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; takeId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -222,7 +222,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; takeId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

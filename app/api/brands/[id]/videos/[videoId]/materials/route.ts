@@ -11,7 +11,7 @@
 // position).
 
 import { createHash, randomUUID } from "node:crypto";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
@@ -149,7 +149,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -301,7 +301,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -510,7 +510,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

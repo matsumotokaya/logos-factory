@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import {
   createServerSupabaseForToken,
   requireUser,
@@ -43,7 +43,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const { id } = await ctx.params;
@@ -75,7 +75,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const { id } = await ctx.params;

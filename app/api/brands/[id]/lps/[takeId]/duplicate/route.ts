@@ -1,6 +1,6 @@
 // A second version of one LP. Mirror of the video duplicate route.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { duplicateTake } from "@/lib/takes/duplicate";
 
@@ -10,7 +10,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; takeId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

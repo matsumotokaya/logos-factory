@@ -3,11 +3,8 @@
 // an Authorization header). Supports single-range requests so browsers can
 // seek. The sample campaign's MP4 is a static file under public/campaigns/.
 
-import {
-  guardLabsRequest,
-  labsDisabledResponse,
-  labsEnabled,
-} from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
+import { labsDisabledResponse, labsEnabled } from "@/lib/labs-access";
 import { verifyLabsSignature } from "@/lib/labs-output-sign";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { renderProductCmJob } from "@/lib/takes/product-cm";
@@ -30,7 +27,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const { id } = await params;

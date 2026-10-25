@@ -14,7 +14,7 @@
 // writes the brief — the brief is the deliverable, and the only thing the
 // renderer reads.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { extractSummary, extractTakeSources } from "@/lib/deliverable/extract";
 import {
@@ -44,7 +44,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string; stage: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

@@ -4,7 +4,7 @@
 // the WAV is pinned to the take, and the timeline stops estimating from
 // character counts and starts following the measured track.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { generateVoice, voiceAvailable } from "@/lib/voice/synthesize";
 import {
@@ -27,7 +27,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -189,7 +189,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -262,7 +262,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

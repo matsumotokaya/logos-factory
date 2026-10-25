@@ -3,7 +3,7 @@
 // The path segment is always a V2 Take id. PATCH updates its validated brief,
 // title, or canonical publication state.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { campaignCmMp4Exists, getCampaignJob } from "@/lib/campaign/jobs";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
@@ -34,7 +34,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -264,7 +264,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -409,7 +409,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

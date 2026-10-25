@@ -4,7 +4,7 @@
 // seconds. This is where the same information keeps living, so "what did I do
 // to this video, and what did it change" has an answer tomorrow.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 
 export interface TakeRunRecord {
@@ -26,7 +26,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

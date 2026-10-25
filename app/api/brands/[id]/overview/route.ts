@@ -4,7 +4,7 @@
 // the assets (logos / videos / LPs).
 
 import path from "node:path";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { brandMaterialSignatureToken } from "@/lib/takes/material-uri";
 import {
@@ -75,7 +75,7 @@ export type BrandOverview = {
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

@@ -10,7 +10,7 @@
 // video's; `brand` rows are the base. The widen-only trigger from 0028 means a
 // row moves between tiers by being promoted, never by being copied.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { eventCmUsageRecord, type MaterialUse } from "@/lib/templates/event-cm/material-usage";
 import { MATERIAL_NAMING_COLUMNS } from "@/lib/materials/naming";
@@ -114,7 +114,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

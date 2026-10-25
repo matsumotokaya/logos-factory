@@ -19,7 +19,7 @@
 // the row lives in. Since 2026-09-08 a row has exactly one owner, so a
 // correction here reaches exactly one row.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { isMaterialCategory } from "@/lib/materials/category";
 import {
@@ -36,7 +36,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; materialId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

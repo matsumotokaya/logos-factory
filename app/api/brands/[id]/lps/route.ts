@@ -4,7 +4,7 @@
 // and every LP Take is a V2 row, so the list reads straight from `takes` like
 // the video portal does.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 
 type TakeLpRow = {
@@ -37,7 +37,7 @@ export type LpSummary = {
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

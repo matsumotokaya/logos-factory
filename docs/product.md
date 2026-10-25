@@ -32,7 +32,7 @@
 | 成果物が正本から出る | **出ていない。** `campaign-lp@2` は `brief.kit` を焼き込んで描き、`brand_knowledge_values` を読まない([lib/takes/campaign-lp.ts](../lib/takes/campaign-lp.ts)、[lib/campaign/render-lp.ts](../lib/campaign/render-lp.ts))。knowledge を読む経路は [lib/templates/event-cm/seed-from-brand.ts](../lib/templates/event-cm/seed-from-brand.ts) だけ |
 | 採用は人の明示操作 | **逆。** `values` を作っているのは URL 抽出の機械採用だけで、しかも見つからなくなった値を機械が DELETE する([lib/brand/import-assets.ts](../lib/brand/import-assets.ts))。`adopt_brand_knowledge`([0036](../supabase/migrations/0036_adopt_brand_knowledge.sql))は fact 層を出自に関係なく `confirmed` で刻む |
 | 外部から読める | **読めない。** JSON を返す公開エンドポイントが1本も無い。到達できるのは `/p` `/c` `/v` の HTML/MP4 だけ |
-| 外部組織が使える | **使えない。** `guardLabsRequest` が39ファイル(`/api/brands/**` 30本)に入っており、Brand 作成も `inspect-url` もその内側 |
+| 外部組織が使える | **使える(2026-10-25)。** `/api/brands/**` 29本の門を `guardLabsRequest`(platform role)から [guardBrandRequest](../lib/brand-access.ts)(登録済みユーザーなら誰でも)に替えた。見える範囲はワークスペースの RLS が決める。「ブランドを追加」が呼ぶ生成の4本(`/api/labs/campaign/{generate,jobs,voice,video/[id]}`)も同じ門にした。Labs 権限が残るのはそれ以外の `/api/labs/**` と `/api/brands/backfill`(旧 Campaign Lab の移行)だけ |
 | 本番で動く | LP 生成は detached job + ローカルFSで Vercel serverless では生きない。`captureSite`(Playwright)も動かず推定色になる |
 
 ## 4. 作る順序

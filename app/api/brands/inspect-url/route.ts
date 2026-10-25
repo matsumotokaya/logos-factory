@@ -1,4 +1,4 @@
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import type {
   BrandUrlInspection,
   OrganizationKind,
@@ -51,7 +51,7 @@ function detectedPalette(
 }
 
 export async function POST(req: Request) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   try {
     const body = (await req.json()) as { url?: unknown; scope?: unknown };

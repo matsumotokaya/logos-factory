@@ -1,4 +1,4 @@
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import type {
   BrandAssetSummary,
   BrandCampaignSummary,
@@ -70,7 +70,7 @@ function campaignStatus(
 }
 
 export async function GET(req: Request) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const supabase = createServerSupabaseForToken(user.token);

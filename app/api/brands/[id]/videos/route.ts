@@ -4,7 +4,7 @@
 // creates that Take; there are no synthetic rows or legacy asset fallbacks.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { campaignCmMp4Exists, getCampaignJob } from "@/lib/campaign/jobs";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import {
@@ -52,7 +52,7 @@ function campaignVideoState(jobId: string | null): VideoState {
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -158,7 +158,7 @@ type CreateEvent =
 class CreateFailure extends Error {}
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

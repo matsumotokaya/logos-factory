@@ -14,7 +14,7 @@
 // nobody approving anything — while an edit still survives the next generation
 // (the user's own framing: 直さなくても良い、直したければ直せる).
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { draftEventCmNarration, eventCmNarrationAvailable } from "@/lib/templates/event-cm/narration";
 import { eventCmFilm } from "@/remotion/event-cm/film";
@@ -69,7 +69,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
@@ -160,7 +160,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

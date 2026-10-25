@@ -5,7 +5,7 @@
 // detail screen polls. Progress lives in metadata.render rather than in memory
 // so a reload — or a different machine — still sees what happened.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { renderTake } from "@/lib/takes/render";
 
@@ -17,7 +17,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

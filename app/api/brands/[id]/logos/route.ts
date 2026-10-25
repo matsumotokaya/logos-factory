@@ -3,7 +3,7 @@
 // them, so the list reads "logos whose subject sits in the same workspace as
 // this brand".
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import {
   LOGO_PREVIEW_COLUMNS,
   logoPreviewUrl,
@@ -25,7 +25,7 @@ export type LogoSummary = {
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

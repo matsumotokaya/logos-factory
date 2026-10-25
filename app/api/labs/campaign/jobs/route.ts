@@ -5,7 +5,7 @@
 // store, not in the original request. Done jobs include the LP html (for the
 // inline hero digest) and a signed URL for opening the real page in a new tab.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { requireUser } from "@/lib/supabase/server";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import {
@@ -49,7 +49,7 @@ function jobResponse(rawJob: CampaignJob) {
 }
 
 export async function GET(req: Request) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
 

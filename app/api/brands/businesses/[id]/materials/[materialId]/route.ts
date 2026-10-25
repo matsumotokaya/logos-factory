@@ -1,4 +1,4 @@
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import {
   createServerSupabaseForToken,
   requireUser,
@@ -17,7 +17,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string; materialId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
   const { id, materialId } = await ctx.params;

@@ -6,7 +6,7 @@
 // runs the same function as intake, so the two cannot disagree on what a child
 // is, and it is idempotent on content — running it twice writes nothing new.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { getR2Object } from "@/lib/r2";
 import { isPdf } from "@/lib/materials/pdf";
@@ -18,7 +18,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string; materialId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {

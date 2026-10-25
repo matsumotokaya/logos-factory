@@ -8,7 +8,7 @@
 // from putting the guess back. Switching off records a decision rather than a
 // gap, so the field stops being counted as something still to collect.
 
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import {
@@ -28,7 +28,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string; videoId: string }> },
 ) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   let user;
   try {
