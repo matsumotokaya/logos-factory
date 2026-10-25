@@ -12,7 +12,7 @@
 // Labs is local-first, and Phase 1 moves this to a real queue.
 
 import { NextResponse } from "next/server";
-import { guardLabsRequest } from "@/lib/labs-access";
+import { guardBrandRequest } from "@/lib/brand-access";
 import {
   createServerSupabaseForToken,
   requireUser,
@@ -52,6 +52,7 @@ type GenerateBody = {
   files?: { kind?: string; mediaType?: string; data?: string }[];
   brandEntityId?: string;
   organizationId?: string;
+  newWorkspace?: boolean;
 };
 
 function parseFiles(raw: GenerateBody["files"]): SourceFile[] {
@@ -92,7 +93,7 @@ function parseUrl(raw: unknown): string | null {
 }
 
 export async function POST(req: Request) {
-  const denied = await guardLabsRequest(req);
+  const denied = await guardBrandRequest(req);
   if (denied) return denied;
   const user = await requireUser(req);
 
@@ -108,6 +109,7 @@ export async function POST(req: Request) {
   let body: GenerateBody;
   let brandEntityId: string | null = null;
   let organizationId: string | null = null;
+  let newWorkspace = false;
   try {
     body = (await req.json()) as GenerateBody;
     url = parseUrl(body.url);
@@ -125,20 +127,42 @@ export async function POST(req: Request) {
         throw new Error("選択した事業を利用できません");
       brandEntityId = entity.id as string;
     }
-    // The workspace the client was showing. Checked against membership rather
-    // than trusted: it decides which world a new Brand appears in.
-    if (typeof body.organizationId === "string" && body.organizationId.trim()) {
-      const candidateOrgId = body.organizationId.trim();
+    // Which workspace a new Brand goes in is the user's choice, made on the
+    // entry form — never inferred. A selected Brand already has one.
+    if (!brandEntityId) {
       const supabase = createServerSupabaseForToken(user.token);
-      const { data: membership, error: membershipError } = await supabase
-        .from("org_members")
-        .select("org_id")
-        .eq("org_id", candidateOrgId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (membershipError || !membership)
-        throw new Error("選択したワークスペースを利用できません");
-      organizationId = membership.org_id as string;
+      if (body.newWorkspace === true) {
+        newWorkspace = true;
+      } else if (
+        typeof body.organizationId === "string" &&
+        body.organizationId.trim()
+      ) {
+        // Checked against membership rather than trusted: the form only
+        // offers the caller's own workspaces, so a miss is not a stale
+        // preference to paper over.
+        const { data: membership, error: membershipError } = await supabase
+          .from("org_members")
+          .select("org_id")
+          .eq("org_id", body.organizationId.trim())
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (membershipError || !membership)
+          throw new Error("選択したワークスペースを利用できません");
+        organizationId = membership.org_id as string;
+      } else {
+        // Nothing chosen. With no workspace there is nothing to choose, and
+        // with exactly one there is one answer; with more, ask.
+        const { data: memberships, error: membershipError } = await supabase
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", user.id);
+        if (membershipError)
+          throw new Error("ワークスペースを確認できませんでした");
+        if (!memberships || memberships.length === 0) newWorkspace = true;
+        else if (memberships.length === 1)
+          organizationId = memberships[0].org_id as string;
+        else throw new Error("ブランドを入れるワークスペースを選んでください");
+      }
     }
     if (
       typeof body.pastedText === "string" &&
@@ -169,6 +193,7 @@ export async function POST(req: Request) {
     hasText: Boolean(body.pastedText?.trim()),
     brandEntityId,
     organizationId,
+    newWorkspace,
   });
 
   // Detached run: progress and result live in the job store, not in this

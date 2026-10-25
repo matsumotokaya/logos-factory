@@ -43,9 +43,13 @@ export interface CampaignJob {
     hasText: boolean;
     /** Existing business/audience selected from the brand catalog. */
     brandEntityId?: string | null;
-    /** The workspace the new Brand belongs in. Absent means "the caller's
-     *  default", which is what ensure_my_workspace() resolves. */
+    /** The workspace the new Brand belongs in, as chosen on the entry form. */
     organizationId?: string | null;
+    /** Create a workspace for the new Brand, named after the company the
+     *  source names. Set when the user picked 「新しいワークスペース」 or had
+     *  no workspace yet. Jobs with neither field predate the choice and fall
+     *  back to ensure_my_workspace(). */
+    newWorkspace?: boolean;
     /** Where a newly supplied URL should contribute its inferred brand data. */
     registrationScope?: UrlRegistrationScope;
   };

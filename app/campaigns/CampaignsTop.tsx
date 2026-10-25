@@ -19,7 +19,7 @@ import type {
 import { analyzeSvg } from "@/lib/svg";
 import { createStoredLogo, repo } from "@/lib/store";
 import { newLogoId } from "@/lib/id";
-import { readCurrentWorkspaceId } from "@/lib/workspace";
+import { readCurrentWorkspaceId, writeCurrentWorkspaceId } from "@/lib/workspace";
 import {
   requestAuthDialog,
   useAuth,
@@ -146,6 +146,9 @@ function clearParkedIntake() {
   }
 }
 
+/** The workspace menu's 「新しいワークスペース」 entry; never a real org_id. */
+const NEW_WORKSPACE = "new";
+
 async function loadCampaignCatalog(): Promise<{
   jobs: JobSummary[];
   organizations: BrandOrganizationSummary[];
@@ -184,6 +187,8 @@ export default function CampaignsTop() {
     business: BrandBusinessSummary;
     organizationName: string;
   } | null>(null);
+  // An explicit pick from the workspace menu; null until the user touches it.
+  const [workspaceChoice, setWorkspaceChoice] = useState<string | null>(null);
   const [catalogMigrationError, setCatalogMigrationError] = useState<
     string | null
   >(null);
@@ -240,6 +245,23 @@ export default function CampaignsTop() {
 
   const hasSource =
     url.trim() !== "" || files.length > 0 || pastedText.trim() !== "";
+
+  // Where the new Brand goes. Asked only when there is something to ask: with
+  // no workspace the server makes one, and a selected Brand already has one.
+  // The last workspace opened in brand management is the starting point, and
+  // only while it is still one of the caller's (organizations loads on the
+  // client, so localStorage is never read during the server render).
+  const workspaceOptions = organizations ?? [];
+  const askWorkspace = !selectedBusiness && workspaceOptions.length > 0;
+  const rememberedWorkspace = askWorkspace ? readCurrentWorkspaceId() : null;
+  const effectiveWorkspace =
+    workspaceChoice ??
+    (workspaceOptions.some((option) => option.id === rememberedWorkspace)
+      ? rememberedWorkspace
+      : workspaceOptions.length === 1
+        ? workspaceOptions[0].id
+        : null);
+  const workspaceMissing = askWorkspace && !effectiveWorkspace;
 
   // The catalog lists brands the visitor owns, so it only appears once an
   // account exists. localStorage mode has no registered identity either.
@@ -409,10 +431,14 @@ export default function CampaignsTop() {
             data: f.data,
           })),
           brandEntityId: selectedBusiness?.business.id,
-          // The world the user is in. Without it the server falls back to
-          // whichever workspace it resolves first, which may not be the one
-          // they were looking at.
-          organizationId: readCurrentWorkspaceId() ?? undefined,
+          // Only what the form shows. Nothing is sent when the menu was not
+          // shown, and the server then decides from the caller's memberships
+          // (none: a new workspace, one: that one, more: it asks).
+          ...(askWorkspace && effectiveWorkspace === NEW_WORKSPACE
+            ? { newWorkspace: true }
+            : askWorkspace && effectiveWorkspace
+              ? { organizationId: effectiveWorkspace }
+              : {}),
         }),
       });
       const json = ((await res.json().catch(() => null)) ?? {}) as {
@@ -433,6 +459,8 @@ export default function CampaignsTop() {
           json.error ?? `生成を開始できませんでした (HTTP ${res.status})`,
         );
       }
+      if (askWorkspace && effectiveWorkspace && effectiveWorkspace !== NEW_WORKSPACE)
+        writeCurrentWorkspaceId(effectiveWorkspace);
       // The run lives on its own page from here on.
       router.push(`/campaigns/${json.jobId}`);
     } catch (e) {
@@ -445,7 +473,7 @@ export default function CampaignsTop() {
       }
       setError(e instanceof Error ? e.message : "生成に失敗しました");
     }
-  }, [url, pastedText, files, selectedBusiness, router]);
+  }, [url, pastedText, files, selectedBusiness, askWorkspace, effectiveWorkspace, router]);
 
   // A generation parked before sign-in starts itself once the session is a
   // real account. If sign-in produced none (dialog dismissed, OAuth failed),
@@ -716,6 +744,42 @@ export default function CampaignsTop() {
               )}
             </div>
 
+            {askWorkspace ? (
+              <div className="mt-4">
+                <label
+                  htmlFor="campaign-workspace"
+                  className="text-[12px] text-white/60"
+                >
+                  登録先のワークスペース
+                </label>
+                <select
+                  id="campaign-workspace"
+                  value={effectiveWorkspace ?? ""}
+                  onChange={(e) => setWorkspaceChoice(e.target.value || null)}
+                  disabled={starting}
+                  className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none focus:border-white/60 focus:bg-white/15"
+                >
+                  {effectiveWorkspace ? null : (
+                    <option value="" className="text-ink">
+                      選んでください
+                    </option>
+                  )}
+                  {workspaceOptions.map((option) => (
+                    <option key={option.id} value={option.id} className="text-ink">
+                      {option.name.trim() || "名称未設定のワークスペース"}
+                    </option>
+                  ))}
+                  <option value={NEW_WORKSPACE} className="text-ink">
+                    新しいワークスペース（サイトの会社名で作成）
+                  </option>
+                </select>
+              </div>
+            ) : showCatalog && organizations && !selectedBusiness ? (
+              <p className="mt-4 text-pretty text-[12px] text-white/60">
+                新しいワークスペースを作って登録します。名前はサイトから取った会社名になります。
+              </p>
+            ) : null}
+
             {error && (
               <p className="mt-4 rounded-lg border border-red-300/40 bg-red-500/20 px-4 py-2 text-[12px] text-red-100">
                 {error}
@@ -727,8 +791,9 @@ export default function CampaignsTop() {
               onClick={requestGeneration}
               // Held while the session resolves: until then requireAccount can
               // neither let the run through nor open the dialog, so a press
-              // would do nothing visible.
-              disabled={!hasSource || starting || authLoading}
+              // would do nothing visible. Held too while a workspace is still
+              // to be chosen — the server would only ask the same question.
+              disabled={!hasSource || starting || authLoading || workspaceMissing}
               className="mt-5 w-full rounded-full bg-white px-8 py-3 text-sm font-semibold text-[#101a3c] transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-30"
             >
               {starting ? "開始しています…" : "LPと動画素材を生成"}

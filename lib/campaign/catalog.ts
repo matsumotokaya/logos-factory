@@ -107,6 +107,31 @@ async function resolveWorkspace(supabase: SupabaseClient): Promise<string> {
 }
 
 /**
+ * A new workspace for this registration, named after the company the source
+ * names. A workspace is one company's world, so the operator the kit found is
+ * the right name — but only when the kit is reasonably sure of it; a low-
+ * confidence guess would put a wrong company name on the whole workspace.
+ * The creator becomes owner through the on_organization_created trigger.
+ */
+async function createWorkspaceForKit(
+  supabase: SupabaseClient,
+  userId: string,
+  kit: CampaignBrandKit,
+): Promise<string> {
+  const operator = kit.organization;
+  const name =
+    operator && operator.confidence !== "low" && operator.name.trim()
+      ? operator.name.trim().slice(0, 200)
+      : "Personal";
+  const organizationId = randomUUID();
+  const inserted = await supabase
+    .from("organizations")
+    .insert({ org_id: organizationId, name, created_by: userId });
+  throwOn(inserted.error);
+  return organizationId;
+}
+
+/**
  * File the generated subject as a Brand — always a new one.
  *
  * v2 matched an existing row by the name the LLM produced, so 「BEST株式会社」
@@ -465,11 +490,12 @@ export async function persistCampaignCatalog({
   const target: BrandTarget = job.input.brandEntityId
     ? await selectedBrandTarget(supabase, job.input.brandEntityId)
     : await (async () => {
-        // The workspace the user was looking at when they submitted. Without
-        // it a brand lands in whichever workspace ensure_my_workspace picks,
-        // which is not necessarily the world on their screen.
-        const organizationId =
-          job.input.organizationId ?? (await resolveWorkspace(supabase));
+        // The workspace the user chose on the entry form, or a new one they
+        // asked for (or got because they had none). Jobs created before the
+        // form asked carry neither; those keep the old default.
+        const organizationId = job.input.newWorkspace
+          ? await createWorkspaceForKit(supabase, userId, kit)
+          : (job.input.organizationId ?? (await resolveWorkspace(supabase)));
         return {
           organizationId,
           brandId: await createBrand(
