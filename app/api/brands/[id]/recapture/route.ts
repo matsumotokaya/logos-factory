@@ -29,6 +29,14 @@ import {
   appendBrandKnowledgeClaims,
 } from "@/lib/brand/knowledge";
 import { saveBrandAssetsFromUrl } from "@/lib/brand/import-assets";
+import {
+  appendRecaptureStep,
+  createRecaptureRun,
+  failRecaptureRun,
+  finishRecaptureRun,
+  getRecaptureRun,
+  latestRecaptureRun,
+} from "@/lib/brand/recapture-runs";
 
 /** The five roles, read off the rendered page by rule alone — no model. */
 function paletteFrom(
@@ -98,20 +106,83 @@ export async function POST(
     );
   }
 
+
+  // The checks above answer at once; the reading takes a minute, so it runs
+  // detached and leaves its steps in a run the brand page polls (GET below).
+  const run = createRecaptureRun(user.id, brandId);
+  void recapture({
+    runId: run.id,
+    supabase,
+    userId: user.id,
+    brandId,
+    brandName: (brand.data.name as string) ?? "",
+    requested,
+  }).catch((error) => {
+    console.error("Recapture failed:", error);
+    failRecaptureRun(
+      run.id,
+      error instanceof Error ? error.message : "サイトから取り込めませんでした",
+    );
+  });
+
+  return Response.json({ runId: run.id }, { status: 202 });
+}
+
+// GET: a run's state (?runId=) or this brand's latest run, so a reloaded page
+// picks a running re-import back up.
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const denied = await guardBrandRequest(req);
+  if (denied) return denied;
+  const user = await requireUser(req);
+  const { id: brandId } = await ctx.params;
+  const runId = new URL(req.url).searchParams.get("runId");
+  const run = runId
+    ? getRecaptureRun(runId, user.id)
+    : latestRecaptureRun(user.id, brandId);
+  if (runId && (!run || run.brandId !== brandId)) {
+    return Response.json({ error: "実行が見つかりません" }, { status: 404 });
+  }
+  return Response.json({ run }, { headers: { "Cache-Control": "no-store" } });
+}
+
+async function recapture({
+  runId,
+  supabase,
+  userId,
+  brandId,
+  brandName,
+  requested,
+}: {
+  runId: string;
+  supabase: ReturnType<typeof createServerSupabaseForToken>;
+  userId: string;
+  brandId: string;
+  brandName: string;
+  requested: string;
+}): Promise<void> {
+  const step = (message: string, level?: "info" | "success" | "warn") =>
+    appendRecaptureStep(runId, message, level);
+
+  step(`${requested} を取得しています`);
   const page = await scrapeUrl(requested);
+  step(`ページを取得しました${page.title ? `: ${page.title}` : ""}`);
+
+  step("ブラウザで描画して、色・書体・レイアウト・ロゴを測っています");
   const capture = await captureSite(page.url, { faviconUrl: page.faviconUrl });
   if (!capture) {
     // Without a browser there is nothing to measure, and writing the static
     // hints as if they were measurements is the exact conflation this work
     // removed. Say so instead.
-    return Response.json(
-      {
-        error:
-          "この環境ではページを描画できないため、取り込めませんでした（Chromiumが必要です）",
-      },
-      { status: 503 },
+    throw new Error(
+      "この環境ではページを描画できないため、取り込めませんでした（Chromiumが必要です）",
     );
   }
+  step(
+    `測りました: ロゴ${capture.logoSvg || capture.logoImage ? "あり" : "なし"}・サイトの画像${capture.images.length}点`,
+  );
 
   const capturedAt = new Date().toISOString();
   const sourceRef = { source: "site_recapture", source_url: page.url, at: capturedAt };
@@ -120,11 +191,12 @@ export async function POST(
   // Palette, tokens and the mark, through the path that already owns them:
   // it updates an existing logo in place rather than orphaning its
   // presentation take, and retires values this source no longer finds.
-  const assets = await saveBrandAssetsFromUrl({
+  step("配色・デザイントークン・ロゴを保存しています");
+  await saveBrandAssetsFromUrl({
     supabase,
-    userId: user.id,
+    userId,
     brandId,
-    brandName: (brand.data.name as string) ?? "",
+    brandName,
     role: "brand",
     sourceUrl: page.url,
     value: {
@@ -144,17 +216,16 @@ export async function POST(
 
   // Everything else the page said: the type scale, the component shapes, the
   // sections, the contact details, the social accounts.
+  step("ページが言っていること（書体の大きさ・構成・連絡先・SNS）を記録しています");
   const knowledge = siteKnowledge(capture, capturedAt);
   const claimed = await appendBrandKnowledgeClaims(supabase, {
     brandId,
     fields: knowledge.claims,
     sourceKind: "url_extraction",
     sourceRef,
-    userId: user.id,
+    userId,
   });
-  if (!claimed.ok) {
-    return Response.json({ error: claimed.error }, { status: 500 });
-  }
+  if (!claimed.ok) throw new Error(claimed.error);
   let adoptedCount = 0;
   if (knowledge.adopt.length > 0) {
     const adopted = await adoptBrandKnowledge(supabase, {
@@ -162,39 +233,31 @@ export async function POST(
       fields: knowledge.adopt,
       sourceKind: "url_extraction",
       sourceRef,
-      userId: user.id,
+      userId,
     });
-    if (!adopted.ok) {
-      return Response.json({ error: adopted.error }, { status: 500 });
-    }
+    if (!adopted.ok) throw new Error(adopted.error);
     adoptedCount = adopted.adopted;
   }
+  step(`${claimed.appended}件を記録し、測定できた${adoptedCount}項目を採用しました`);
 
   // Files last, and never fatal: a brand that gained its measurements but lost
   // a screenshot to a storage hiccup is still better off than before the run.
+  step("サイトの画像を保存しています");
   let files = { saved: [] as { label: string }[], skipped: 0, note: null as string | null };
   try {
-    files = await saveSiteMaterials({
-      supabase,
-      userId: user.id,
-      brandId,
-      capture,
-    });
+    files = await saveSiteMaterials({ supabase, userId, brandId, capture });
+    step(`画像${files.saved.length}点を保存しました`);
   } catch (error) {
     console.error("Site material capture failed:", error);
+    step("画像の保存に失敗しました（測定値は保存済みです）", "warn");
   }
 
-  return Response.json(
-    {
-      url: page.url,
-      capturedAt,
-      adopted: adoptedCount,
-      claims: claimed.appended,
-      files: files.saved.length,
-      filesSkipped: files.skipped,
-      note: files.note,
-      logo: assets.logo,
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  step("読み直しが終わりました", "success");
+  finishRecaptureRun(runId, {
+    url: page.url,
+    adopted: adoptedCount,
+    claims: claimed.appended,
+    files: files.saved.length,
+    note: files.note,
+  });
 }

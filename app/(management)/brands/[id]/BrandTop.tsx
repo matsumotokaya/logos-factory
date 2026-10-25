@@ -34,6 +34,13 @@ import BrandPipelinePanel, {
 } from "@/components/pipeline/BrandPipelinePanel";
 import type { BrandMaterial } from "@/components/pipeline/MaterialIntake";
 import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
+import BrandGenerationStatus from "@/components/brand/BrandGenerationStatus";
+import {
+  ProcessLogPopup,
+  type StepEvent,
+  type StepLevel,
+} from "@/app/campaigns/ProcessLogPopup";
+import { toStepEvents } from "@/app/campaigns/campaign-ui";
 import BrandKnowledgePanel, {
   BrandSiteFiles,
 } from "@/components/brand/BrandKnowledgePanel";
@@ -42,6 +49,15 @@ import { refreshBrandTree } from "@/lib/brand-events";
 import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
+
+/** GET /api/brands/[id]/recapture — lib/brand/recapture-runs.ts RecaptureRun. */
+type RecaptureRunState = {
+  id: string;
+  status: "running" | "done" | "error";
+  steps: { ts: string; message: string; level: StepLevel }[];
+  result: { adopted: number; claims: number; files: number; note: string | null } | null;
+  error: string | null;
+};
 
 type Tile = {
   href: string;
@@ -63,6 +79,8 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   const [openStage, setOpenStage] = useState<string | null>(null);
   const [materials, setMaterials] = useState<BrandMaterial[]>([]);
   const [busy, setBusy] = useState(false);
+  // The steps of a re-import while it runs; null when none is running.
+  const [recaptureSteps, setRecaptureSteps] = useState<StepEvent[] | null>(null);
 
   // The brand's key visual, if it has declared one.
   //
@@ -159,6 +177,56 @@ export default function BrandTop({ brandId }: { brandId: string }) {
    * travel through a JSON the client carries. So the work happens where the
    * bytes already are, and this only asks for it and reloads.
    */
+  // Follow a re-import run until it settles, showing its steps in the
+  // floating log. The run is detached on the server, so a reload resumes here.
+  const followRecapture = useCallback(
+    async (runId: string) => {
+      setBusy(true);
+      try {
+        for (;;) {
+          const res = await videoFetch(
+            `/api/brands/${brandId}/recapture?runId=${encodeURIComponent(runId)}`,
+          );
+          const body = (await res.json().catch(() => null)) as {
+            run?: RecaptureRunState | null;
+            error?: string;
+          } | null;
+          const run = body?.run;
+          if (!res.ok || !run) {
+            throw new Error(body?.error ?? "読み直しの状態を取得できませんでした");
+          }
+          setRecaptureSteps(
+            toStepEvents(run.steps),
+          );
+          if (run.status === "error") {
+            throw new Error(run.error ?? "サイトから取り込めませんでした");
+          }
+          if (run.status === "done") {
+            await load();
+            await loadPipeline();
+            const result = run.result;
+            const parts = [
+              `${result?.adopted ?? 0}項目を採用`,
+              `${result?.claims ?? 0}件を記録`,
+              `画像${result?.files ?? 0}点を保存`,
+            ];
+            setNotice(
+              `サイトを読み直しました（${parts.join("・")}）。${result?.note ?? ""}`.trim(),
+            );
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "サイトから取り込めませんでした");
+      } finally {
+        setRecaptureSteps(null);
+        setBusy(false);
+      }
+    },
+    [brandId, load, loadPipeline],
+  );
+
   const reimportSite = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -170,29 +238,39 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         body: JSON.stringify({}),
       });
       const body = (await res.json().catch(() => null)) as {
-        adopted?: number;
-        claims?: number;
-        files?: number;
-        note?: string | null;
+        runId?: string;
         error?: string;
       } | null;
-      if (!res.ok) {
+      if (!res.ok || !body?.runId) {
         throw new Error(body?.error ?? "サイトから取り込めませんでした");
       }
-      await load();
-      await loadPipeline();
-      const parts = [
-        `${body?.adopted ?? 0}項目を採用`,
-        `${body?.claims ?? 0}件を記録`,
-        `画像${body?.files ?? 0}点を保存`,
-      ];
-      setNotice(`サイトを読み直しました（${parts.join("・")}）。${body?.note ?? ""}`.trim());
+      await followRecapture(body.runId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "サイトから取り込めませんでした");
-    } finally {
       setBusy(false);
     }
-  }, [brandId, load, loadPipeline]);
+  }, [brandId, followRecapture]);
+
+  // A re-import still running from before a reload is picked back up.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await videoFetch(`/api/brands/${brandId}/recapture`);
+        const body = res.ok
+          ? ((await res.json()) as { run?: RecaptureRunState | null })
+          : null;
+        if (!cancelled && body?.run?.status === "running") {
+          await followRecapture(body.run.id);
+        }
+      } catch {
+        // Nothing to resume.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId, followRecapture]);
 
   const uploadMaterial = useCallback(
     async (file: File, data: string) => {
@@ -345,6 +423,10 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         <p className="rounded-xl border border-hairline bg-ink/[0.03] px-4 py-2.5 text-[12px] text-ink-muted">
           {notice}
         </p>
+      ) : null}
+      <BrandGenerationStatus brandId={brandId} onSettled={() => void load()} />
+      {recaptureSteps && recaptureSteps.length > 0 ? (
+        <ProcessLogPopup steps={recaptureSteps} title="処理ログ — サイトを読み直しています" />
       ) : null}
       <header className="border-b border-hairline pb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
