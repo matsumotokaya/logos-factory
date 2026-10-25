@@ -12,6 +12,7 @@ import type {
 } from "@/lib/brand-hierarchy";
 import { cn } from "@/lib/cn";
 import { BRAND_TREE_REFRESH_EVENT } from "@/lib/brand-events";
+import { BRAND_KIND_LABEL, isBrandKind } from "@/lib/brand-kind";
 import { readCurrentWorkspaceId, resolveWorkspace } from "@/lib/workspace";
 import {
   brandActions,
@@ -146,6 +147,20 @@ function TreeLink({
   );
 }
 
+/** The drag payload type: a brand row being moved, never a link or a file. */
+const BRAND_DRAG_TYPE = "application/x-logos-brand";
+
+type BrandDrag = {
+  /** Can the dragged brand be dropped onto this one? */
+  canDropOn: (targetId: string) => boolean;
+  /** The row currently under the pointer, for the highlight. */
+  overId: string | null;
+  onStart: (brandId: string) => void;
+  onEnd: () => void;
+  onOver: (targetId: string | null) => void;
+  onDrop: (targetId: string) => void;
+};
+
 function BrandTree({
   brand,
   pathname,
@@ -154,6 +169,8 @@ function BrandTree({
   onToggle,
   onNavigate,
   onAction,
+  drag,
+  children,
 }: {
   brand: BrandSummary;
   pathname: string;
@@ -162,6 +179,9 @@ function BrandTree({
   onToggle: () => void;
   onNavigate: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
+  drag: BrandDrag;
+  /** The brands nested under this one, already rendered. */
+  children?: ReactNode;
 }) {
 const regionId = `${prefix}-brand-${brand.id}`;
   const brandActive = pathname === `/brands/${brand.id}`;
@@ -179,12 +199,8 @@ const regionId = `${prefix}-brand-${brand.id}`;
   const videoCampaigns = brand.campaigns.filter(
     (campaign) => campaign.videoStatus !== "not_created",
   );
-  const kindLabel =
-    brand.kind === "corporate"
-      ? "企業"
-      : brand.kind === "audience"
-        ? "対象別"
-        : "事業";
+  const kindLabel = isBrandKind(brand.kind) ? BRAND_KIND_LABEL[brand.kind] : "";
+  const dropActive = drag.overId === brand.id;
 
   const logoSectionPath = `/brands/${brand.id}/logos`;
   const videoSectionPath = `/brands/${brand.id}/video`;
@@ -195,7 +211,36 @@ const regionId = `${prefix}-brand-${brand.id}`;
 
   return (
     <li className="py-2 first:pt-1 last:pb-1">
-      <div className="flex min-w-0 items-center gap-1">
+      {/* The row is what moves: drag it onto another brand to nest it there.
+          The drop decides nothing about the brand's kind or its deliverables;
+          a take pins its inputs, so only what comes next can change. */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(BRAND_DRAG_TYPE, brand.id);
+          e.dataTransfer.effectAllowed = "move";
+          drag.onStart(brand.id);
+        }}
+        onDragEnd={drag.onEnd}
+        onDragOver={(e) => {
+          if (!drag.canDropOn(brand.id)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (!dropActive) drag.onOver(brand.id);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) drag.onOver(null);
+        }}
+        onDrop={(e) => {
+          if (!drag.canDropOn(brand.id)) return;
+          e.preventDefault();
+          drag.onDrop(brand.id);
+        }}
+        className={cn(
+          "flex min-w-0 items-center gap-1 rounded-lg",
+          dropActive && "bg-ink/10 ring-2 ring-ink",
+        )}
+      >
         <button
           type="button"
           onClick={onToggle}
@@ -240,6 +285,13 @@ const regionId = `${prefix}-brand-${brand.id}`;
       </div>
 
       <ul id={regionId} hidden={!open} className="mt-1 space-y-1">
+        {/* Nested brands first, the way a folder lists its folders before its
+            files. */}
+        {children ? (
+          <li>
+            <ul className="ml-3 border-l border-hairline pl-2">{children}</ul>
+          </li>
+        ) : null}
         {/* Logos */}
         <li>
           <TreeLink
@@ -431,6 +483,7 @@ function ManagementTree({
   onToggleBusiness,
   onNavigate,
   onAction,
+  onMoveBrand,
 }: {
   organization: BrandOrganizationSummary;
   pathname: string;
@@ -439,29 +492,103 @@ function ManagementTree({
   onToggleBusiness: (id: string) => void;
   onNavigate: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
+  onMoveBrand: (brandId: string, parentBrandId: string | null) => void;
 }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
   // One workspace at a time: the organization names the pane above this tree
-  // (§19.2), so what is listed here is brands, and inside each of them the
-  // logos, videos and LPs. The organization level used to be the tree's root,
-  // which put every world on screen at once and cost a level of nesting for a
-  // choice that is really a switch.
+  // (§19.2), so what is listed here is brands — nested by parent_brand_id, the
+  // user's own arrangement — and inside each of them the logos, videos and
+  // LPs. A brand whose parent is not in the list (it should not happen inside
+  // one workspace) is shown at the top rather than lost.
+  const brands = organization.brands;
+  const ids = new Set(brands.map((brand) => brand.id));
+  const childrenOf = new Map<string | null, BrandSummary[]>();
+  for (const brand of brands) {
+    const parent =
+      brand.parentBrandId && ids.has(brand.parentBrandId) ? brand.parentBrandId : null;
+    childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), brand]);
+  }
+  const parentOf = (id: string) => brands.find((brand) => brand.id === id)?.parentBrandId ?? null;
+  const isDescendant = (candidate: string, ancestor: string) => {
+    for (let cursor = parentOf(candidate); cursor; cursor = parentOf(cursor)) {
+      if (cursor === ancestor) return true;
+    }
+    return false;
+  };
+
+  const endDrag = () => {
+    setDraggingId(null);
+    setOverId(null);
+  };
+  const drag: BrandDrag = {
+    // Not onto itself, its own parent (nothing would change) or anything
+    // below it (a cycle, which enforce_brand_membership refuses anyway).
+    canDropOn: (targetId) =>
+      draggingId !== null &&
+      targetId !== draggingId &&
+      parentOf(draggingId) !== targetId &&
+      !isDescendant(targetId, draggingId),
+    overId,
+    onStart: setDraggingId,
+    onEnd: endDrag,
+    onOver: setOverId,
+    onDrop: (targetId) => {
+      if (draggingId) onMoveBrand(draggingId, targetId);
+      endDrag();
+    },
+  };
+  const canDropAtRoot = draggingId !== null && parentOf(draggingId) !== null;
+
+  const renderBrand = (brand: BrandSummary): ReactNode => {
+    const nested = childrenOf.get(brand.id) ?? [];
+    return (
+      <BrandTree
+        key={brand.id}
+        brand={brand}
+        pathname={pathname}
+        open={expandedBusinesses.has(brand.id)}
+        prefix={prefix}
+        onToggle={() => onToggleBusiness(brand.id)}
+        onNavigate={onNavigate}
+        onAction={onAction}
+        drag={drag}
+      >
+        {nested.length > 0 ? nested.map(renderBrand) : null}
+      </BrandTree>
+    );
+  };
+
   return (
     <nav aria-label="ブランドと成果物">
-      {/* Rules between the brands: without them the flattened tree reads as a
-          single run of links. */}
+      {/* Only while a nested brand is being dragged: the way back to the top
+          of the workspace. */}
+      {canDropAtRoot ? (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (overId !== "root") setOverId("root");
+          }}
+          onDragLeave={() => setOverId(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (draggingId) onMoveBrand(draggingId, null);
+            endDrag();
+          }}
+          className={cn(
+            "mb-2 rounded-lg border border-dashed px-3 py-2 text-center text-[11px] text-ink-muted",
+            overId === "root" ? "border-ink bg-ink/10 text-ink" : "border-hairline",
+          )}
+        >
+          ワークスペースの直下へ
+        </div>
+      ) : null}
+      {/* Rules between the top-level brands: without them the tree reads as
+          a single run of links. */}
       <ul className="divide-y divide-hairline">
-        {organization.brands.map((brand) => (
-          <BrandTree
-            key={brand.id}
-            brand={brand}
-            pathname={pathname}
-            open={expandedBusinesses.has(brand.id)}
-            prefix={prefix}
-            onToggle={() => onToggleBusiness(brand.id)}
-            onNavigate={onNavigate}
-            onAction={onAction}
-          />
-        ))}
+        {(childrenOf.get(null) ?? []).map(renderBrand)}
       </ul>
       {organization.brands.length === 0 ? (
         <p className="px-2 py-1.5 text-pretty text-xs text-ink-faint">
@@ -484,6 +611,7 @@ function SidebarContent({
   onRetry,
   onAction,
   onAddBrand,
+  onMoveBrand,
 }: {
   /** The workspace being viewed; null while loading or when the user has none. */
   organization: BrandOrganizationSummary | null;
@@ -497,40 +625,43 @@ function SidebarContent({
   onRetry: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
   onAddBrand: () => void;
+  onMoveBrand: (brandId: string, parentBrandId: string | null) => void;
 }) {
   return (
     // pb-28 keeps ~100px of breathing room below the last item so it never
     // sits flush against the bottom edge of the scroll area.
-    <div className="p-5 pb-28">
+    <div className="pb-28">
       {/* The workspace names the pane. "ブランド管理" said what the screen
           was for; the organization says which world you are in, which is
-          the thing that changes and the thing you can get wrong. The label,
-          the brand count and the menu share one row so the name below gets
-          the full width of the pane. */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-          Workspace
-        </p>
-        <div className="flex shrink-0 items-center gap-2">
-          {!loading && !error && organization ? (
-            <span className="tabular-nums text-xs text-ink-faint">
-              {organization.brands.length}ブランド
-            </span>
-          ) : null}
-          <WorkspaceMenu
-            name={organization?.name?.trim() || "ワークスペース"}
-            workspaceId={organization?.id ?? null}
-            onNavigate={onNavigate}
-          />
+          the thing that changes and the thing you can get wrong. It sits in
+          its own band, ruled off from the tree, because it is the container
+          and not one of the brands: read as the tree's first row, it looked
+          like a company above them. The label, the brand count and the menu
+          share one row so the name below gets the full width of the pane. */}
+      <div className="border-b border-hairline bg-ink/[0.04] px-5 pb-4 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+            Workspace
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            {!loading && !error && organization ? (
+              <span className="tabular-nums text-xs text-ink-faint">
+                {organization.brands.length}ブランド
+              </span>
+            ) : null}
+            <WorkspaceMenu
+              name={organization?.name?.trim() || "ワークスペース"}
+              workspaceId={organization?.id ?? null}
+              onNavigate={onNavigate}
+            />
+          </div>
         </div>
+        <h2 className="mt-1 truncate text-sm font-semibold">
+          {organization?.name?.trim() || "名称未設定のワークスペース"}
+        </h2>
       </div>
-      {/* Same size as a brand row: the name is a heading for the tree, not a
-          title for the page. */}
-      <h2 className="mt-2 truncate px-2 text-sm font-semibold">
-        {organization?.name?.trim() || "名称未設定のワークスペース"}
-      </h2>
 
-      <div className="mt-5">
+      <div className="px-5 pt-5">
         {loading ? (
           <div
             aria-label="ブランド一覧を読み込み中"
@@ -564,6 +695,7 @@ function SidebarContent({
               onToggleBusiness={onToggleBusiness}
               onNavigate={onNavigate}
               onAction={onAction}
+              onMoveBrand={onMoveBrand}
             />
             {/* Adding sits under the list it adds to. It opens the same URL
                 intake as the top page, scoped to this workspace. */}
@@ -776,8 +908,44 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
   // rather than emptying the pane (resolveWorkspace).
   const workspace = resolveWorkspace(organizations, currentWorkspaceId);
 
+  // A drop in the tree. The tree is reloaded rather than patched locally: the
+  // trigger may refuse the move, and the row the server returns is the truth.
+  const moveBrand = async (brandId: string, parentBrandId: string | null) => {
+    const brands = workspace?.brands ?? [];
+    const name = brands.find((brand) => brand.id === brandId)?.name ?? "ブランド";
+    const parentName = parentBrandId
+      ? (brands.find((brand) => brand.id === parentBrandId)?.name ?? "ブランド")
+      : null;
+    try {
+      const response = await authedFetch(`/api/brands/${brandId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentBrandId }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "ブランドを移動できませんでした");
+      if (parentBrandId) {
+        setExpandedBusinesses((current) => new Set([...current, parentBrandId]));
+      }
+      setNotice({
+        tone: "ok",
+        text: parentName
+          ? `「${name}」を「${parentName}」の下に移動しました`
+          : `「${name}」をワークスペースの直下に移動しました`,
+      });
+      await load();
+    } catch (moveError) {
+      setNotice({
+        tone: "error",
+        text: moveError instanceof Error ? moveError.message : "ブランドを移動できませんでした",
+      });
+    }
+  };
+
   const sidebarProps = {
     organization: workspace,
+    onMoveBrand: (brandId: string, parentBrandId: string | null) =>
+      void moveBrand(brandId, parentBrandId),
     pathname,
     loading,
     error,

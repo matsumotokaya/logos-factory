@@ -37,6 +37,8 @@ import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
 import BrandKnowledgePanel, {
   BrandSiteFiles,
 } from "@/components/brand/BrandKnowledgePanel";
+import { BRAND_KINDS, BRAND_KIND_LABEL, isBrandKind } from "@/lib/brand-kind";
+import { refreshBrandTree } from "@/lib/brand-events";
 import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
@@ -47,16 +49,6 @@ type Tile = {
   description: string;
   count: number;
   hint: string;
-};
-
-const BRAND_KIND_LABEL: Record<string, string> = {
-  corporate: "企業",
-  business: "事業",
-  service: "サービス",
-  product: "プロダクト",
-  media: "メディア",
-  event: "イベント",
-  audience: "対象別",
 };
 
 export default function BrandTop({ brandId }: { brandId: string }) {
@@ -283,7 +275,29 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     },
   ];
 
-  const kindLabel = BRAND_KIND_LABEL[overview.brandKind] ?? overview.brandKind;
+  // The AI's first guess, the user's to change. Saved on pick; the tree reads
+  // the same row, so it is told to refresh.
+  const changeKind = async (nextKind: string) => {
+    const previous = overview.brandKind;
+    if (nextKind === previous) return;
+    setOverview({ ...overview, brandKind: nextKind });
+    setError(null);
+    try {
+      const res = await videoFetch(`/api/brands/${brandId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandKind: nextKind }),
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(json?.error ?? "種別を変更できませんでした");
+      refreshBrandTree();
+    } catch (changeError) {
+      setOverview((current) => (current ? { ...current, brandKind: previous } : current));
+      setError(
+        changeError instanceof Error ? changeError.message : "種別を変更できませんでした",
+      );
+    }
+  };
 
   const openStageDef = pipeline?.stages.find((stage) => stage.id === openStage);
 
@@ -335,11 +349,23 @@ export default function BrandTop({ brandId }: { brandId: string }) {
       <header className="border-b border-hairline pb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="text-xs font-semibold text-ink-muted">BRAND</p>
-          {kindLabel ? (
-            <span className="rounded-full border border-hairline px-2.5 py-0.5 text-[10px] font-semibold text-ink-muted">
-              {kindLabel}
-            </span>
-          ) : null}
+          <label className="flex items-center gap-2 text-[10px] text-ink-faint">
+            種別
+            <select
+              value={isBrandKind(overview.brandKind) ? overview.brandKind : ""}
+              onChange={(e) => void changeKind(e.target.value)}
+              className="rounded-full border border-hairline bg-white px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted outline-none hover:border-ink focus-visible:border-ink"
+            >
+              {isBrandKind(overview.brandKind) ? null : (
+                <option value="">未設定</option>
+              )}
+              {BRAND_KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {BRAND_KIND_LABEL[kind]}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
           {overview.name}

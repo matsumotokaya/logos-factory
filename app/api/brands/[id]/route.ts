@@ -1,0 +1,99 @@
+import { guardBrandRequest } from "@/lib/brand-access";
+import { isBrandKind } from "@/lib/brand-kind";
+import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
+
+// PATCH: relabel a Brand or move it in the tree.
+//
+//   { brandKind: "product" }        the label, any of BRAND_KINDS
+//   { parentBrandId: "<uuid>" }     nest under another Brand in the workspace
+//   { parentBrandId: null }         back to the top of the workspace
+//
+// Neither changes anything else: the kind is a label, and a move leaves every
+// deliverable as it was because a take pins its inputs. The tree's rules —
+// not its own parent, no cycle, same workspace — live in the
+// enforce_brand_membership trigger; this route only translates its refusals.
+export async function PATCH(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const denied = await guardBrandRequest(req);
+  if (denied) return denied;
+  const user = await requireUser(req);
+  const { id } = await ctx.params;
+
+  let body: { brandKind?: unknown; parentBrandId?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return Response.json({ error: "リクエストが不正です" }, { status: 400 });
+  }
+
+  const supabase = createServerSupabaseForToken(user.token);
+  const current = await supabase
+    .from("brand_entities")
+    .select("provenance")
+    .eq("id", id)
+    .maybeSingle();
+  if (current.error) {
+    return Response.json({ error: "ブランドを確認できませんでした" }, { status: 500 });
+  }
+  if (!current.data) {
+    return Response.json({ error: "ブランドが見つかりません" }, { status: 404 });
+  }
+
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = { updated_at: now };
+  if ("brandKind" in body) {
+    if (!isBrandKind(body.brandKind)) {
+      return Response.json({ error: "種別が不正です" }, { status: 400 });
+    }
+    patch.brand_kind = body.brandKind;
+    patch.provenance = {
+      ...((current.data.provenance as Record<string, unknown> | null) ?? {}),
+      brand_kind: { source: "user_confirmed", confirmed_at: now, confirmed_by: user.id },
+    };
+  }
+  if ("parentBrandId" in body) {
+    if (body.parentBrandId !== null && typeof body.parentBrandId !== "string") {
+      return Response.json({ error: "親ブランドが不正です" }, { status: 400 });
+    }
+    patch.parent_brand_id = body.parentBrandId;
+  }
+  if (!("brand_kind" in patch) && !("parent_brand_id" in patch)) {
+    return Response.json({ error: "変更する項目がありません" }, { status: 400 });
+  }
+
+  const updated = await supabase
+    .from("brand_entities")
+    .update(patch)
+    .eq("id", id)
+    .select("id, brand_kind, parent_brand_id")
+    .maybeSingle();
+  if (updated.error) {
+    const message = updated.error.message;
+    const reason = /own parent/.test(message)
+      ? "ブランドを自分自身の下には置けません"
+      : /cycle/.test(message)
+        ? "ブランドを自分の子孫の下には置けません"
+        : /another workspace|another Brand/.test(message)
+          ? "同じワークスペースのブランドの下にだけ置けます"
+          : null;
+    if (reason) return Response.json({ error: reason }, { status: 409 });
+    console.error("Brand update failed:", message);
+    return Response.json({ error: "ブランドを更新できませんでした" }, { status: 500 });
+  }
+  if (!updated.data) {
+    return Response.json(
+      { error: "このブランドを編集する権限がありません" },
+      { status: 403 },
+    );
+  }
+
+  return Response.json({
+    brand: {
+      id: updated.data.id as string,
+      brandKind: updated.data.brand_kind as string,
+      parentBrandId: (updated.data.parent_brand_id as string | null) ?? null,
+    },
+  });
+}
