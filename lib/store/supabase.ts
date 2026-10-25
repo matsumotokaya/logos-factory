@@ -298,26 +298,19 @@ export class SupabaseRepo implements BrandRepo {
   }
 
   /**
-   * The user's organization (auto-created on first use; the creator becomes
-   * owner via the 0002 trigger). Company profile, inventory and orders hang
-   * off it — the same shape the real multi-tenant phase will use.
+   * The user's workspace, created on first use. Company profile, inventory and
+   * orders hang off it.
+   *
+   * Resolved by ensure_my_workspace, the same RPC brand registration uses. A
+   * select-then-insert here had no lock, and /brand calls this from three
+   * requests at once — a new user got two or three empty workspaces.
    */
   private async ensureOrg(): Promise<string> {
-    const uid = await this.ensureAuth();
-    const { data, error } = await supabase
-      .from("organizations")
-      .select("org_id")
-      .order("created_at")
-      .limit(1);
+    await this.ensureAuth();
+    const { data, error } = await supabase.rpc("ensure_my_workspace");
     throwOn(error);
-    if (data && data.length > 0) return data[0].org_id as string;
-    const { data: created, error: insErr } = await supabase
-      .from("organizations")
-      .insert({ name: "", created_by: uid })
-      .select("org_id")
-      .single();
-    throwOn(insErr);
-    return created!.org_id as string;
+    if (!data) throw new Error("ワークスペースを解決できませんでした");
+    return data as string;
   }
 
   /** Map of org_id → my role, for org-owned logo access decisions. */
