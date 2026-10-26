@@ -4,6 +4,7 @@ import {
   captionSafeBottom,
   LEGACY_THEME_ID,
   NEW_FILM_THEME_ID,
+  LUXURY_THEME,
   STANDARD_THEME,
   SUMI_THEME,
   THEMES,
@@ -105,6 +106,21 @@ test("数字と音の様式はテーマが持ち、墨は和、スタンダー�
   assert.equal(STANDARD_THEME.sound.cues, "corporate");
 });
 
+test("ラグジュアリーは墨の色替えではない", () => {
+  // The Freehand Lab's acceptance test for this painting: set beside 墨, it
+  // must not read as the same template recoloured. Each of these is a choice
+  // 墨 made the other way.
+  assert.notEqual(LUXURY_THEME.palette.ground, SUMI_THEME.palette.ground);
+  assert.notEqual(LUXURY_THEME.palette.accent, SUMI_THEME.palette.accent);
+  assert.notEqual(LUXURY_THEME.displayFont, SUMI_THEME.displayFont);
+  assert.equal(LUXURY_THEME.ornament.numerals, "roman-ring");
+  assert.equal(LUXURY_THEME.motion.background, "bokeh");
+  assert.equal(LUXURY_THEME.sound.cues, "luxe");
+  // Latin first, so the micro-labels and numerals are set in the serif and the
+  // Japanese falls through to the mincho.
+  assert.match(LUXURY_THEME.displayFont, /^"Cormorant Garamond", "Zen Old Mincho"/);
+});
+
 test("テンプレートが宣言するアートディレクションは全部存在し、先頭は既定レンダーと一致する", () => {
   // The add dialog offers what the catalog declares (catalog.ts
   // `artDirections`), so an id with no theme behind it would let a user order
@@ -129,7 +145,11 @@ test("テンプレートが宣言するアートディレクションは全部�
   }
   // The one template that chooses its painting today.
   const eventCm = TEMPLATES.find((entry) => entry.id === "event-cm");
-  assert.deepEqual(eventCm && artDirectionIds(eventCm), [STANDARD_THEME.id, SUMI_THEME.id]);
+  assert.deepEqual(eventCm && artDirectionIds(eventCm), [
+    STANDARD_THEME.id,
+    SUMI_THEME.id,
+    LUXURY_THEME.id,
+  ]);
 });
 
 test("組版はアートディレクションごとに違う", () => {

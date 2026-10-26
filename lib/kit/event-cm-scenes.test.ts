@@ -3,7 +3,7 @@ import test from "node:test";
 import { sceneForRole } from "@/remotion/kit/scenes/event-cm";
 import { fitScene } from "@/remotion/kit/fit";
 import { LAYOUTS, overCapacity } from "@/remotion/kit/layout";
-import { STANDARD_THEME, SUMI_THEME, themeForBrand } from "@/remotion/kit/theme";
+import { LUXURY_THEME, STANDARD_THEME, SUMI_THEME, themeForBrand } from "@/remotion/kit/theme";
 import { treatmentOn } from "@/remotion/kit/mark";
 import {
   EVENT_CM_PROGRAM_SCENES,
@@ -353,8 +353,15 @@ test("数字の様式はアートディレクションが決める", () => {
   );
   assert.equal(fromBrief?.kind === "stat" ? fromBrief.value : null, "03");
 
-  // And nothing falls off the stage in either register.
-  for (const theme of [SUMI_THEME, STANDARD_THEME]) {
+  // ラグジュアリー: I II III in a ring.
+  const ring = sceneForRole("program", SAKE, 2, LUXURY_THEME).components.find(
+    (component) => component.kind === "stat",
+  );
+  assert.equal(ring?.kind === "stat" ? ring.value : null, "III");
+  assert.equal(ring?.kind === "stat" ? ring.variant : null, "ring");
+
+  // And nothing falls off the stage in any register.
+  for (const theme of [SUMI_THEME, STANDARD_THEME, LUXURY_THEME]) {
     const fit = fitScene(sceneForRole("program", SAKE, 0, theme).components, theme);
     assert.deepEqual(fit.dropped, [], `${theme.id}: プログラムのシーンで部品が落ちている`);
   }

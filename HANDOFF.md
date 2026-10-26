@@ -1,6 +1,6 @@
 # HANDOFF
 
-最終更新: 2026-09-08
+最終更新: 2026-09-24
 
 ## この文書の役割
 
@@ -12,6 +12,7 @@
 
 ## 現在の状態
 
+- **2026-10-17 リポジトリを `logos-factory` に改名**(GitHub: `matsumotokaya/logos-factory`、旧URLは転送される)。ブランドのコアは新しい `logos`(private)へ移り、このリポジトリはレンダラー(ファクトリー)。下の「次の作業」は据え置きだが、優先順位は新 logos の HANDOFF「最初の縦の一本」が決める。**未コミットの 2026-09-24 の作業(luxury の塗り・violin-2026)はこの改名とは無関係で、依頼者がコミットする**
 - **v3へ切り替え済み**(migration 0056 適用、コードは main。**0056 は `supabase_migrations` に記録が無い**が `brand_entities` があり `works` は無いので適用済み。再適用しないこと)。Organizationはワークスペース、Brandは自由ツリー、Workは廃止、素材スコープは take / brand の2段。決定の正本は [docs/deliverable-architecture.md](docs/deliverable-architecture.md) §19、稼働構造は [docs/data-model.md](docs/data-model.md)。ワークスペース17・メンバー18・ユーザー136は健在
 - **素材の使える範囲の規則を4行に確定した**(2026-09-07、[§2.4](docs/deliverable-architecture.md))。置いた Brand と配下から選べる・昇格はツリーを上へ・自動で入るのはマークだけ・D&Dで既存成果物は変わらない。v2の「継承元カラム」案は撤回。**コードは未対応**(基盤段と seed は自分の Brand しか見ない。0056 の trigger は祖先への移動を拒否)
 - **項目ごとの由来を素材IDで持つ**(2026-09-07、[asset-normalization §9.5](docs/asset-normalization.md))。構造化が根拠IDを返して検証し、map / place-images が `provenance[path].sources` を書く。**資料を「外す」と、その資料だけに立っていた値と、その素材を指すスロットがその場で仮に戻る**([withdraw.ts](lib/templates/event-cm/withdraw.ts))。資料単位のオン/オフは同日に実装→撤回(層が違った)。**入力ドロワーは2段**: 「追加した資料」=未読み取りのステージング、「抽出した資料」=読み取り済み(外すはここ)。入力段の新旧は読んだ集合と今の集合の差。4段目は「動画プレビュー」(MP4と区別、2026-09-08)。**依頼者のUI確認はまだ**。既存の動画は読み直すまで由来未記録
@@ -23,6 +24,7 @@
 - 取り込みの枠は64項目([lib/brand/capture-frame.ts](lib/brand/capture-frame.ts))、実測/推定/まだわからないの3状態。サイトの画像はR2へ(`brand_materials` scope=brand)。再取り込みは `POST /api/brands/[id]/recapture`。**依頼者のUI確認はまだ**
 - main に直接コミット済み(2026-09-07〜09、**未push 30件**)。lint エラー0(警告4件は既存の未使用変数)、テスト458件・tsc・`next build`・docs:check 通過。**push はまだ**
 - **migration 0057 適用済み**(2026-09-09 依頼者が手で実行。[0057_take_material_delete.sql](supabase/migrations/0057_take_material_delete.sql))。`brand_materials_delete_take` が入り、編集者が自分の動画の素材を削除できる。0056 と同じく `supabase_migrations` には記録が無いので再適用しないこと
+- **event-cm に3つ目の塗り `luxury`(ラグジュアリー)を追加**(2026-09-24、freehand violin-2026 の塗りだけ。構造は未)。画像5枚とBGMは仮。**依頼者の追加ダイアログからの通し確認はまだ**。ヴァイオリンの提出版は `labs/freehand/violin-2026/out/v11.mp4`
 - 日本酒イベントは [labs/event/sake-2026/](labs/event/sake-2026/README.md) に保全。event-cm の `sumi` は承認済み、`standard` は静止画しか確認していない
 
 ## 次の作業

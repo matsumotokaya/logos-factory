@@ -140,6 +140,19 @@ const INSTRUMENTS: Record<ThemeSound["cues"], Record<"opening" | "title" | "chap
     // The date landing: a reveal hit, over in under two seconds.
     closing: "spotlight1.mp3",
   },
+  // The ラグジュアリー palette, from the Freehand Lab's delivered violin film
+  // (labs/freehand/violin-2026, v11, 2026-09-24). ONE instrument: a single
+  // piano note on each chapter turn. The client took out the opening glitter
+  // and the title sparkle (2026-09-11 — 「冒頭2つを外す」), and the lab never
+  // rang the invitation, so three moments are left to the music on purpose.
+  // Speakers ring the chapter's note, per the pairing rule above.
+  luxe: {
+    opening: null,
+    title: null,
+    chapter: "piano-single1.mp3",
+    arrival: "piano-single1.mp3",
+    closing: null,
+  },
 };
 
 /**

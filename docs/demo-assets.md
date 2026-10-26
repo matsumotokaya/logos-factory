@@ -22,13 +22,13 @@
 
 理由は測定で出ている。`sumi` は `rgba(8,6,4)` を strength 0.74 でかぶせて写真を**落とし**、`standard` は `rgba(247,249,252)` を 0.84 でかぶせて**持ち上げる**。だから暗部前提の写真はスタンダードで**灰色の霧**になり(2026-08-26 `npm run themes:compare` で確認——タイトル・アジェンダ・CTAが全部曇った)、明るい写真は墨で平坦になる。写真の側で妥協して中間トーンにすると**両方で悪くなる**(2026-08-23 に一度その方向へ行きかけた)。
 
-| | `sumi`(モダンジャパニーズ) | `standard`(スタンダード) |
-| --- | --- | --- |
-| 状態 | **納品水準・検証済み**(freehand v8 で合格、依頼主フィードバック3巡) | 作れるようになった(2026-08-26)。**写真待ち** |
-| 題材 | 日本文化を学ぶ | ビジネスセミナー |
-| 照明族 | 右上からの暖色キー・炭黒の地・**左3割が暗部** | 画面外左の大窓からの拡散昼光・白い壁・**左3割が明るく平坦** |
-| カタログの `tone` | `ink` | `light` |
-| 素材 | **6枚+6名 納品済み**(§4) | **§6 で依頼中** |
+| | `sumi`(モダンジャパニーズ) | `standard`(スタンダード) | `luxury`(ラグジュアリー) |
+| --- | --- | --- | --- |
+| 状態 | **納品水準・検証済み**(freehand v8 で合格、依頼主フィードバック3巡) | 作れるようになった(2026-08-26)。**写真待ち** | 作れるようになった(2026-09-24)。**画像は仮**(依頼主「後で差し替える」) |
+| 題材 | 日本文化を学ぶ | ビジネスセミナー | 夜のホールと名器 |
+| 照明族 | 右上からの暖色キー・炭黒の地・**左3割が暗部** | 画面外左の大窓からの拡散昼光・白い壁・**左3割が明るく平坦** | 舞台の一灯・ボルドーの黒・**左3割が暗部** |
+| カタログの `tone` | `ink` | `light` | `ink` |
+| 素材 | **6枚+6名 納品済み**(§4) | **§6 で依頼中** | **5枚**(freehand violin-2026 の生成静止画から左3割の検査に通ったもの)。登壇者は墨の6名を共用 |
 
 READMEの「`standard` が正式版で `sumi` は派生」は**将来の位置づけ**の宣言であって、成熟度の話ではない。
 
@@ -191,3 +191,60 @@ The cloud layers drift slowly and evenly across the frame, the light staying con
 - **`standard` の既定を先頭にするか**は、§6 の素材で通しを見てから。切り替えは catalog.ts の `artDirections` の順序と `defaultRenders[0].theme` の2箇所(テストが一致を要求する)
 - **墨の背景3枚がUpscaleされていない**(素の1456×816)。Ken Burnsで約1.5倍になり眠い
 - **sake-2026 のブリーフをデモ素材に向け替えるか**は別判断。実案件3本が乗っているので、既定プールを埋めることと実案件のブリーフを書き換えることは分けて考える
+
+## 9. BGM(Sunoで作る)
+
+**プールは4段の梯子の3段目**(§4 と同じ位置)で、`public/defaults/bgm/` に置きバイトをコミットする。Sunoの商用プランで生成したものは自社のものなので、効果音と違って再配布の制約が無い。カタログは [lib/assets/defaults.ts](../lib/assets/defaults.ts) の `DEFAULT_ASSETS`。
+
+現在の在庫は3本(`shine-through-tokyo` 180秒・`bright-corporate` 40秒・`ink-cinematic` 216秒)。**`bright-corporate` の40秒は短すぎる**——51秒の映画に敷くと必ず1回ループし、継ぎ目の置き場所が無い(README のBGM節)。下のプロンプトで作るものは**すべて2分5秒以上**を確保する。
+
+### 全曲に共通する要件
+
+1. **2分5秒以上。** 映画より長ければループそのものが起きない
+2. **頭から鳴る。** 静かに始まるイントロは不可。`strung-up-joy` は頭1.8秒が無音で、`trimBefore` で切る羽目になった(labs/freehand/violin-2026)
+3. **ボーカルなし**
+4. **旋律が鳴りっぱなしでない。** ナレーションの下で 0.16 まで下がるので、中音域(500Hz〜2kHz)が常に詰まっている曲は声と噛み合う。間のある曲が有利
+5. **3〜4本生成して、ナレーションを乗せた状態で選ぶ。** 単体で格好いいかではなく、声が乗って濁らないか
+6. 採用したら `scripts/measure-default-bgm.mjs` で実測し、`gain`(ピーク上限1.0)と `durationSec` を `DEFAULT_ASSETS` に書く
+
+### 用途別のプロンプト(Style of Music 欄にそのまま貼る)
+
+**ヴァイオリンのイベント**(文化・芸術・ラグジュアリー寄り。violin-2026 用)
+
+```
+Bright uplifting commercial music, featured solo violin melody, warm string section, acoustic piano and light drum kit, pizzicato and glockenspiel accents, major key, positive and elegant, forward-moving and friendly, polished advertising sound, instrumental, 116 BPM
+```
+
+**テック系のイベント**(勉強会・カンファレンス・製品発表)
+
+```
+Modern tech commercial music, clean synth arpeggios and warm analog pads, muted electric guitar plucks, crisp electronic drums, subtle piano, major key, bright and forward-looking, confident and energetic, polished product launch sound, instrumental, 120 BPM
+```
+
+**飲食店・店舗**(ライトでキャッチー。ウクレレと口笛)
+
+```
+Light happy commercial music, ukulele strumming and cheerful whistling melody, hand claps and shakers, warm acoustic guitar, glockenspiel, upright bass, major key, sunny and friendly, easygoing and catchy, instrumental, 112 BPM
+```
+
+**講演会・セミナー**(真面目・都会的。既存 `bright-corporate` の置き換え候補)
+
+```
+Refined urban corporate music, grand piano and muted trumpet, brushed drums and upright bass, warm strings, subtle vibraphone, major key, calm and intelligent, steady and understated, sophisticated business sound, instrumental, 104 BPM
+```
+
+### Lyrics 欄(インスト共通・構成の指示)
+
+```
+[Intro] main melody states itself right away, no fade-in
+[Verse] rhythm section enters, steady and warm
+[Chorus] full arrangement lifts, main theme sings brightly
+[Break] sparse, only a few instruments, light and open
+[Final Chorus] everything returns, bigger, ends cleanly
+```
+
+### Exclude Styles 欄(インスト共通)
+
+```
+vocals, minor key, dark, suspense, thriller, dramatic tension, sad, melancholic, EDM, trap, lo-fi, distorted guitar
+```

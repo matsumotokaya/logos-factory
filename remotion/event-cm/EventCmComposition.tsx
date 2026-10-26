@@ -24,6 +24,7 @@ import {
 import { Audio, Video } from "@remotion/media";
 import { getRemotionEnvironment } from "remotion";
 import { EventBackground } from "@/remotion/event/EventBackground";
+import { BokehBackground } from "@/remotion/kit/render/BokehBackground";
 import { resolveMediaSrc } from "@/remotion/event/EventComposition";
 import { EVENT_FPS, EVENT_HEIGHT, EVENT_WIDTH } from "@/remotion/event/palette";
 import { Stage } from "@/remotion/kit/render/Stage";
@@ -194,7 +195,11 @@ export const EventCmComposition: React.FC<EventCmVideoProps> = ({ brief: raw }) 
           direction that could not be changed. EventBackground IS the 墨 field
           (EVENT_GOLD, ink-black); a theme that wants a different atmosphere
           brings its own layer rather than parameterising this one. */}
-      {theme.motion.background === "still" ? null : <EventBackground />}
+      {theme.motion.background === "still" ? null : theme.motion.background === "bokeh" ? (
+        <BokehBackground />
+      ) : (
+        <EventBackground />
+      )}
       {brief.bgm &&
         (bgmLoops ? (
           // A track shorter than the film: laid down as explicit passes.

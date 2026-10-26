@@ -20,6 +20,8 @@
 
 import { loadFont as loadNotoSerifJP } from "@remotion/google-fonts/NotoSerifJP";
 import { loadFont as loadNotoSansJP } from "@remotion/google-fonts/NotoSansJP";
+import { loadFont as loadZenOldMincho } from "@remotion/google-fonts/ZenOldMincho";
+import { loadFont as loadCormorantGaramond } from "@remotion/google-fonts/CormorantGaramond";
 
 // 300 / 600 / 700 are what the kit asks for (grep `fontWeight` in remotion/),
 // plus 400 for anything that does not say. Narrower than the full family on
@@ -46,8 +48,27 @@ const gothic = loadNotoSansJP("normal", {
   subsets: [...SUBSETS],
 });
 
+// ラグジュアリー's two faces (theme.ts LUXURY_THEME). Unlike the Noto pair
+// above these are not a fallback: no system carries them, so the theme names
+// them first and they have to arrive or the painting is not the painting.
+// Zen Old Mincho has no 300, so the kit's light weight falls to 400 there.
+const zenOldMincho = loadZenOldMincho("normal", {
+  weights: ["400", "600", "700"],
+  subsets: ["japanese", "latin"],
+});
+
+const cormorant = loadCormorantGaramond("normal", {
+  weights: ["300", "400", "600", "700"],
+  subsets: ["latin"],
+});
+
 /**
  * The loaded family names, for anyone who needs to assert that the face a
  * theme falls back to is one this module actually delivers.
  */
-export const LOADED_FONT_FAMILIES = [mincho.fontFamily, gothic.fontFamily];
+export const LOADED_FONT_FAMILIES = [
+  mincho.fontFamily,
+  gothic.fontFamily,
+  zenOldMincho.fontFamily,
+  cormorant.fontFamily,
+];

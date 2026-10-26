@@ -10,7 +10,7 @@ import {
   videoDisplayName,
   videoFamilyIndex,
 } from "./templates";
-import { STANDARD_THEME, SUMI_THEME } from "@/remotion/kit/theme";
+import { LUXURY_THEME, STANDARD_THEME, SUMI_THEME } from "@/remotion/kit/theme";
 
 test("廃止予定のテンプレートは追加ダイアログに出ないが、一覧からは消えない", () => {
   // event-promo's 廃止 was decided on 2026-08-21. Hiding it from the dialog is
@@ -26,7 +26,7 @@ test("廃止予定のテンプレートは追加ダイアログに出ないが�
   assert.ok(videoFamilyIndex("event-promo") < VIDEO_TEMPLATE_FAMILIES.length + 1);
 });
 
-test("イベント紹介動画のスタイルはアートディレクションで、2つ並ぶ", () => {
+test("イベント紹介動画のスタイルはアートディレクションで、3つ並ぶ", () => {
   // The dialog's second question. Before this, 「スタンダード」 in the event
   // family created the voiceless event-promo — the retired template — and
   // there was no way to order event-cm in its corporate painting at all.
@@ -39,6 +39,7 @@ test("イベント紹介動画のスタイルはアートディレクション�
     [
       ["event-cm", STANDARD_THEME.id, STANDARD_THEME.name],
       ["event-cm", SUMI_THEME.id, SUMI_THEME.name],
+      ["event-cm", LUXURY_THEME.id, LUXURY_THEME.name],
     ],
   );
   // No two styles in one family may read the same.
@@ -62,6 +63,7 @@ test("スタイルのキーは往復する", () => {
 test("Takeの名前は家族と塗りで組む", () => {
   assert.equal(videoDisplayName("event-cm", "standard"), "イベント紹介動画 - スタンダード");
   assert.equal(videoDisplayName("event-cm", "sumi"), "イベント紹介動画 - モダンジャパニーズ");
+  assert.equal(videoDisplayName("event-cm", "luxury"), "イベント紹介動画 - ラグジュアリー");
   // An old take with no painting recorded is named the way it is painted.
   assert.equal(styleLabel("event-cm", null), SUMI_THEME.name);
   // A template that is its own style keeps its own label.

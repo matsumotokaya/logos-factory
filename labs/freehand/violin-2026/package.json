@@ -1,0 +1,22 @@
+{
+  "name": "event-cm-e474848b",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts event-cm out/video.mp4 --props=props.json"
+  },
+  "dependencies": {
+    "remotion": "^4.0.472",
+    "@remotion/media": "^4.0.472",
+    "@remotion/google-fonts": "^4.0.472",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.472",
+    "typescript": "^5",
+    "@types/react": "^19"
+  }
+}

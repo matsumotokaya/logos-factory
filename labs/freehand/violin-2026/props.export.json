@@ -1,0 +1,326 @@
+{
+  "bgm": "assets/audio/strung-up-joy.mp3",
+  "cta": "音楽好きの方も、そうでない方も、新しい文化資本の体験の場へ、是非、お運びください。",
+  "logos": [
+    {
+      "src": "assets/logo/wealthpark-lab_transparent_dark_vector.svg",
+      "name": "WealthPark Lab"
+    }
+  ],
+  "theme": {
+    "palette": {},
+    "bodyFont": null,
+    "headingFont": null
+  },
+  "title": "ヴァイオリンから知る、芸術と資産のつながり",
+  "voice": {
+    "audio": "assets/audio/narration.wav",
+    "track": {
+      "mock": false,
+      "voice": "Aoede",
+      "scenes": [
+        {
+          "role": "title",
+          "text": "ヴァイオリンから知る、芸術と資産のつながりです。",
+          "startMs": 0,
+          "durationMs": 3800
+        },
+        {
+          "role": "value",
+          "text": "名器ストラディバリウスの魅力を存分に楽しみ、楽器を資産として見る知の世界を、少人数で深く体験します。",
+          "startMs": 4700,
+          "durationMs": 7640
+        },
+        {
+          "role": "program",
+          "text": "三つのプログラムで、芸術と資産のつながりを知ります。まず、世界最高峰のストラディバリウスの音色を、目の前で体験します。",
+          "index": 0,
+          "startMs": 13240,
+          "durationMs": 9960
+        },
+        {
+          "role": "program",
+          "text": "芸能人格付けチェック風の音色当てゲームを、じっくり体験します。",
+          "index": 1,
+          "startMs": 24100,
+          "durationMs": 4200
+        },
+        {
+          "role": "program",
+          "text": "ヴァイオリンの資産性を知るトークセッションをお届けします。",
+          "index": 2,
+          "startMs": 29200,
+          "durationMs": 3880
+        },
+        {
+          "role": "guests",
+          "text": "寺下真理子ら、奏者と制作者、研究者が、専門の視点で語ります。",
+          "startMs": 33980,
+          "durationMs": 5280
+        },
+        {
+          "role": "cta",
+          "text": "10月2日、金曜日、夜7時スタート。詳細・お申し込みはこちら。",
+          "startMs": 40160,
+          "durationMs": 5320
+        }
+      ],
+      "totalMs": 45980,
+      "version": 1,
+      "captions": [
+        {
+          "text": "ヴァイオリンから知る、芸術と資産のつながりです。",
+          "endMs": 4700,
+          "startMs": 0
+        },
+        {
+          "text": "名器ストラディバリウスの魅力を存分に楽しみ、楽器を資産として見る知の世界を、少人数で深く体験します。",
+          "endMs": 13240,
+          "startMs": 4700
+        },
+        {
+          "text": "三つのプログラムで、芸術と資産のつながりを知ります。",
+          "endMs": 17616,
+          "startMs": 13240
+        },
+        {
+          "text": "まず、世界最高峰のストラディバリウスの音色を、目の前で体験します。",
+          "endMs": 24100,
+          "startMs": 17616
+        },
+        {
+          "text": "芸能人格付けチェック風の音色当てゲームを、じっくり体験します。",
+          "endMs": 29200,
+          "startMs": 24100
+        },
+        {
+          "text": "ヴァイオリンの資産性を知るトークセッションをお届けします。",
+          "endMs": 33980,
+          "startMs": 29200
+        },
+        {
+          "text": "寺下真理子ら、奏者と制作者、研究者が、専門の視点で語ります。",
+          "endMs": 40160,
+          "startMs": 33980
+        },
+        {
+          "text": "10月2日、金曜日、夜7時スタート。",
+          "endMs": 43323,
+          "startMs": 40160
+        },
+        {
+          "text": "詳細・お申し込みはこちら。",
+          "endMs": 45980,
+          "startMs": 43323
+        }
+      ],
+      "provider": "gemini",
+      "sampleRate": 24000,
+      "generatedAt": "2026-09-03T09:38:57.898Z"
+    }
+  },
+  "guests": [
+    {
+      "name": "寺下真理子",
+      "role": "ストラディバリウス奏者",
+      "photo": null
+    },
+    {
+      "name": "土屋恵",
+      "role": "アコーディオ二スト",
+      "photo": null
+    },
+    {
+      "name": "カポラリ真亮",
+      "role": "株式会社 atsumari COO / ヴァイオリン制作者",
+      "photo": {
+        "src": "assets/person/photo_1400w.jpg",
+        "focus": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      }
+    },
+    {
+      "name": "加藤航介",
+      "role": "WealthPark研究所 代表",
+      "photo": null
+    }
+  ],
+  "visuals": {
+    "value": {
+      "src": "defaults/stills/inkstone.jpg"
+    },
+    "closing": {
+      "src": "defaults/stills/venue-lanterns.jpg"
+    },
+    "programs": {
+      "src": "defaults/stills/tearoom-bowl.jpg"
+    }
+  },
+  "footnote": null,
+  "narrator": "female-2",
+  "programs": [
+    {
+      "title": "世界最高峰のストラディバリウスの音色の目の前で体験"
+    },
+    {
+      "title": "「芸能人格付けチェック」風の音色当てゲーム"
+    },
+    {
+      "title": "ヴァイオリンの資産性を知るトークセッション"
+    },
+    {
+      "title": "奏者や製作者との懇親"
+    }
+  ],
+  "schedule": {
+    "fee": null,
+    "date": "2026.10.2",
+    "time": "19:00 START",
+    "venue": null,
+    "weekday": "FRI"
+  },
+  "subtitle": "〜これからの選択を、根っこから〜",
+  "narration": {
+    "angle": "名器の音色と資産としての楽器を通じて、芸術と文化資本を自分の感覚で学ぶ30秒です。",
+    "scenes": [
+      {
+        "role": "title",
+        "text": "ヴァイオリンから知る、芸術と資産のつながり。文化資本と投資シリーズです。"
+      },
+      {
+        "role": "value",
+        "text": "二人の奏者と楽器制作者と、芸術と文化資本のつながりを少人数で学ぶ、特別な体験です。"
+      },
+      {
+        "role": "program",
+        "text": "四つのプログラムを通して、芸術と資産のつながりを体験します。まずは、世界最高峰のストラディバリウスの音色を、目の前で体験。",
+        "index": 0
+      },
+      {
+        "role": "program",
+        "text": "芸能人格付けチェック風の音色当てゲームを、体験します。",
+        "index": 1
+      },
+      {
+        "role": "program",
+        "text": "ヴァイオリンの資産性を知るトークセッションを体験します。",
+        "index": 2
+      },
+      {
+        "role": "guests",
+        "text": "寺下真理子さん。ストラディバリウスを奏でる奏者です。"
+      },
+      {
+        "role": "cta",
+        "text": "十月二日、金曜日。新しい文化資本の体験の場へ、ぜひお運びください。"
+      }
+    ],
+    "source": "llm",
+    "version": 1,
+    "updatedAt": "2026-09-07T14:58:10.730Z"
+  },
+  "presenter": "WealthPark Lab",
+  "valueChip": "特別な体験",
+  "provenance": {
+    "bgm": {
+      "origin": "user"
+    },
+    "cta": {
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、atsumari フライヤー.pdf、貼り付けたテキスト"
+    },
+    "logos": {
+      "origin": "brand"
+    },
+    "theme": {
+      "note": "ブランドの配色・書体が未採用のため、テーマの既定で描く",
+      "origin": "inferred"
+    },
+    "title": {
+      "origin": "extracted",
+      "source": "貼り付けたテキスト"
+    },
+    "voice": {
+      "origin": "inferred"
+    },
+    "guests": {
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、WPL_クリエイト軽井沢様.pdf、貼り付けたテキスト"
+    },
+    "programs": {
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、WPL_クリエイト軽井沢様.pdf、貼り付けたテキスト"
+    },
+    "subtitle": {
+      "origin": "inferred"
+    },
+    "narration": {
+      "note": "テンプレートの下書き。資料を読むと書き直されます",
+      "origin": "inferred"
+    },
+    "presenter": {
+      "origin": "brand"
+    },
+    "valueChip": {
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、WPL_クリエイト軽井沢様.pdf、貼り付けたテキスト"
+    },
+    "valueLines": {
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、WPL_クリエイト軽井沢様.pdf、貼り付けたテキスト"
+    },
+    "seriesLabel": {
+      "origin": "extracted",
+      "source": "貼り付けたテキスト"
+    },
+    "theme.accent": {
+      "note": "このブランドはアクセントを持たないため、テーマの色を使う",
+      "origin": "inferred"
+    },
+    "schedule.date": {
+      "note": "今日から4週間後以降の最初の金曜日",
+      "origin": "inferred"
+    },
+    "schedule.time": {
+      "note": "セミナーに多い開始時刻",
+      "origin": "inferred"
+    },
+    "visuals.value": {
+      "note": "テンプレートの既定画像",
+      "origin": "inferred"
+    },
+    "guests.0.photo": {
+      "note": "テンプレートの見本写真",
+      "origin": "inferred"
+    },
+    "guests.1.photo": {
+      "note": "テンプレートの見本写真",
+      "origin": "inferred"
+    },
+    "guests[2].photo": {
+      "note": "ファイル名から「カポラリ　真亮」と確認",
+      "origin": "extracted",
+      "source": "カポラリ氏.jpg、貼り付けたテキスト"
+    },
+    "visuals.closing": {
+      "note": "テンプレートの既定画像",
+      "origin": "inferred"
+    },
+    "visuals.programs": {
+      "note": "テンプレートの既定画像",
+      "origin": "inferred"
+    }
+  },
+  "valueLines": [
+    "当イベントは、二人の奏者、楽器制作者と共に、芸術と文化資本の繋がりを、少人数で学ぶ体験型イベントです。",
+    "名器ストラディバリウスの魅力を存分に楽しみ、また資産としての楽器という知の世界を体験する、全く新しいイベントです。",
+    "音楽好きの方も、そうでない方も、新しい文化資本の体験の場へ、是非、お運びください。"
+  ],
+  "seriesLabel": "WealthParkLabの「文化資本と投資」シリーズ",
+  "artDirection": "sumi",
+  "guestsHeading": "登壇者",
+  "factsUpdatedAt": "2026-09-07T14:58:10.609Z",
+  "programsHeading": "3つのプログラム"
+}

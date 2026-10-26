@@ -382,6 +382,69 @@ export const DEFAULT_ASSETS: DefaultAsset[] = [
     licensed: true,
   },
 
+  // Pictures, subject "夜のホールと名器" — the `luxury` pool.
+  //
+  // Generated with Midjourney on a commercial plan for the Freehand Lab's
+  // violin film (labs/freehand/violin-2026, ASSET-PROMPTS.md — the recipe is
+  // the shot id there), so they are ours to redistribute and THE BYTES ARE
+  // COMMITTED, as the 墨 set's are. The client's own key visual and the real
+  // players' portraits from that film are not here and must not be.
+  //
+  // Measured with `node scripts/check-pool-images.mjs … --tone ink`: the left
+  // third of each is darker than the subject side and quiet (sd ≤ 0.09). The
+  // lab's other generated stills failed that — a lamp or a window on the left.
+  // Placeholders by the owner's word (2026-09-24): a first set, to be replaced.
+  {
+    id: "still-luxe-violin-on-stand",
+    kind: "still",
+    src: "defaults/stills/luxe-violin-on-stand.jpg",
+    tone: "ink",
+    label: "台の上の名器",
+    credit: "Midjourney（商用利用可プランで生成）",
+    recipe: "violin-2026 B5",
+    licensed: true,
+  },
+  {
+    id: "still-luxe-stage-spotlight",
+    kind: "still",
+    src: "defaults/stills/luxe-stage-spotlight.jpg",
+    tone: "ink",
+    label: "一条の光の舞台",
+    credit: "Midjourney（商用利用可プランで生成）",
+    recipe: "violin-2026 B1",
+    licensed: true,
+  },
+  {
+    id: "still-luxe-auditorium-seats",
+    kind: "still",
+    src: "defaults/stills/luxe-auditorium-seats.jpg",
+    tone: "ink",
+    label: "開演前の客席",
+    credit: "Midjourney（商用利用可プランで生成）",
+    recipe: "violin-2026 E5",
+    licensed: true,
+  },
+  {
+    id: "still-luxe-three-violins",
+    kind: "still",
+    src: "defaults/stills/luxe-three-violins.jpg",
+    tone: "ink",
+    label: "並んだ3挺",
+    credit: "Midjourney（商用利用可プランで生成）",
+    recipe: "violin-2026 B2",
+    licensed: true,
+  },
+  {
+    id: "still-luxe-case-lining",
+    kind: "still",
+    src: "defaults/stills/luxe-case-lining.jpg",
+    tone: "ink",
+    label: "ケースの内張り",
+    credit: "Midjourney（商用利用可プランで生成）",
+    recipe: "violin-2026 E2",
+    licensed: true,
+  },
+
   // The footage the closing plate stands on, one clip per art direction.
   //
   // The approved 和モダン film ends on Fuji above a sea of clouds, darkened

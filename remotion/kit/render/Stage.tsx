@@ -121,6 +121,12 @@ export const Stage: React.FC<{
       style={{
         opacity: sceneFade(theme, frame, length),
         wordBreak: "auto-phrase",
+        // Lining figures, everywhere. An old-style serif (ラグジュアリー's
+        // Cormorant) sets 1 as a dotless ı and 3 below the baseline by
+        // default, which made 「PROGRAM 1 / 3」 read as 「ı / 3」. The Japanese
+        // faces the other paintings use have lining digits already, so this
+        // changes nothing for them.
+        fontVariantNumeric: "lining-nums",
       }}
     >
       {scene.backdrop ? (

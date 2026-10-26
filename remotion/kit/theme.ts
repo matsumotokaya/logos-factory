@@ -79,7 +79,7 @@ export interface ThemeMotion {
   enterFrames: number;
   exitFrames: number;
   /** Something alive behind everything, all film long. */
-  background: "still" | "particles" | "grain" | "drift";
+  background: "still" | "particles" | "grain" | "drift" | "bokeh";
   /** What happens between scenes. `card` is the interstitial title plate. */
   transition: "cut" | "fade" | "card" | "wipe";
 }
@@ -125,7 +125,7 @@ export interface ThemeOrnament {
    * of how many, and how a numeral looks is painting. The scene builder reads
    * this and emits the matching `stat` variant (scenes/event-cm.ts).
    */
-  numerals: "kanji-seal" | "arabic";
+  numerals: "kanji-seal" | "arabic" | "roman-ring";
 }
 
 /**
@@ -279,8 +279,9 @@ export interface ThemeEndCard {
  * names the palette and the cue sheet picks its files from it.
  */
 export interface ThemeSound {
-  /** `wa`: acoustic Japanese instruments. `corporate`: neutral motion-graphics cues. */
-  cues: "wa" | "corporate";
+  /** `wa`: acoustic Japanese instruments. `corporate`: neutral motion-graphics
+   *  cues. `luxe`: a piano note and a spotlight, and nothing else. */
+  cues: "wa" | "corporate" | "luxe";
 }
 
 export interface Theme {
@@ -515,6 +516,102 @@ export const STANDARD_THEME: Theme = {
 };
 
 /**
+ * ラグジュアリー — the night hall. Carried back from the Freehand Lab's second
+ * film (labs/freehand/violin-2026, delivered as v11 on 2026-09-24), and only
+ * its painting: the colours, the faces, the frame, the numerals, the air and
+ * the instruments. The film's structure stays the template's, so a take in
+ * this painting is the same seven scenes as the other two.
+ *
+ * Built to be told apart from 墨 at a glance, which was the lab's acceptance
+ * test (「並べたときに同じテンプレートの色替えに見えたら失敗」):
+ *
+ * - The ground is black with BORDEAUX in it (#0b080a), not 墨's blue-black, and
+ *   where there is no photograph it is a velvet curtain with a slow drift of
+ *   large, soft gold discs (`background: "bokeh"`), not rising particles.
+ * - Champagne gold, paler and brighter than 墨's brass. Same rule as 墨: gold
+ *   is numbers and lines, never body copy.
+ * - Zen Old Mincho for the Japanese, with Cormorant Garamond named FIRST so
+ *   every Latin glyph — the PROGRAM micro-label, digits, the roman numerals —
+ *   is set in an old-style serif and every kana and kanji falls through to the
+ *   mincho. One stack, the usual 欧文先指定 of Japanese typesetting.
+ * - Roman numerals in a hairline ring (`numerals: "roman-ring"`). `I` is a
+ *   bare stroke at display size; the ring gives it mass, the same problem 墨
+ *   solves with a square around 一.
+ * - A 120px letterbox with the subtitles in the bar, as 墨, a step narrower.
+ *
+ * What was NOT carried back, because it is structure rather than painting:
+ * portraits standing beside the programme they appear in, several shots per
+ * scene with dissolves between them, the three-line invitation and the
+ * "Produced by" end card. See labs/freehand/violin-2026/FINDINGS.md.
+ */
+export const LUXURY_THEME: Theme = {
+  id: "luxury",
+  lang: "ja",
+  name: "ラグジュアリー",
+  palette: {
+    ground: "#0b080a",
+    ink: "#f3ecdd",
+    muted: "rgba(243,236,221,0.7)",
+    faint: "rgba(243,236,221,0.44)",
+    accent: "#d6bc7a",
+    accentBright: "#f0dfae",
+    // The velvet is the background layer's (motion.background "bokeh"), so
+    // there is nothing to wash here.
+    groundWash: null,
+  },
+  displayFont:
+    '"Cormorant Garamond", "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", serif',
+  textFont:
+    '"Cormorant Garamond", "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", serif',
+  // A step smaller than 墨 and tracked wider: the luxury register is space
+  // around the letters, not size. charsPerLine is the same column as 墨's
+  // divided by the tracked width of one character.
+  scale: {
+    hero: { size: 120, lineHeight: 1.3, tracking: 0.1, charsPerLine: 11, maxLines: 2 },
+    primary: { size: 58, lineHeight: 1.62, tracking: 0.1, charsPerLine: 23, maxLines: 3 },
+    secondary: { size: 36, lineHeight: 1.78, tracking: 0.08, charsPerLine: 38, maxLines: 4 },
+    caption: { size: 22, lineHeight: 1.6, tracking: 0.3, charsPerLine: 53, maxLines: 2 },
+  },
+  motion: {
+    // Slower than 墨 and without its blur: things arrive, they do not land.
+    enter: { hero: "bloom", primary: "settle", secondary: "fade", caption: "fade" },
+    exit: "fade",
+    enterFrames: 22,
+    exitFrames: 14,
+    background: "bokeh",
+    transition: "fade",
+  },
+  ornament: {
+    rules: true,
+    markGlyph: "—",
+    corner: "none",
+    numerals: "roman-ring",
+    people: "panels",
+  },
+  sound: { cues: "luxe" },
+  // No end card clip. The closing plate stands on the velvet and its bokeh,
+  // which is what the lab's end card was.
+  backdrop: {
+    opacity: { hero: 1, support: 0.9 },
+    scrim:
+      "radial-gradient(85% 75% at 50% 50%, rgba(11,8,10,0.42) 0%, rgba(11,8,10,0.82) 100%)",
+    // The lab's scrim: 0.7 over 72%, in the ground's own bordeaux-black — a
+    // neutral black over this ground reads grey.
+    directional: { strength: 0.72, reach: 74, tint: [9, 6, 8] },
+    // The lab's push on 1456px material: past 1.10 it goes soft.
+    push: [1.03, 1.1],
+  },
+  caption: {
+    size: 32,
+    bottom: 0,
+    color: "#f3ecdd",
+    backdrop: "bar",
+    plate: "rgba(0,0,0,0.88)",
+  },
+  chrome: { letterbox: 120, color: "#050305" },
+};
+
+/**
  * The art directions a film can be painted in, by the id stored on the render.
  *
  * `take_renders.theme` has carried this value since migration 0027 (every
@@ -524,6 +621,7 @@ export const STANDARD_THEME: Theme = {
 export const THEMES: Record<string, Theme> = {
   [SUMI_THEME.id]: SUMI_THEME,
   [STANDARD_THEME.id]: STANDARD_THEME,
+  [LUXURY_THEME.id]: LUXURY_THEME,
 };
 
 /**

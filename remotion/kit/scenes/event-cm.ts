@@ -4,6 +4,8 @@ import { themeById, type Theme } from "../theme";
 
 /** Plain kanji numerals for the agenda trio (stat variant "seal"). */
 const KANJI_NUMERALS = ["一", "二", "三"] as const;
+/** Roman numerals for the agenda trio (stat variant "ring"). */
+const ROMAN_NUMERALS = ["I", "II", "III"] as const;
 import type { EventPhoto } from "@/remotion/event/types";
 import { eventCmScenePlan } from "@/remotion/event-cm/types";
 import type { EventCmBrief } from "@/remotion/event-cm/types";
@@ -185,10 +187,19 @@ function programScene(brief: EventCmBrief, index: number | undefined, theme: The
   // — the digits read as pagination, the formal 壱弐参 as overdressed (client
   // call), and 一二三 in a hairline square is the register an invitation
   // actually uses. Standard: 01 02 03, because in a gothic face 「一」 is a
-  // bar. The latin micro-label carries the "of three" in both.
+  // bar. ラグジュアリー: I II III in a hairline ring — the evening is a
+  // programme, not a 章. The latin micro-label carries the "of three" in all.
   const unit = `PROGRAM ${at + 1} / ${total}`;
   components.push(
-    theme.ornament.numerals === "kanji-seal"
+    theme.ornament.numerals === "roman-ring"
+      ? {
+          kind: "stat",
+          value: ROMAN_NUMERALS[at % ROMAN_NUMERALS.length],
+          unit,
+          variant: "ring",
+          fields: ["programs"],
+        }
+      : theme.ornament.numerals === "kanji-seal"
       ? {
           kind: "stat",
           value: KANJI_NUMERALS[at % KANJI_NUMERALS.length],

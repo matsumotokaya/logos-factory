@@ -345,13 +345,14 @@ export const TEMPLATES: TemplateEntry[] = [
     toolKind: "video",
     briefSchemaVersion: 1,
     // Bumped for the end card standing on footage, the second painting, the
-    // corporate cue sheet (2026-08-27/28), and the standard opening falling
-    // silent (2026-08-30). Now that renders record what drew them
+    // corporate cue sheet (2026-08-27/28), the standard opening falling
+    // silent (2026-08-30), and the third painting (2026-09-24). Now that
+    // renders record what drew them
     // (lib/takes/render.ts), a revision left behind would tell an export it
     // was made by a build it was not.
-    rendererRevision: "remotion/event-cm@2026-08-30",
+    rendererRevision: "remotion/event-cm@2026-09-24",
     summary:
-      "イベント告知のナレーション駆動CM。ナレーションを先に書き、そのボイスのタイミングが画面の尺と並びを決めます。絵はアートディレクションで選びます——モダンジャパニーズ（墨黒×金×明朝・シネスコ帯・写真主役）か、スタンダード（白地×紺×ゴシック）。章の転換や登壇者の登場は効果音が刻みます。素材が無いスロットは設計済みのフォールバックで描かれます。",
+      "イベント告知のナレーション駆動CM。ナレーションを先に書き、そのボイスのタイミングが画面の尺と並びを決めます。絵はアートディレクションで選びます——モダンジャパニーズ（墨黒×金×明朝・シネスコ帯・写真主役）か、スタンダード（白地×紺×ゴシック）か、ラグジュアリー（ボルドーの黒×シャンパンゴールド×明朝と欧文セリフ・ローマ数字）。章の転換や登壇者の登場は効果音が刻みます。素材が無いスロットは設計済みのフォールバックで描かれます。",
     requires: "イベントの事実（EventBrief）と、そこから書いたナレーション",
     duration: "30秒前後（ナレーションとボイスの長さで決まる）",
     narration: true,
@@ -442,6 +443,36 @@ export const TEMPLATES: TemplateEntry[] = [
           "guests.1.photo": "portrait-speaker-06",
         },
       },
+      {
+        id: "luxury",
+        // PLACEHOLDER. The lab's film ran on a track supplied for that one
+        // event (Strung Up Joy), whose licence does not reach the pool. The
+        // ink track is the pool's only cinematic bed; a luxury track is to be
+        // commissioned, and swapping it is this one line.
+        bgm: "bgm-ink-cinematic",
+        // Subject "夜のホールと名器", the lab's generated set (defaults.ts).
+        // Placeholders by the owner's word (2026-09-24). Chosen by what each
+        // layout needs, the same way as the two sets above:
+        //
+        // - `programs` is drawn twice — under the centred title and dimmed
+        //   behind each agenda card — so the instrument alone on its plinth,
+        //   black all round (left third 0.016), carries both.
+        // - `value`: the empty stage with one shaft of light, the lab's
+        //   darkest copy side (0.041, sd 0.012) behind the promise.
+        // - `closing`: the empty rows before the doors open; the lower left,
+        //   where the date and the call sit, is the seats in shadow.
+        //
+        // The portraits are 墨's charcoal studio pair: a dark ground behind a
+        // face is what this painting wants too, and the lab's portraits are of
+        // real people.
+        visuals: {
+          "visuals.programs": "still-luxe-violin-on-stand",
+          "visuals.value": "still-luxe-stage-spotlight",
+          "visuals.closing": "still-luxe-auditorium-seats",
+          "guests.0.photo": "portrait-speaker-05",
+          "guests.1.photo": "portrait-speaker-06",
+        },
+      },
     ],
     // The storyboard is a workbench: edits collect there and reach the film
     // only when the user asks. The only template that works this way today.
@@ -451,7 +482,7 @@ export const TEMPLATES: TemplateEntry[] = [
     // The script is written by an LLM from the brief, then spoken. Both are
     // charged, and both re-run only when asked.
     //
-    // No `variant`: the family has two styles and they are art directions,
+    // No `variant`: the family has three styles and they are art directions,
     // not templates. The name the user sees is composed from the family and
     // the painting a take carries (lib/video/templates.ts `videoDisplayName`).
     family: "イベント紹介動画",

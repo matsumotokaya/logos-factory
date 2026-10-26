@@ -1,0 +1,636 @@
+{
+  "license": "効果音ラボ（https://soundeffect-lab.info）商用利用無料・クレジット不要。ファイルの再配布は不可（このスクリプトで各環境が取得する）",
+  "fetchedFrom": "https://soundeffect-lab.info/sound/anime/mp3/",
+  "sounds": {
+    "drum-japanese1.mp3": {
+      "label": "和太鼓でドン",
+      "role": "重い一打。タイトル・決め",
+      "src": "defaults/sfx/drum-japanese1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/drum-japanese1.mp3",
+      "headDb": -19.9,
+      "tailDb": -37.2,
+      "durationSec": 3.35,
+      "gain": 0.989
+    },
+    "drum-japanese2.mp3": {
+      "label": "和太鼓でドドン",
+      "role": "二連打。登場・締め",
+      "src": "defaults/sfx/drum-japanese2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/drum-japanese2.mp3",
+      "headDb": -16.3,
+      "tailDb": -43.8,
+      "durationSec": 1.56,
+      "gain": 0.653
+    },
+    "drum-japanese-kaka1.mp3": {
+      "label": "和太鼓でカカッ",
+      "role": "フチ打ち。軽い合図",
+      "src": "defaults/sfx/drum-japanese-kaka1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/drum-japanese-kaka1.mp3",
+      "headDb": -24.2,
+      "tailDb": null,
+      "durationSec": 0.71,
+      "gain": 1.622
+    },
+    "hyoushigi1.mp3": {
+      "label": "拍子木1",
+      "role": "開幕の合図",
+      "src": "defaults/sfx/hyoushigi1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/hyoushigi1.mp3",
+      "headDb": -25.2,
+      "tailDb": null,
+      "durationSec": 0.69,
+      "gain": 1.82
+    },
+    "hyoushigi2.mp3": {
+      "label": "拍子木2",
+      "role": "二連。転換",
+      "src": "defaults/sfx/hyoushigi2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/hyoushigi2.mp3",
+      "headDb": -25.1,
+      "tailDb": -78,
+      "durationSec": 1.13,
+      "gain": 1.799
+    },
+    "hyoushigi3.mp3": {
+      "label": "拍子木3",
+      "role": "連打。芝居の幕",
+      "src": "defaults/sfx/hyoushigi3.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/hyoushigi3.mp3",
+      "headDb": -26,
+      "tailDb": -21,
+      "durationSec": 6.45,
+      "gain": 1.995
+    },
+    "koto-glissando1.mp3": {
+      "label": "琴の滑奏",
+      "role": "和の導入フレーズ",
+      "src": "defaults/sfx/koto-glissando1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/koto-glissando1.mp3",
+      "headDb": -18,
+      "tailDb": -39.9,
+      "durationSec": 3.42,
+      "gain": 0.794
+    },
+    "kotsudumi1.mp3": {
+      "label": "小鼓",
+      "role": "能・歌舞伎の間",
+      "src": "defaults/sfx/kotsudumi1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/kotsudumi1.mp3",
+      "headDb": -22.5,
+      "tailDb": null,
+      "durationSec": 0.97,
+      "gain": 1.334
+    },
+    "shakuhachi1.mp3": {
+      "label": "尺八",
+      "role": "和の情感",
+      "src": "defaults/sfx/shakuhachi1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shakuhachi1.mp3",
+      "headDb": -17.9,
+      "tailDb": -19.4,
+      "durationSec": 3.14,
+      "gain": 0.785
+    },
+    "bell1.mp3": {
+      "label": "鈴を鳴らす",
+      "role": "人の登場・章の変わり目",
+      "src": "defaults/sfx/bell1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/bell1.mp3",
+      "headDb": -26,
+      "tailDb": -56.3,
+      "durationSec": 1.54,
+      "gain": 1.995
+    },
+    "tirin1.mp3": {
+      "label": "チリン",
+      "role": "凛とした登場",
+      "src": "defaults/sfx/tirin1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/tirin1.mp3",
+      "headDb": -25.8,
+      "tailDb": -47.3,
+      "durationSec": 3.09,
+      "gain": 1.95
+    },
+    "temple-bell1.mp3": {
+      "label": "お寺の鐘",
+      "role": "ゴーン。荘厳",
+      "src": "defaults/sfx/temple-bell1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/temple-bell1.mp3",
+      "headDb": -15.6,
+      "tailDb": -26.7,
+      "durationSec": 2.82,
+      "gain": 0.603
+    },
+    "solemnity1.mp3": {
+      "label": "荘厳な雰囲気",
+      "role": "ドラを弱く。格式",
+      "src": "defaults/sfx/solemnity1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/solemnity1.mp3",
+      "headDb": -18,
+      "tailDb": -27.9,
+      "durationSec": 5.25,
+      "gain": 0.794
+    },
+    "ban1.mp3": {
+      "label": "バーン",
+      "role": "ドラ鳴らし。強い決め",
+      "src": "defaults/sfx/ban1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/ban1.mp3",
+      "headDb": -18.1,
+      "tailDb": -26.3,
+      "durationSec": 5.19,
+      "gain": 0.804
+    },
+    "doon1.mp3": {
+      "label": "ドーン",
+      "role": "和太鼓+ビブラスラップ",
+      "src": "defaults/sfx/doon1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/doon1.mp3",
+      "headDb": -17.5,
+      "tailDb": -25.7,
+      "durationSec": 2.47,
+      "gain": 0.75
+    },
+    "don-1.mp3": {
+      "label": "ドーン（重い）",
+      "role": "重い演出",
+      "src": "defaults/sfx/don-1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/don-1.mp3",
+      "headDb": -16.6,
+      "tailDb": -31.5,
+      "durationSec": 3.81,
+      "gain": 0.676
+    },
+    "buun1.mp3": {
+      "label": "ブウーン",
+      "role": "重低音。スローモーション",
+      "src": "defaults/sfx/buun1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/buun1.mp3",
+      "headDb": -12.2,
+      "tailDb": -14.4,
+      "durationSec": 3.77,
+      "gain": 0.407
+    },
+    "sceneswitch1.mp3": {
+      "label": "シーン切り替え1",
+      "role": "場面転換（木琴）",
+      "src": "defaults/sfx/sceneswitch1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/sceneswitch1.mp3",
+      "headDb": -23.5,
+      "tailDb": -91,
+      "durationSec": 1.01,
+      "gain": 1.496
+    },
+    "sceneswitch2.mp3": {
+      "label": "シーン切り替え2",
+      "role": "場面転換（ブオッ）",
+      "src": "defaults/sfx/sceneswitch2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/sceneswitch2.mp3",
+      "headDb": -18.3,
+      "tailDb": -49.8,
+      "durationSec": 1.9,
+      "gain": 0.822
+    },
+    "title1.mp3": {
+      "label": "タイトル表示",
+      "role": "ビジネスで使いやすい爽やかな音",
+      "src": "defaults/sfx/title1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/title1.mp3",
+      "headDb": -23.6,
+      "tailDb": -39,
+      "durationSec": 1.73,
+      "gain": 1.514
+    },
+    "typewriter-1.mp3": {
+      "label": "タイプライター1",
+      "role": "文字が打たれる",
+      "src": "defaults/sfx/typewriter-1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/typewriter-1.mp3",
+      "headDb": -24.3,
+      "tailDb": -91,
+      "durationSec": 1.15,
+      "gain": 1.641
+    },
+    "typewriter-2.mp3": {
+      "label": "タイプライター2",
+      "role": "連続で打つ",
+      "src": "defaults/sfx/typewriter-2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/typewriter-2.mp3",
+      "headDb": -17.6,
+      "tailDb": -18.2,
+      "durationSec": 3.87,
+      "gain": 0.759
+    },
+    "presentation-title1.mp3": {
+      "label": "プレゼンタイトル1",
+      "role": "明るい見出し",
+      "src": "defaults/sfx/presentation-title1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/presentation-title1.mp3",
+      "headDb": -19.9,
+      "tailDb": -35.4,
+      "durationSec": 2.69,
+      "gain": 0.989
+    },
+    "presentation-title2.mp3": {
+      "label": "プレゼンタイトル2",
+      "role": "水のイメージ",
+      "src": "defaults/sfx/presentation-title2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/presentation-title2.mp3",
+      "headDb": -24.6,
+      "tailDb": -33.5,
+      "durationSec": 2.19,
+      "gain": 1.698
+    },
+    "news-title1.mp3": {
+      "label": "ニュースタイトル1",
+      "role": "見出しが出る",
+      "src": "defaults/sfx/news-title1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/news-title1.mp3",
+      "headDb": -20.9,
+      "tailDb": -38.2,
+      "durationSec": 2.51,
+      "gain": 1.109
+    },
+    "text-impact1.mp3": {
+      "label": "文字表示の衝撃音1",
+      "role": "ザッ。映画PV風の強い見出し",
+      "src": "defaults/sfx/text-impact1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/text-impact1.mp3",
+      "headDb": -15.1,
+      "tailDb": -29.1,
+      "durationSec": 1.74,
+      "gain": 0.569
+    },
+    "text-impact2.mp3": {
+      "label": "文字表示の衝撃音2",
+      "role": "映画のPV風",
+      "src": "defaults/sfx/text-impact2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/text-impact2.mp3",
+      "headDb": -17.7,
+      "tailDb": -25.1,
+      "durationSec": 2.14,
+      "gain": 0.767
+    },
+    "text-impact3.mp3": {
+      "label": "文字表示の衝撃音3",
+      "role": "ズン",
+      "src": "defaults/sfx/text-impact3.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/text-impact3.mp3",
+      "headDb": -16.6,
+      "tailDb": -20.3,
+      "durationSec": 3.32,
+      "gain": 0.676
+    },
+    "metal-logo1.mp3": {
+      "label": "金属タイトル1",
+      "role": "ガキーン",
+      "src": "defaults/sfx/metal-logo1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/metal-logo1.mp3",
+      "headDb": -16.7,
+      "tailDb": -28.8,
+      "durationSec": 2.26,
+      "gain": 0.684
+    },
+    "metal-logo2.mp3": {
+      "label": "金属タイトル2",
+      "role": "衝撃弱め",
+      "src": "defaults/sfx/metal-logo2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/metal-logo2.mp3",
+      "headDb": -22.5,
+      "tailDb": -49.7,
+      "durationSec": 1.62,
+      "gain": 1.334
+    },
+    "metal-logo3.mp3": {
+      "label": "金属タイトル3",
+      "role": "動きのあるロゴ",
+      "src": "defaults/sfx/metal-logo3.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/metal-logo3.mp3",
+      "headDb": -20.5,
+      "tailDb": -24.5,
+      "durationSec": 2.39,
+      "gain": 1.059
+    },
+    "logo-animation1.mp3": {
+      "label": "文字アニメーション1",
+      "role": "デジタル",
+      "src": "defaults/sfx/logo-animation1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/logo-animation1.mp3",
+      "headDb": -19.7,
+      "tailDb": -24.4,
+      "durationSec": 2.48,
+      "gain": 0.966
+    },
+    "logo-animation2.mp3": {
+      "label": "文字アニメーション2",
+      "role": "柔らかい",
+      "src": "defaults/sfx/logo-animation2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/logo-animation2.mp3",
+      "headDb": -24.6,
+      "tailDb": -41.2,
+      "durationSec": 2.91,
+      "gain": 1.698
+    },
+    "shine1.mp3": {
+      "label": "きらきら輝く1",
+      "role": "美しさの演出",
+      "src": "defaults/sfx/shine1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shine1.mp3",
+      "headDb": -23.1,
+      "tailDb": -29.2,
+      "durationSec": 5.03,
+      "gain": 1.429
+    },
+    "shine2.mp3": {
+      "label": "きらきら輝く2",
+      "role": "ウインドチャイム長め",
+      "src": "defaults/sfx/shine2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shine2.mp3",
+      "headDb": -29.9,
+      "tailDb": -29,
+      "durationSec": 13.78,
+      "gain": 3
+    },
+    "shine4.mp3": {
+      "label": "きらきら輝く4",
+      "role": "しゃらーん",
+      "src": "defaults/sfx/shine4.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shine4.mp3",
+      "headDb": -23.4,
+      "tailDb": -29.3,
+      "durationSec": 7.15,
+      "gain": 1.479
+    },
+    "shine6.mp3": {
+      "label": "きらきら輝く6",
+      "role": "ハープ生演奏",
+      "src": "defaults/sfx/shine6.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shine6.mp3",
+      "headDb": -21.4,
+      "tailDb": -29.9,
+      "durationSec": 9.79,
+      "gain": 1.175
+    },
+    "kira1.mp3": {
+      "label": "キラッ1",
+      "role": "鉄琴の一点",
+      "src": "defaults/sfx/kira1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/kira1.mp3",
+      "headDb": -23.9,
+      "tailDb": null,
+      "durationSec": 0.99,
+      "gain": 1.567
+    },
+    "shakin1.mp3": {
+      "label": "シャキーン1",
+      "role": "決めポーズ",
+      "src": "defaults/sfx/shakin1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shakin1.mp3",
+      "headDb": -19.7,
+      "tailDb": -40.4,
+      "durationSec": 1.74,
+      "gain": 0.966
+    },
+    "trumpet1.mp3": {
+      "label": "ファンファーレ",
+      "role": "喜び・発表",
+      "src": "defaults/sfx/trumpet1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/trumpet1.mp3",
+      "headDb": -20.8,
+      "tailDb": -41.4,
+      "durationSec": 1.89,
+      "gain": 1.096
+    },
+    "levelup1.mp3": {
+      "label": "レベルアップ",
+      "role": "テッテレー",
+      "src": "defaults/sfx/levelup1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/levelup1.mp3",
+      "headDb": -18.2,
+      "tailDb": -29.9,
+      "durationSec": 2.2,
+      "gain": 0.813
+    },
+    "drum-roll1.mp3": {
+      "label": "ドラムロール",
+      "role": "ダラララ（生演奏）",
+      "src": "defaults/sfx/drum-roll1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/drum-roll1.mp3",
+      "headDb": -20.4,
+      "tailDb": -19.1,
+      "durationSec": 4.48,
+      "gain": 1.047
+    },
+    "tympani-roll1.mp3": {
+      "label": "ティンパニロール",
+      "role": "ドドドド（生演奏）",
+      "src": "defaults/sfx/tympani-roll1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/tympani-roll1.mp3",
+      "headDb": -18.9,
+      "tailDb": -23.1,
+      "durationSec": 6.01,
+      "gain": 0.881
+    },
+    "roll-finish1.mp3": {
+      "label": "ロールの閉め",
+      "role": "シンバル。発表の瞬間",
+      "src": "defaults/sfx/roll-finish1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/roll-finish1.mp3",
+      "headDb": -21.5,
+      "tailDb": -44.4,
+      "durationSec": 4.46,
+      "gain": 1.189
+    },
+    "jean1.mp3": {
+      "label": "ジャン！",
+      "role": "紹介",
+      "src": "defaults/sfx/jean1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/jean1.mp3",
+      "headDb": -22.6,
+      "tailDb": -45.5,
+      "durationSec": 1.78,
+      "gain": 1.349
+    },
+    "jajean1.mp3": {
+      "label": "ジャジャーン",
+      "role": "登場・紹介",
+      "src": "defaults/sfx/jajean1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/jajean1.mp3",
+      "headDb": -20.1,
+      "tailDb": -45.3,
+      "durationSec": 1.85,
+      "gain": 1.012
+    },
+    "spotlight1.mp3": {
+      "label": "スポットライト",
+      "role": "照明が当たる",
+      "src": "defaults/sfx/spotlight1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/spotlight1.mp3",
+      "headDb": -20.6,
+      "tailDb": -42.2,
+      "durationSec": 1.77,
+      "gain": 1.072
+    },
+    "buzzer-opening1.mp3": {
+      "label": "開演ブザー",
+      "role": "映画・演劇の幕開け",
+      "src": "defaults/sfx/buzzer-opening1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/buzzer-opening1.mp3",
+      "headDb": -25.1,
+      "tailDb": -25.2,
+      "durationSec": 2.01,
+      "gain": 1.799
+    },
+    "projector1.mp3": {
+      "label": "映写機",
+      "role": "昔の映像・回想",
+      "src": "defaults/sfx/projector1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/projector1.mp3",
+      "headDb": -25.6,
+      "tailDb": -24.9,
+      "durationSec": 9.15,
+      "gain": 1.905
+    },
+    "piano-single1.mp3": {
+      "label": "ピアノの単音",
+      "role": "深く落ち着いた一点",
+      "src": "defaults/sfx/piano-single1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/piano-single1.mp3",
+      "headDb": -16.7,
+      "tailDb": -37.4,
+      "durationSec": 1.67,
+      "gain": 0.684
+    },
+    "amount-display1.mp3": {
+      "label": "金額表示",
+      "role": "数字・価格の提示",
+      "src": "defaults/sfx/amount-display1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/amount-display1.mp3",
+      "headDb": -24.7,
+      "tailDb": -56.6,
+      "durationSec": 1.86,
+      "gain": 1.718
+    },
+    "dj-scratch1.mp3": {
+      "label": "DJのスクラッチ1",
+      "role": "ズビズビ。切り替え",
+      "src": "defaults/sfx/dj-scratch1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/dj-scratch1.mp3",
+      "headDb": -20.6,
+      "tailDb": -91,
+      "durationSec": 1.16,
+      "gain": 1.072
+    },
+    "dj-scratch2.mp3": {
+      "label": "DJのスクラッチ2",
+      "role": "バックスピン",
+      "src": "defaults/sfx/dj-scratch2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/dj-scratch2.mp3",
+      "headDb": -23.3,
+      "tailDb": -27.3,
+      "durationSec": 2.03,
+      "gain": 1.462
+    },
+    "flash1.mp3": {
+      "label": "ひらめく1",
+      "role": "気づき・発見",
+      "src": "defaults/sfx/flash1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/flash1.mp3",
+      "headDb": -24.4,
+      "tailDb": -57.1,
+      "durationSec": 1.33,
+      "gain": 1.66
+    },
+    "pa1.mp3": {
+      "label": "パッ",
+      "role": "軽く現れる",
+      "src": "defaults/sfx/pa1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/pa1.mp3",
+      "headDb": -30.8,
+      "tailDb": -91,
+      "durationSec": 1,
+      "gain": 3
+    },
+    "papa1.mp3": {
+      "label": "パパッ",
+      "role": "続けて現れる",
+      "src": "defaults/sfx/papa1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/papa1.mp3",
+      "headDb": -24.8,
+      "tailDb": null,
+      "durationSec": 0.84,
+      "gain": 1.738
+    },
+    "pafu1.mp3": {
+      "label": "パフ",
+      "role": "ラッパ。ささやかな祝い",
+      "src": "defaults/sfx/pafu1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/pafu1.mp3",
+      "headDb": -25.2,
+      "tailDb": -91,
+      "durationSec": 1.03,
+      "gain": 1.82
+    },
+    "peta1.mp3": {
+      "label": "ペタッ",
+      "role": "スタンプ・貼り付け",
+      "src": "defaults/sfx/peta1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/peta1.mp3",
+      "headDb": -29.7,
+      "tailDb": null,
+      "durationSec": 1,
+      "gain": 3
+    },
+    "blink1.mp3": {
+      "label": "目をパチパチ",
+      "role": "戸惑い・間",
+      "src": "defaults/sfx/blink1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/blink1.mp3",
+      "headDb": -28.2,
+      "tailDb": -91,
+      "durationSec": 1,
+      "gain": 2.57
+    },
+    "shivering1.mp3": {
+      "label": "カタカタ震える",
+      "role": "緊張・寒さ",
+      "src": "defaults/sfx/shivering1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/shivering1.mp3",
+      "headDb": -30.7,
+      "tailDb": -30.5,
+      "durationSec": 2.1,
+      "gain": 3
+    },
+    "stupid1.mp3": {
+      "label": "間抜け1",
+      "role": "ドジ・軽い失敗",
+      "src": "defaults/sfx/stupid1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/stupid1.mp3",
+      "headDb": -24.8,
+      "tailDb": -62.6,
+      "durationSec": 1.13,
+      "gain": 1.738
+    },
+    "emergency-alert1.mp3": {
+      "label": "警報が鳴る",
+      "role": "緊急・注意喚起",
+      "src": "defaults/sfx/emergency-alert1.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/emergency-alert1.mp3",
+      "headDb": -21.9,
+      "tailDb": -22,
+      "durationSec": 3.99,
+      "gain": 1.245
+    },
+    "costume-drama2.mp3": {
+      "label": "時代劇演出2",
+      "role": "キハーダ。和の見得",
+      "src": "defaults/sfx/costume-drama2.mp3",
+      "sourceUrl": "https://soundeffect-lab.info/sound/anime/mp3/costume-drama2.mp3",
+      "headDb": -28.3,
+      "tailDb": -70.5,
+      "durationSec": 1.61,
+      "gain": 2.6
+    }
+  }
+}

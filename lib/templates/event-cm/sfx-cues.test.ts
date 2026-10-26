@@ -27,11 +27,16 @@ const SOUNDS = (catalog as unknown as {
 const RINGING_ROLES: EventCmSceneRole[] = ["logoIn", "title", "program", "guests", "cta"];
 const SILENT_ROLES: EventCmSceneRole[] = ["value", "logoOut"];
 
-/** The opening is the one moment a column may leave to the music alone.
+/** Moments a column leaves to the music alone, declared per column.
  *  The standard film opens without a hit (owner, 2026-08-30): its cue was the
- *  sheet's strongest presence landing inside the BGM's ramp-in. The approved
- *  和 column keeps the 拍子木 it was delivered with. */
-const SILENT_OPENINGS = ["corporate"];
+ *  sheet's strongest presence landing inside the BGM's ramp-in. The luxe column
+ *  is the delivered violin film's, whose client took the opening and the title
+ *  cues out (2026-09-11) and which never rang the invitation. The approved
+ *  和 column rings every moment it was delivered with. */
+const DECLARED_SILENCES: Record<string, EventCmSceneRole[]> = {
+  corporate: ["logoIn"],
+  luxe: ["logoIn", "title", "cta"],
+};
 
 /** Every (palette, role) pair that rings, with its resolved cue. */
 const ALL_CUES = Object.values(THEMES)
@@ -49,12 +54,12 @@ const db = (multiplier: number): number => 20 * Math.log10(multiplier);
 test("鳴る瞬間と鳴らない瞬間は、どの音の列でも同じ", () => {
   // The moments are the template's structure; the palette only changes the
   // instrument. A column that skips a chapter turn or punctuates the promise
-  // has changed the film, not the sound. The one declared exception is the
-  // opening (SILENT_OPENINGS above) — asserted exactly, so a column cannot
-  // fall silent by accident.
+  // has changed the film, not the sound. The declared exceptions
+  // (DECLARED_SILENCES above) are asserted exactly, so a column cannot fall
+  // silent by accident.
   for (const { cues, role, cue } of ALL_CUES) {
-    if (role === "logoIn" && SILENT_OPENINGS.includes(cues)) {
-      assert.equal(cue, null, `${cues}: logoIn は鳴らない決定(2026-08-30)`);
+    if (DECLARED_SILENCES[cues]?.includes(role)) {
+      assert.equal(cue, null, `${cues}: ${role} は鳴らない決定`);
       continue;
     }
     assert.ok(cue, `${cues}: ${role} が鳴らない`);

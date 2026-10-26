@@ -132,10 +132,12 @@ export type SceneComponent = ComponentMeta &
         /**
          * `seal` boxes the numeral in a hairline square (for 一二三). `ordinal`
          * sets it large and light with the unit riding beside it, no box (for
-         * 01 02 03). Which one an agenda uses is the theme's call
-         * (theme.ts `ornament.numerals`); the scene only says which of how many.
+         * 01 02 03). `ring` draws a hairline circle around a roman numeral
+         * (for I II III — `I` alone is a stroke). Which one an agenda uses is
+         * the theme's call (theme.ts `ornament.numerals`); the scene only says
+         * which of how many.
          */
-        variant?: "plain" | "seal" | "ordinal";
+        variant?: "plain" | "seal" | "ordinal" | "ring";
       }
     /** Dates need their own setting: the numerals, the weekday and the time are
      *  three different sizes in every well-set announcement. */

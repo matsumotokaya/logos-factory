@@ -21,7 +21,7 @@ import {
 } from "../components";
 import type { LogoTreatment } from "@/remotion/event/types";
 import { captionSafeBottom, type Theme } from "../theme";
-import { enterStyle } from "./motion";
+import { enterProgress, enterStyle } from "./motion";
 import { focusPosition, markPainting, resolveSrc } from "../paint";
 import { phraseBlocks } from "../phrase";
 
@@ -624,6 +624,80 @@ export const KitComponent: React.FC<{
                   fontSize: theme.scale.caption.size * 0.92,
                   letterSpacing: "0.5em",
                   color: theme.palette.accent,
+                }}
+              >
+                {component.unit}
+              </span>
+            ) : null}
+          </div>
+        );
+      }
+      // The ring: a roman numeral in a hairline circle that draws itself, the
+      // unit riding beside it. ラグジュアリー's register (Freehand Lab,
+      // violin-2026): `I` is a bare stroke at display size, the same problem
+      // the seal solves for 一, and a circle — a medal rather than a 印章 —
+      // is what tells the two paintings apart.
+      if (component.variant === "ring") {
+        const size = Math.round(step.size * 3.6);
+        const r = size / 2 - 2;
+        const circumference = 2 * Math.PI * r;
+        const drawn = enterProgress(frame, delay, theme.motion.enterFrames * 2);
+        const shown = enterProgress(frame, delay + 10, theme.motion.enterFrames);
+        return (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 28 }}>
+            <div
+              style={{
+                position: "relative",
+                width: size,
+                height: size,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg
+                width={size}
+                height={size}
+                style={{ position: "absolute", left: 0, top: 0, transform: "rotate(-90deg)" }}
+              >
+                <circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={r}
+                  fill="none"
+                  stroke={theme.palette.accent}
+                  strokeWidth={1.5}
+                  strokeDasharray={circumference}
+                  strokeDashoffset={circumference * (1 - drawn)}
+                />
+              </svg>
+              <span
+                style={{
+                  fontFamily: theme.displayFont,
+                  fontWeight: 300,
+                  fontSize: Math.round(size * 0.545),
+                  lineHeight: 1,
+                  color: theme.palette.accentBright,
+                  letterSpacing: "0.06em",
+                  // Centres the glyph against its own trailing tracking.
+                  textIndent: "0.06em",
+                  opacity: shown,
+                  textShadow: `0 2px 26px ${theme.palette.ground}99`,
+                }}
+              >
+                {component.value}
+              </span>
+            </div>
+            {component.unit ? (
+              <span
+                style={{
+                  ...enter,
+                  fontFamily: theme.textFont,
+                  fontSize: theme.scale.caption.size * 0.92,
+                  letterSpacing: "0.5em",
+                  color: theme.palette.accent,
+                  paddingBottom: 10,
                 }}
               >
                 {component.unit}
