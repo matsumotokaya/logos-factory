@@ -40,7 +40,7 @@ Workflow Labの`06 Web`に、端末モックアップ6定義をDraft登録した
 - 各定義の`config.supportedOutputs`は`lp / video / banner / guideline`。現時点で実接続済みなのはCampaign LPで、その他は出力アダプターの接続待ち
 - 生成結果は現時点ではLab画面内だけの一時プレビュー。保存・PNG/WebP書き出し・動画フレーム化は次段階で、Production昇格前に実装する
 
-GLBは`node labs/campaign/scripts/generate-device-model.mjs`で再生成し、`public/campaigns/models/device-laptop-v1.glb` / `device-mobile-v1.glb` / `device-duo-v1.glb`へ出力する。Campaign LPとWorkflow Labが同じ原盤を使う。
+GLBは`node labs/workflow/scripts/generate-device-model.mjs`で再生成し、`public/models/device-laptop-v1.glb` / `device-mobile-v1.glb` / `device-duo-v1.glb`へ出力する。Workflow Labとロゴのモックアップが同じ原盤を使う。
 
 ### Runtime assetの暫定手動運用
 

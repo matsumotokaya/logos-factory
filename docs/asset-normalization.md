@@ -128,7 +128,7 @@
 
 | 入れたくなるもの | 正しい居場所 | なぜ |
 | --- | --- | --- |
-| **価格・プラン、お客様の声の本文、3つのポイント、タグライン、説明文、会場名、開催日、氏名** | **テンプレートのbrief**。イベントの参加費は `brief.schedule.fee`([remotion/event/types.ts](../remotion/event/types.ts))、LPの料金は `kit.pricing.plans`([lib/campaign/schema.ts](../lib/campaign/schema.ts))。成果物を越えて持ち回るものは BrandKnowledge(`offer.*` / `evidence.*` / `identity.*`。[data-model.md §3](data-model.md)) | **開けるものではなく読むもの**。下記 |
+| **価格・プラン、お客様の声の本文、3つのポイント、タグライン、説明文、会場名、開催日、氏名** | **テンプレートのbrief**。イベントの参加費は `brief.schedule.fee`([remotion/event/types.ts](../remotion/event/types.ts))、LPの料金は `kit.pricing.plans`(`lib/campaign/schema.ts`(2026-10-26 削除))。成果物を越えて持ち回るものは BrandKnowledge(`offer.*` / `evidence.*` / `identity.*`。[data-model.md §3](data-model.md)) | **開けるものではなく読むもの**。下記 |
 | **バナー・サムネイルの解像度違い** | **派生素材**(`derived_from_material_id`)+ 測定済み `width`(§6・§11) | 同じ写真の別サイズは**同じ内容**。サイズで分類すると1枚の写真が3つの別物になる |
 | **キービジュアル / 提供マーク / 登壇者の写真** | **briefのスロット**(§5.0) | スロットの名前であって、写っているものの名前ではない |
 

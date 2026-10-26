@@ -16,3 +16,4 @@
 | [event-cm-image-screening-plan.md](event-cm-image-screening-plan.md) | Event CM 画像の自動選定と背景写真の計画。意味判定を構造化の1回に統合、配置は決定論、由来4値、`Scene.backdrop`。実装A〜E完了 | 2026-08-14 |
 | [migration-log.md](migration-log.md) | migration `0023`〜`0055` が**なぜ在るのか**の記録。ルートREADMEのSupabaseセットアップ節に手順と同じ段落で埋まっていたものを切り出したもの。適用済みかどうかは記録ではなく `list_migrations` で確認する | 2026-08-21 |
 | [schema-v2.md](schema-v2.md) | v2移行の履歴と判断記録(migration 0023〜0046 の段取り、切替の実測、監査 `npm run v2:audit`)。稼働構造の現在形は [../data-model.md](../data-model.md) | 2026-08-08 |
+| [device-mockup-fixes.md](device-mockup-fixes.md) | CM Maker の LP と管理画面サムネイルで使っていたデバイスモックアップ(`deviceMockupHtml()`)の正本と残課題。2026-10-26 に CM Maker と LP の描画ごと削除したので役目を終えた。3Dモデル(`public/models/`)はロゴのモックアップとWorkflow Labが引き続き使う | 2026-10-26 |

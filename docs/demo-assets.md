@@ -178,7 +178,7 @@ The cloud layers drift slowly and evenly across the frame, the light staying con
 | **ダミーロゴ・マーク** | **コードでSVG** | 透過・鋭いエッジ・単色が要る。`treatment`(knockout/invert)は**測った輝度**で決まるのでラスタでは測れない。前例2つ——LPのクライアントロゴウォール(画像を1枚も持たない)と [public/defaults/marks/](../public/defaults/marks/gate.svg)(4種) |
 | **架空のダッシュボード** | **コードでHTML/SVG** | 数値・ラベル・凡例が読めないと「ダッシュボード」に見えない |
 | **架空の銀行口座画面** | **コードでHTML** | 金額と日付が読めることが全て。崩れた数字は不気味に見える |
-| **デバイスモックアップ** | **既存の `deviceMockupHtml()`** | 「このサービスをPCとスマホに映したものを描く実装は1つだけ」という既存の規則([docs/device-mockup-fixes.md](device-mockup-fixes.md))。ここに写真を足すと2つ目の実装になる |
+| **デバイスモックアップ** | **既存の `deviceMockupHtml()`** | 「このサービスをPCとスマホに映したものを描く実装は1つだけ」という既存の規則([docs/device-mockup-fixes.md](old/device-mockup-fixes.md))。ここに写真を足すと2つ目の実装になる |
 
 生成AIで作れるのは**デバイスが写っている実景写真**だけ(画面の中身は消灯・反射・角度で見せない)。`devices/` はまだ空で、**要求が出たときに §5 の要件でプロンプトを書く**——使わないスロットのプロンプトを置いておくのは、この文書が捨てようとしている種類の在庫。
 

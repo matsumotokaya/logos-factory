@@ -48,4 +48,4 @@
 
 ## v3以降の注意
 
-[scripts/import-event-materials.ts](../../../scripts/import-event-materials.ts) は素材を **Workスコープ**で登録する。v3でWorkは廃止された(イベントは`category=event`の子Brandになる)ので、**このスクリプトはそのままでは動かない**。次に使うときはBrandスコープへ書き換える。`event-promo.json` の `inputs` が持つ役割名の割り当て方自体は変わらない。
+`scripts/import-event-materials.ts`(2026-10-26 削除)は素材を **Workスコープ**で登録する。v3でWorkは廃止された(イベントは`category=event`の子Brandになる)ので、**このスクリプトはそのままでは動かない**。次に使うときはBrandスコープへ書き換える。`event-promo.json` の `inputs` が持つ役割名の割り当て方自体は変わらない。

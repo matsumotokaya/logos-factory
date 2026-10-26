@@ -84,6 +84,10 @@ Organization詳細ページにはロゴ・パレット・タイポ等のBrand Pr
 
 Takeのbriefは必要なKnowledgeだけを作成時に投影し、その後は独立して編集できる。
 
+### 3.1 ブランドの実行記録(`brand_runs`)
+
+サイトをブランドへ読み込む実行(URLからの作成と「サイトを読み直す」、`kind='import'`)は `brand_runs` に1行ずつ残る(migration 0059)。`steps` は処理ログ(`{ts, message, level}` の配列)、`result` は採用・記録・保存の件数、`status` は running / done / error。成果物の実行記録 `take_runs` のブランド版で、ブランドトップがこれを読んで処理ログを出す。権限はブランドの core 段(`can_edit_brand_core`)。読み込みの処理の正本は [lib/brand/import-site.ts](../lib/brand/import-site.ts)。
+
 ## 4. MaterialとTake
 
 Materialのscopeは**BrandかTakeの2段**(Workはv3で廃止し、イベントは子Brandになった)。**行の所有者は1つで、所有者をまたぐときは行もバイトもコピーする**(2026-09-08。正本は [asset-normalization.md §12](asset-normalization.md))——動画作成時にBrandのマークはTakeスコープへコピーされ、複製はコピーの行を持ち、昇格はBrandスコープにコピーを作る。R2オブジェクトのchecksumとサイズを保存し、`take_inputs`がroleとchecksumを固定する。レンダー時に「現在のBrand素材」を再解決せず、Takeが固定した入力だけを使う。Brand側の変更・削除はできているTakeに届かない。

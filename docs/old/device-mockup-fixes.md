@@ -1,12 +1,12 @@
 # デバイスモックアップの正本と残課題
 
 「このサービスをPCとスマホに映したもの」を描く実装は**1つだけ**である。
-[render-lp.ts](../lib/campaign/render-lp.ts) の `deviceMockupHtml()`(HTML+CSS)がその正本で、
+[render-lp.ts](../../lib/campaign/render-lp.ts) の `deviceMockupHtml()`(HTML+CSS)がその正本で、
 LPのヒーロー、機能セクションのビジュアル、管理画面のサムネイルがすべてこれを使う。
 
 ## なぜ1つでなければならないか
 
-管理画面のサムネイルは [campaign-ui.tsx](../app/campaigns/campaign-ui.tsx) の
+管理画面のサムネイルは [campaign-ui.tsx](../../app/campaigns/campaign-ui.tsx) の
 `<iframe srcDoc={html} sandbox="">` で、**LPと同一のHTML**を表示している。
 `sandbox=""` はスクリプトを禁止するため、**スクリプトで描くヒーローはサムネイルでは描かれない**。
 
@@ -17,11 +17,11 @@ LPのヒーロー、機能セクションのビジュアル、管理画面のサ
 
 **ヒーローに、スクリプトが動かないと成立しない要素を再び持ち込まないこと。**
 ここに置くものは、サンドボックス下のiframeでも同一に描画されなければならない。
-この不変条件は [render-lp.test.ts](../lib/campaign/render-lp.test.ts) が検査する。
+この不変条件は [render-lp.test.ts](../../lib/campaign/render-lp.test.ts) が検査する。
 
 ## 3Dデバイスモックアップの現状(Workflow Lab / Draft)
 
-3Dは [DeviceMockupBuilder.tsx](../components/mockups/DeviceMockupBuilder.tsx) から
+3Dは [DeviceMockupBuilder.tsx](../../components/mockups/DeviceMockupBuilder.tsx) から
 Workflow Labでのみ使う `web.device` placement のDraftアセットとして残っている。
 本編(LP・プレゼン)へ昇格させるには、下記の残課題を解消し、**描画結果を確認した上で**行う。
 
