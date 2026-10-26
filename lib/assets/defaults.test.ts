@@ -77,27 +77,17 @@ test("塗りが違えば曲も違ってよい（利用者が選んだ理由が�
   assert.notEqual(sumi, standard);
 });
 
-test("曲はテンプレートと塗りが持つ（標準はどれも同じ1曲で始まる）", () => {
-  // 守っているのは仕組み。宣言は別々にあり、片方を変えても他方は動かない——
-  // それが「曲はテンプレートのもの」の中身。
-  //
-  // そのうえで、**標準の塗りはどれも同じ曲で始まる**(2026-08-30 依頼主判断)。
-  // 製品紹介動画も、イベント紹介動画のスタンダードも `shine-through-tokyo`。
-  // これは在庫の都合ではなく決定で、和モダンだけが自分の曲を持つ。
-  const product = templateDressing(currentTemplate("product-cm")!).bgm;
-  assert.notEqual(
-    templateDressing(currentTemplate("event-promo")!).bgm,
-    product,
-    "テンプレートごとに宣言する意味が無い",
-  );
+test("曲は塗りが持つ（標準は shine-through-tokyo で始まる）", () => {
+  // 守っているのは仕組み: 塗りごとに宣言があり、片方を変えても他方は動かない。
+  // 標準の塗りが `shine-through-tokyo` で始まるのは 2026-08-30 の依頼主判断。
+  const standard = templateDressing(currentTemplate("event-cm")!, "standard").bgm;
+  assert.equal(standard, "bgm-shine-through-tokyo");
   // 塗りを選べば、同じテンプレートでも別の曲になる。
   assert.notEqual(
     templateDressing(currentTemplate("event-cm")!, "sumi").bgm,
-    product,
+    standard,
     "塗りごとに宣言する意味が無い",
   );
-  // 決定なので、ここは一致することを要求する。
-  assert.equal(templateDressing(currentTemplate("event-cm")!, "standard").bgm, product);
 });
 
 test("宣言が無い・プールが失った場合は無音（別の曲で埋めない）", () => {

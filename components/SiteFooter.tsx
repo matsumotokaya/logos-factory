@@ -10,10 +10,9 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "プロダクト",
     links: [
-      { href: "/", label: "CM Maker" },
+      { href: "/", label: "ブランドを作る" },
       { href: "/brands", label: "ブランド管理" },
       { href: "/p/sample", label: "サンプルプレゼン" },
-      { href: "/c/sample", label: "サンプルLP" },
     ],
   },
   {

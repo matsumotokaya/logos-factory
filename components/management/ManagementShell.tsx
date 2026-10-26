@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import AppHeader from "@/components/AppHeader";
-import { authedFetch } from "@/app/campaigns/campaign-ui";
+import { authedFetch } from "@/lib/authed-fetch";
 import type {
   BrandOrganizationSummary,
   BrandSummary,
@@ -95,17 +95,6 @@ function activeBrandId(
   const directMatch = pathname.match(/^\/(?:brands|businesses)\/([^/]+)/);
   if (directMatch) return directMatch[1];
 
-  const campaignMatch = pathname.match(/^\/campaigns\/([^/]+)/);
-  const campaignId = campaignMatch?.[1];
-  if (campaignId) {
-    for (const organization of organizations) {
-      const brand = organization.brands.find((candidate) =>
-        candidate.campaigns.some((campaign) => campaign.id === campaignId),
-      );
-      if (brand) return brand.id;
-    }
-  }
-
   const logoMatch = pathname.match(/^\/logos\/([^/]+)/);
   const logoId = logoMatch?.[1];
   if (logoId) {
@@ -127,7 +116,7 @@ function activeBrandId(
 // list view): one row height, a disclosure chevron, an icon that says what the
 // row is, indent guides, the selected row filled edge to edge, and a row's
 // menu shown on hover. Brands are folders; inside one are its nested brands,
-// then ロゴ / 動画 / LP folders, then the files. People already know how to
+// then ロゴ / 動画 folders, then the files. People already know how to
 // read this, which is the whole point.
 // ---------------------------------------------------------------------------
 
@@ -135,7 +124,7 @@ function activeBrandId(
 const ROW_BASE = 8;
 const ROW_INDENT = 12;
 
-type RowIconKind = "folder" | "logo" | "video" | "lp";
+type RowIconKind = "folder" | "logo" | "video";
 
 function TreeIcon({ kind, open }: { kind: RowIconKind; open?: boolean }) {
   const common = {
@@ -171,18 +160,10 @@ function TreeIcon({ kind, open }: { kind: RowIconKind; open?: boolean }) {
       </svg>
     );
   }
-  if (kind === "video") {
-    return (
-      <svg {...common}>
-        <rect x="2.5" y="4.5" width="11" height="11" rx="1.5" {...stroke} />
-        <path d="m13.5 8.5 4-2.5v8l-4-2.5" {...stroke} />
-      </svg>
-    );
-  }
   return (
     <svg {...common}>
-      <path d="M5 2.75h6.5L15.5 6.75v10.5H5a.75.75 0 0 1-.75-.75V3.5c0-.41.34-.75.75-.75Z" {...stroke} />
-      <path d="M11.5 2.75v4h4M7 10.5h6M7 13.5h4" {...stroke} />
+      <rect x="2.5" y="4.5" width="11" height="11" rx="1.5" {...stroke} />
+      <path d="m13.5 8.5 4-2.5v8l-4-2.5" {...stroke} />
     </svg>
   );
 }
@@ -286,7 +267,7 @@ type BrandDrag = {
 };
 
 /** Keys in the shell's expanded set: a brand by id, its folders by section. */
-function sectionKey(section: "logos" | "video" | "lp", brandId: string): string {
+function sectionKey(section: "logos" | "video", brandId: string): string {
   return `${section}:${brandId}`;
 }
 
@@ -317,25 +298,16 @@ function BrandNode({
   const open = expanded.has(brand.id);
   const nested = childrenOf.get(brand.id) ?? [];
   const ownedLogos = brand.logos.filter((logo) => logo.subjectEntityId === brand.id);
-  const lpAssets = brand.assets.filter((asset) => asset.kind === "lp" && asset.jobId);
-  // Videos are their own assets now. The campaign-derived entries stay
-  // alongside them for brands whose product CM was generated before videos
-  // became rows — the detail route resolves either id (see
-  // app/api/brands/[id]/videos/[videoId]).
   const videoAssets = brand.assets.filter((asset) => asset.kind === "video");
-  const videoCampaigns = brand.campaigns.filter(
-    (campaign) => campaign.videoStatus !== "not_created",
-  );
   const kindLabel = isBrandKind(brand.kind) ? BRAND_KIND_LABEL[brand.kind] : "";
   const dropActive = drag.overId === brand.id;
 
   const logoPath = `/brands/${brand.id}/logos`;
   const videoPath = `/brands/${brand.id}/video`;
-  const lpPath = `/brands/${brand.id}/lp`;
   const within = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
   const folder = (
-    section: "logos" | "video" | "lp",
+    section: "logos" | "video",
     label: string,
     path: string,
     count: number,
@@ -413,7 +385,7 @@ function BrandNode({
             actions={brandActions({
               logoCount: ownedLogos.length,
               videoCount: videoAssets.length,
-              lpCount: lpAssets.length,
+              lpCount: brand.assets.filter((asset) => asset.kind === "lp").length,
             })}
             onSelect={(action) =>
               onAction(
@@ -487,7 +459,7 @@ function BrandNode({
             "video",
             "動画",
             videoPath,
-            videoAssets.length + videoCampaigns.length,
+            videoAssets.length,
             <>
               {videoAssets.map((asset) => (
                 <li key={`video-asset-${asset.id}`}>
@@ -520,57 +492,9 @@ function BrandNode({
                   />
                 </li>
               ))}
-              {videoCampaigns.map((campaign) => (
-                <li key={`video-${campaign.id}`}>
-                  <TreeRow
-                    depth={depth + 2}
-                    href={`${videoPath}/${campaign.id}`}
-                    active={pathname === `${videoPath}/${campaign.id}`}
-                    open={null}
-                    icon="video"
-                    label={campaign.name}
-                    onActivate={onNavigate}
-                  />
-                </li>
-              ))}
             </>,
           )}
 
-          {folder(
-            "lp",
-            "LP",
-            lpPath,
-            lpAssets.length,
-            lpAssets.map((asset) => {
-              const lpTitle = asset.title.replace(/\s+LP$/, "");
-              return (
-                <li key={asset.id}>
-                  <TreeRow
-                    depth={depth + 2}
-                    href={`${lpPath}/${asset.id}`}
-                    active={within(`${lpPath}/${asset.id}`)}
-                    open={null}
-                    icon="lp"
-                    label={lpTitle}
-                    onActivate={onNavigate}
-                    actions={
-                      <RowActionsMenu
-                        label={lpTitle}
-                        actions={takeActions("lp", { published: asset.publicPath !== null })}
-                        compact
-                        onSelect={(action) =>
-                          onAction(
-                            { kind: "lp", id: asset.id, name: lpTitle, brandId: brand.id },
-                            action,
-                          )
-                        }
-                      />
-                    }
-                  />
-                </li>
-              );
-            }),
-          )}
         </ul>
       ) : null}
     </li>

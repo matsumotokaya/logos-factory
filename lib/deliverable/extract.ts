@@ -16,7 +16,7 @@ import { SOURCE_ROLE } from "@/app/api/brands/[id]/videos/[videoId]/materials/ro
 // What rules reach today is text, and the measurable properties of an image.
 // A PDF's text layer and a flyer's words need a parser and an OCR engine this
 // repo does not carry, and the existing path for PDFs hands the file to the
-// model whole (lib/campaign/creative.ts). So a flyer is *carried* by this
+// model whole. So a flyer is *carried* by this
 // stage, not read by it, and the structuring stage reads it. The distinction
 // is visible in the output: `text` for what was read, `passthrough` for what
 // has to be looked at.

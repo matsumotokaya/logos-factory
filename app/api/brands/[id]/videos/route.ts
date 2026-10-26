@@ -5,7 +5,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { guardBrandRequest } from "@/lib/brand-access";
-import { campaignCmMp4Exists, getCampaignJob } from "@/lib/campaign/jobs";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 import {
   isVideoTemplateId,
@@ -14,8 +13,7 @@ import {
   VIDEO_TEMPLATES,
 } from "@/lib/video/templates";
 import { artDirectionIds, currentTemplate } from "@/lib/templates/catalog";
-import { videoState, type VideoState, type VideoSummary } from "@/lib/video/asset";
-import { emptyEventBrief } from "@/remotion/event/briefs";
+import { videoState, type VideoSummary } from "@/lib/video/asset";
 import { createTake } from "@/lib/takes/create";
 import { seedEventCmFromBrand } from "@/lib/templates/event-cm/seed-from-brand";
 import {
@@ -43,13 +41,6 @@ type TakeVideoRow = {
 };
 
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
-
-/** What the local generation job says. Everything else is `videoState`. */
-function campaignVideoState(jobId: string | null): VideoState {
-  if (!jobId) return "empty";
-  if (campaignCmMp4Exists(jobId)) return "mp4_ready";
-  return getCampaignJob(jobId)?.cm?.track ? "preview_ready" : "empty";
-}
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const denied = await guardBrandRequest(req);
@@ -94,11 +85,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const published = (take.take_renders ?? []).some((render) =>
       (render.publications ?? []).some((publication) => publication.status === "live"),
     );
-    // Its OWN job, never a sibling's. This used to fall back to the newest
-    // campaign-lp take of the brand, which meant a video's state could be
-    // decided by an LP nobody had connected it to (docs/template-contract.md
-    // §2.1). A deliverable reads its own brief and no other.
-    const jobId = typeof brief?.campaignJobId === "string" ? brief.campaignJobId : null;
     videos.push({
       id: take.id,
       brandId: take.brand_id,
@@ -108,15 +94,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       artDirection: typeof brief?.artDirection === "string" ? brief.artDirection : null,
       title: take.title,
       published,
-      // The same derivation the detail screen uses (lib/video/asset.ts). The
-      // job store is only consulted for a take whose template says its brief
-      // is not enough to play on its own.
+      // The same derivation the detail screen uses (lib/video/asset.ts).
       state: videoState({
         template: take.template_id,
         hasRender: renderReady,
         hasBrief: Boolean(take.brief),
-        hasVoice: brief?.voice != null && typeof brief.voice === "object",
-        ...(jobId ? { campaign: () => campaignVideoState(jobId) } : {}),
       }),
       createdAt: take.created_at,
       isPlaceholder: false,
@@ -323,25 +305,10 @@ async function createVideoTake({
     // it as the video's name made a guess look like something somebody typed
     // (lib/event-cm/title.ts).
     if (!title) title = UNTITLED_VIDEO;
-  } else if (template === "event-promo") {
-    // The template IS the starting point. Copying an existing take as a
-    // "base" was a way of getting materials before the take had its own input
-    // stage; now it has one, and offering a video to build from asked the
-    // user to pick a template twice.
-    brief = emptyEventBrief(title || UNTITLED_VIDEO);
-    if (!title) title = UNTITLED_VIDEO;
   } else {
-    // A product CM used to be born from the brand's newest LP: its brief was
-    // built by reading that take's Brand Kit and job id. That is the coupling
-    // docs/template-contract.md §2.1 forbids — an LP and a video are siblings,
-    // and neither is the source of the other.
-    //
-    // Refused rather than seeded from nothing until the template is re-founded
-    // on brand knowledge (§4). It is already out of the add dialog
-    // (`addable: false`), so this closes the direct-API path to the same state.
-    throw new CreateFailure(
-      "製品紹介動画は作り直しの途中です。ブランドから投影する新しい版ができるまで追加できません",
-    );
+    // Every addable video template is handled above; reaching here means the
+    // catalog offers one this route does not know how to start.
+    throw new CreateFailure(`${template} の作成には対応していません`);
   }
 
   step("動画を保存しています");

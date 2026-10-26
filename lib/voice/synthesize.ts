@@ -2,34 +2,28 @@ import "server-only";
 
 // Reading words aloud — shared by every narrated template.
 //
-// Template-neutral on purpose, so the words it is handed are just words: event-cm
-// calls them the narration (remotion/event-cm/types.ts), product-cm still calls
-// them `cm_script`. This module never learns which.
-//
-// This used to live inside lib/campaign/voice.ts, reachable only through a
-// Service Brand Kit: `generateCmVoice(kit)` read `kit.cm_script`. The work it
-// did was never Kit-specific — synthesise each scene, mix them into one track,
-// prorate captions by character weight — but the doorway was, so the narrated
-// event promo could not use any of it.
+// Template-neutral on purpose, so the words it is handed are just words: a
+// template calls them its narration (remotion/event-cm/types.ts), and this
+// module never learns which template it is.
 //
 // What a narrated template supplies is a list of scenes with text. What it
 // gets back is the WAV and the timing, keyed to its own scene roles.
 
-import { synthesizeSection } from "../../labs/campaign/audio/tts-lib/tts.mjs";
+import { synthesizeSection } from "./tts-lib/tts.mjs";
 import {
   parseUtterances,
   speechText,
   buildTimingJson,
-} from "../../labs/campaign/audio/tts-lib/timing.mjs";
+} from "./tts-lib/timing.mjs";
 import {
   int16ToF32,
   injectIntervals,
   mixEpisode,
   encodeWav16,
-} from "../../labs/campaign/audio/tts-lib/audio.mjs";
+} from "./tts-lib/audio.mjs";
 import { TTS_MAX_SECTION_CHARS } from "./limits";
 import { explainTtsError } from "./errors";
-import type { CmVoiceTrackOf } from "@/lib/campaign/cm-types";
+import type { VoiceTrackOf } from "@/lib/voice/track";
 
 export const TTS_PROVIDER = "gemini";
 export const TTS_MODEL = "gemini-3.1-flash-tts-preview";
@@ -38,7 +32,7 @@ export const TTS_VOICE = "Schedar";
 // The section limit is NOT re-exported. It had two doorways, and a caller that
 // reached it through here read "how the voice module happens to be configured"
 // instead of "how long a section may be" — which is a fact about the provider
-// (./limits.ts, mirrored in labs/campaign/audio/tts-lib/tts.mjs).
+// (./limits.ts, mirrored in lib/voice/tts-lib/tts.mjs).
 const MIX_SAMPLE_RATE = 24000; // Gemini TTS native rate; no resampling needed
 
 export interface VoiceOptions {
@@ -58,13 +52,13 @@ export interface VoiceOptions {
 }
 
 export function voiceAvailable(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY) || process.env.CAMPAIGN_TTS_MOCK === "1";
+  return Boolean(process.env.GEMINI_API_KEY) || process.env.TTS_MOCK === "1";
 }
 
 export async function generateVoice<Scene extends { text: string }>(
   scenes: readonly Scene[],
   options: VoiceOptions,
-): Promise<{ wav: Buffer; track: CmVoiceTrackOf<Scene> }> {
+): Promise<{ wav: Buffer; track: VoiceTrackOf<Scene> }> {
   const progress = (message: string, level: "info" | "success" | "warn" = "info") =>
     options.onProgress?.(message, level);
 
@@ -91,7 +85,7 @@ export async function generateVoice<Scene extends { text: string }>(
     );
   }
 
-  const mock = process.env.CAMPAIGN_TTS_MOCK === "1";
+  const mock = process.env.TTS_MOCK === "1";
   if (mock) progress("開発用の音声を使用しています", "warn");
 
   const voice = options.voice ?? TTS_VOICE;

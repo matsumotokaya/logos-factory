@@ -43,8 +43,6 @@ export interface VideoTemplate {
   duration: string;
   /** Whether narration is part of the template. */
   narration: boolean;
-  /** Whether the brief alone is enough to play the film (catalog.ts). */
-  playableFromBrief: boolean;
   /** Whether edits collect in a workbench brief and reach the film on request. */
   bakesBrief: boolean;
   /** Whether this template's brief is authored on the deliverable surface
@@ -55,9 +53,9 @@ export interface VideoTemplate {
   /** The kind of film, e.g. 製品紹介動画. Falls back to `name`. */
   family: string;
   /**
-   * The style label when the template IS the style (product-cm's スタンダード).
-   * For a template whose styles are art directions this is the family name,
-   * and the per-take label comes from `styleLabel`.
+   * The style label when the template IS the style. For a template whose
+   * styles are art directions this is the family name, and the per-take label
+   * comes from `styleLabel`.
    */
   variant: string;
   /** Whether the add dialog offers it. A retired template keeps its takes. */
@@ -78,7 +76,6 @@ const toVideoTemplate = (template: TemplateEntry): VideoTemplate => ({
   requires: template.requires,
   duration: template.duration ?? "",
   narration: template.narration ?? false,
-  playableFromBrief: template.playableFromBrief ?? true,
   bakesBrief: template.bakesBrief ?? false,
   authoring: template.authoring ?? false,
   isBrandDefault: template.isBrandDefault,

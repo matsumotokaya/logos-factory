@@ -1,4 +1,4 @@
-// Placeholder pages for planned labs (/labs/generative, /labs/campaign).
+// Placeholder pages for planned labs.
 // Active labs have their own static routes (app/labs/motion/, app/labs/
 // workflow/), which take precedence over this dynamic segment.
 

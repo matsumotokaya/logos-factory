@@ -43,11 +43,10 @@ export default function LabsIndexPage() {
                 {labs.map((lab) => (
                   <Link
                     key={lab.slug}
-                    // Graduated labs link to the product surface they became.
-                    href={lab.status === "graduated" ? "/" : `/labs/${lab.slug}`}
+                    href={`/labs/${lab.slug}`}
                     className={cn(
                       "group flex flex-col rounded-xl border bg-white p-6 transition",
-                      lab.status === "active" || lab.status === "graduated"
+                      lab.status === "active"
                         ? "border-hairline hover:border-accent hover:shadow-sm"
                         : "border-dashed border-ink-faint hover:border-ink-muted",
                     )}
@@ -61,16 +60,10 @@ export default function LabsIndexPage() {
                           "rounded-full px-2 py-0.5 text-[10px]",
                           lab.status === "active"
                             ? "bg-accent text-white"
-                            : lab.status === "graduated"
-                              ? "bg-emerald-500/12 text-emerald-700"
-                              : "border border-dashed border-ink-faint text-ink-muted",
+                            : "border border-dashed border-ink-faint text-ink-muted",
                         )}
                       >
-                        {lab.status === "active"
-                          ? "稼働中"
-                          : lab.status === "graduated"
-                            ? "本体へ卒業"
-                            : "準備中"}
+                        {lab.status === "active" ? "稼働中" : "準備中"}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-ink-muted">{lab.titleJa}</p>
@@ -81,16 +74,12 @@ export default function LabsIndexPage() {
                     <span
                       className={cn(
                         "mt-4 text-xs",
-                        lab.status === "active" || lab.status === "graduated"
+                        lab.status === "active"
                           ? "text-accent"
                           : "text-ink-muted group-hover:text-ink",
                       )}
                     >
-                      {lab.status === "active"
-                        ? "ラボに入る →"
-                        : lab.status === "graduated"
-                          ? "CM Maker を開く →"
-                          : "計画を見る →"}
+                      {lab.status === "active" ? "ラボに入る →" : "計画を見る →"}
                     </span>
                   </Link>
                 ))}

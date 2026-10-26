@@ -35,20 +35,20 @@ test("ブランドとロゴは複製を持たない", () => {
   }
 });
 
-test("動画とLPは複製でき、公開中は削除だけが止まる", () => {
+test("動画は複製でき、公開中は削除だけが止まる", () => {
   const live = takeActions("video", { published: true });
   assert.equal(reasonFor(live, "duplicate"), null);
   assert.match(reasonFor(live, "delete") ?? "", /公開/);
 
-  const draft = takeActions("lp", { published: false });
+  const draft = takeActions("video", { published: false });
   assert.equal(reasonFor(draft, "delete"), null);
-  assert.equal(draft.find((action) => action.id === "delete")?.label, "LPを削除");
+  assert.equal(draft.find((action) => action.id === "delete")?.label, "動画を削除");
 });
 
 test("削除の確認文は名前から始まる1つの文になる", () => {
   // The dialog appends 「この操作は取り消せません。」 to this, so a fragment
   // here shows up as 「秋の展示会」この動画と… on screen.
-  for (const kind of ["brand", "logo", "video", "lp"] as const) {
+  for (const kind of ["brand", "logo", "video"] as const) {
     const sentence = deletionConsequence(kind, "秋の展示会");
     assert.match(sentence, /^「秋の展示会」と、/);
     assert.match(sentence, /削除します。$/);
@@ -57,13 +57,12 @@ test("削除の確認文は名前から始まる1つの文になる", () => {
   assert.match(deletionConsequence("video", "x"), /MP4/);
 });
 
-test("ロゴ・動画・LPは詳細を先頭に持ち、ブランドは持たない", () => {
+test("ロゴ・動画は詳細を先頭に持ち、ブランドは持たない", () => {
   // The info page is the row's only way in, so every leaf offers it, and it
   // sits first because it is the one item that destroys nothing.
   for (const actions of [
     logoActions(),
     takeActions("video", { published: true }),
-    takeActions("lp", { published: false }),
   ]) {
     assert.equal(actions[0]?.id, "info");
     assert.equal(actions[0]?.blockedReason, null);

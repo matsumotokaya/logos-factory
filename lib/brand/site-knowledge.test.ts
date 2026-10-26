@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { SiteCapture, SiteProfile } from "@/lib/campaign/capture";
+import type { SiteCapture, SiteProfile } from "@/lib/site/capture";
 import { paletteKnowledge, siteKnowledge } from "./site-knowledge";
 
 const AT = "2026-09-03T12:00:00.000Z";

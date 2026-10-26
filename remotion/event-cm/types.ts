@@ -27,7 +27,7 @@ import type {
   EventProgram,
   EventSchedule,
 } from "@/remotion/event/types";
-import type { CmVoiceTrackOf } from "@/lib/campaign/cm-types";
+import type { VoiceTrackOf } from "@/lib/voice/track";
 
 /**
  * The film, scene by scene, always in this order.
@@ -568,7 +568,7 @@ export interface EventCmBrief {
    *  `track.voice` is the voice that ACTUALLY read it — compared against
    *  `narrator` to know whether the recording is the one that was asked for. */
   voice?: {
-    track: CmVoiceTrackOf<EventCmScene>;
+    track: VoiceTrackOf<EventCmScene>;
     /** material:<uuid> of the mixed WAV, pinned through take_inputs. */
     audio: string;
   };

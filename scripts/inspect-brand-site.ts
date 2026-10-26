@@ -7,7 +7,7 @@
 //
 //   npm run brand:inspect-site -- --url https://example.com
 
-import { captureSite } from "@/lib/campaign/capture";
+import { captureSite } from "@/lib/site/capture";
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | null => {

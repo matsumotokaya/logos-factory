@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { EventBriefSchema } from "@/remotion/event/brief-schema";
 import { EventCmBriefSchema } from "@/remotion/event-cm/brief-schema";
-import { CmVoiceTrackSchema } from "./voice-schema";
 
 // The brief schema of each template — the shape of the data that template needs.
 //
@@ -42,30 +40,9 @@ const LogoPresentationBriefSchema = z.object({
   }),
 });
 
-export const CampaignKitBriefSchema = z.object({
-  /** Immutable Kit snapshot; its generated copy stays inside the Take. */
-  kit: z.unknown(),
-  campaignJobId: z.string().uuid().nullable().optional(),
-  sourceUrl: z.string().nullable(),
-  /** Theme is a style choice inside the template, changeable after creation. */
-  theme: z.string().nullable(),
-});
-
-export { CmVoiceTrackSchema };
-
-export const ProductCmBriefSchema = CampaignKitBriefSchema.extend({
-  voice: z.object({
-    track: CmVoiceTrackSchema,
-    audio: z.string().startsWith("material:"),
-  }).optional(),
-});
-
 export const BRIEF_SCHEMAS: Record<string, z.ZodType<unknown>> = {
   "logo-presentation": LogoPresentationBriefSchema,
-  "event-promo": EventBriefSchema,
   "event-cm": EventCmBriefSchema,
-  "product-cm": ProductCmBriefSchema,
-  "campaign-lp": CampaignKitBriefSchema,
 };
 
 export const briefSchema = (templateId: string): z.ZodType<unknown> | null =>

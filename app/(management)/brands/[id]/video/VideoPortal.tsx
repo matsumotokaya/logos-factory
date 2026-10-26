@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { videoFetch } from "@/lib/video/client";
+import { authedFetch } from "@/lib/authed-fetch";
 import { refreshBrandTree } from "@/lib/brand-events";
 import {
   DEFAULT_ADDABLE_VIDEO_STYLE,
@@ -55,7 +55,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos`);
+      const res = await authedFetch(`/api/brands/${brandId}/videos`);
       if (!res.ok) {
         const json = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(json?.error ?? "動画を取得できませんでした");
@@ -74,7 +74,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
   }, [brandId]);
 
   useEffect(() => {
-    // Kept off the synchronous effect path (same as CampaignDetail): setState
+    // Kept off the synchronous effect path: setState
     // during the effect body triggers cascading renders.
     let cancelled = false;
     (async () => {
@@ -136,7 +136,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
         artDirection: artDirection ?? undefined,
         title: title.trim() || undefined,
       };
-      const res = await videoFetch(`/api/brands/${brandId}/videos`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -241,7 +241,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
       ) : (
         <div className="space-y-8">
           {/* Grouped by the FAMILY OF WHAT EXISTS, not by what the add dialog
-              offers: a retired template's takes (event-promo) still belong to
+              offers: a retired template's takes still belong to
               their family and still have to be reachable from here. The API
               already sorts videos by family order, so the sections fall out in
               catalog order without a second list. A category with nothing in it
@@ -414,7 +414,7 @@ function AddVideoOverlay({
             name before it has anything else, and asking for it at the bottom
             of the dialog — under a heading reading 任意 — buried the one
             field this template actually wants. */}
-        {templateId === "event-cm" || templateId === "event-promo" ? (
+        {templateId === "event-cm" ? (
           <label className="mt-5 block">
             <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
               イベント名

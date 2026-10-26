@@ -1,13 +1,13 @@
 "use client";
 
-import { authedFetch } from "@/app/campaigns/campaign-ui";
+import { authedFetch } from "@/lib/authed-fetch";
 import type { TreeNodeKind } from "@/lib/brand-tree-actions";
 import { repo } from "@/lib/store";
 import type { AtRiskMaterial, MaterialChoice } from "./TreeDeleteDialog";
 
 // Where the sidebar's menu items go.
 //
-// One target type for all five kinds of row, so the shell holds one piece of
+// One target type for every kind of row, so the shell holds one piece of
 // state instead of five. Each kind knows its own endpoint, and — because the row
 // you just deleted may be the page you are looking at — where to send you
 // afterwards. Going nowhere would leave a detail screen fetching a take that no
@@ -17,7 +17,7 @@ export interface TreeTarget {
   kind: TreeNodeKind;
   id: string;
   name: string;
-  /** Set for logo / video / lp. */
+  /** Set for logo / video. */
   brandId?: string;
   /** Set for brand. */
   organizationId?: string;
@@ -57,10 +57,8 @@ export async function deleteTreeNode(
   const query = materials ? `?materials=${materials}` : "";
   const path =
     target.kind === "brand"
-      ? `/api/brands/businesses/${target.id}`
-      : target.kind === "video"
-        ? `/api/brands/${target.brandId}/videos/${target.id}${query}`
-        : `/api/brands/${target.brandId}/lps/${target.id}${query}`;
+      ? `/api/brands/${target.id}`
+      : `/api/brands/${target.brandId}/videos/${target.id}${query}`;
 
   let response: Response;
   try {
@@ -87,13 +85,12 @@ export async function deleteTreeNode(
 }
 
 export async function duplicateTreeNode(target: TreeTarget): Promise<DuplicateResult> {
-  if (target.kind !== "video" && target.kind !== "lp") {
+  if (target.kind !== "video") {
     return { ok: false, error: "これは複製できません" };
   }
-  const segment = target.kind === "video" ? "videos" : "lps";
   try {
     const response = await authedFetch(
-      `/api/brands/${target.brandId}/${segment}/${target.id}/duplicate`,
+      `/api/brands/${target.brandId}/videos/${target.id}/duplicate`,
       { method: "POST" },
     );
     if (!response.ok) {
@@ -119,8 +116,6 @@ export function pathAfterDelete(target: TreeTarget): string {
       return `/brands/${target.brandId}/logos`;
     case "video":
       return `/brands/${target.brandId}/video`;
-    case "lp":
-      return `/brands/${target.brandId}/lp`;
   }
 }
 
@@ -134,8 +129,6 @@ export function infoPath(target: TreeTarget): string | null {
       return `/brands/${target.brandId}/logos/${target.id}/info`;
     case "video":
       return `/brands/${target.brandId}/video/${target.id}/info`;
-    case "lp":
-      return `/brands/${target.brandId}/lp/${target.id}/info`;
   }
 }
 
@@ -151,14 +144,10 @@ export function viewingTarget(pathname: string, target: TreeTarget): boolean {
       return pathname.includes(`/logos/${target.id}`) || pathname === `/logos/${target.id}`;
     case "video":
       return pathname.startsWith(`/brands/${target.brandId}/video/${target.id}`);
-    case "lp":
-      return pathname.startsWith(`/brands/${target.brandId}/lp/${target.id}`);
   }
 }
 
 /** Where a freshly made copy should open. */
 export function pathAfterDuplicate(target: TreeTarget, newId: string): string {
-  return target.kind === "video"
-    ? `/brands/${target.brandId}/video/${newId}`
-    : `/brands/${target.brandId}/lp/${newId}`;
+  return `/brands/${target.brandId}/video/${newId}`;
 }

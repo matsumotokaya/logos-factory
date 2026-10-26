@@ -14,8 +14,7 @@
 // and every video, LP and banner is made out of it. Listing 動画 / LP / ロゴ as
 // three peer tiles said the opposite.
 //
-// (1) is here because /businesses/[id] and /campaigns/businesses/[id] both
-// redirect to this page: this IS the brand screen, and the pipeline has to be
+// (1) is here because this IS the brand screen, and the pipeline has to be
 // reachable from it. Re-fetching the site refreshes what the brand LOOKS like
 // — palette, type, logo — and deliberately leaves its facts alone, since a
 // name and description someone has confirmed should not be reverted by a
@@ -24,7 +23,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { videoFetch } from "@/lib/video/client";
+import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandOverview } from "@/app/api/brands/[id]/overview/route";
 import type { LogoSummary } from "@/app/api/brands/[id]/logos/route";
 import PipelineBar from "@/components/pipeline/PipelineBar";
@@ -34,13 +33,7 @@ import BrandPipelinePanel, {
 } from "@/components/pipeline/BrandPipelinePanel";
 import type { BrandMaterial } from "@/components/pipeline/MaterialIntake";
 import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
-import BrandGenerationStatus from "@/components/brand/BrandGenerationStatus";
-import {
-  ProcessLogPopup,
-  type StepEvent,
-  type StepLevel,
-} from "@/app/campaigns/ProcessLogPopup";
-import { toStepEvents } from "@/app/campaigns/campaign-ui";
+import BrandRunStatus, { type BrandRunState } from "@/components/brand/BrandRunStatus";
 import BrandKnowledgePanel, {
   BrandSiteFiles,
 } from "@/components/brand/BrandKnowledgePanel";
@@ -49,15 +42,6 @@ import { refreshBrandTree } from "@/lib/brand-events";
 import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
-
-/** GET /api/brands/[id]/recapture — lib/brand/recapture-runs.ts RecaptureRun. */
-type RecaptureRunState = {
-  id: string;
-  status: "running" | "done" | "error";
-  steps: { ts: string; message: string; level: StepLevel }[];
-  result: { adopted: number; claims: number; files: number; note: string | null } | null;
-  error: string | null;
-};
 
 type Tile = {
   href: string;
@@ -70,7 +54,7 @@ type Tile = {
 export default function BrandTop({ brandId }: { brandId: string }) {
   const [overview, setOverview] = useState<BrandOverview | null>(null);
   const [logos, setLogos] = useState<LogoSummary[]>([]);
-  const [counts, setCounts] = useState({ videos: 0, lps: 0 });
+  const [counts, setCounts] = useState({ videos: 0 });
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pipeline, setPipeline] = useState<
@@ -79,8 +63,8 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   const [openStage, setOpenStage] = useState<string | null>(null);
   const [materials, setMaterials] = useState<BrandMaterial[]>([]);
   const [busy, setBusy] = useState(false);
-  // The steps of a re-import while it runs; null when none is running.
-  const [recaptureSteps, setRecaptureSteps] = useState<StepEvent[] | null>(null);
+  // Bumped when this page starts a run, so the status polls it to the end.
+  const [runWatch, setRunWatch] = useState(0);
 
   // The brand's key visual, if it has declared one.
   //
@@ -94,20 +78,16 @@ export default function BrandTop({ brandId }: { brandId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [overviewRes, videoRes, lpRes, logoRes] = await Promise.all([
-        videoFetch(`/api/brands/${brandId}/overview`),
-        videoFetch(`/api/brands/${brandId}/videos`),
-        videoFetch(`/api/brands/${brandId}/lps`),
-        videoFetch(`/api/brands/${brandId}/logos`),
+      const [overviewRes, videoRes, logoRes] = await Promise.all([
+        authedFetch(`/api/brands/${brandId}/overview`),
+        authedFetch(`/api/brands/${brandId}/videos`),
+        authedFetch(`/api/brands/${brandId}/logos`),
       ]);
       const overviewJson = overviewRes.ok
         ? ((await overviewRes.json()) as { overview?: BrandOverview } | null)
         : null;
       const videoJson = videoRes.ok
         ? ((await videoRes.json()) as { videos?: unknown[] } | null)
-        : null;
-      const lpJson = lpRes.ok
-        ? ((await lpRes.json()) as { lps?: unknown[] } | null)
         : null;
 
       if (!overviewJson?.overview) {
@@ -118,10 +98,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         ? ((await logoRes.json()) as { logos?: LogoSummary[] } | null)
         : null;
       setLogos(logoJson?.logos ?? []);
-      setCounts({
-        videos: videoJson?.videos?.length ?? 0,
-        lps: lpJson?.lps?.length ?? 0,
-      });
+      setCounts({ videos: videoJson?.videos?.length ?? 0 });
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "ブランドトップを読み込めませんでした");
@@ -132,8 +109,8 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   // reads, so they are refreshed by the same call that refreshes the page.
   const loadPipeline = useCallback(async () => {
     const [pipelineRes, materialsRes] = await Promise.all([
-      videoFetch(`/api/brands/businesses/${brandId}/pipeline`),
-      videoFetch(`/api/brands/businesses/${brandId}/materials`),
+      authedFetch(`/api/brands/businesses/${brandId}/pipeline`),
+      authedFetch(`/api/brands/businesses/${brandId}/materials`),
     ]);
     if (pipelineRes.ok) {
       const body = (await pipelineRes.json()) as {
@@ -177,62 +154,14 @@ export default function BrandTop({ brandId }: { brandId: string }) {
    * travel through a JSON the client carries. So the work happens where the
    * bytes already are, and this only asks for it and reloads.
    */
-  // Follow a re-import run until it settles, showing its steps in the
-  // floating log. The run is detached on the server, so a reload resumes here.
-  const followRecapture = useCallback(
-    async (runId: string) => {
-      setBusy(true);
-      try {
-        for (;;) {
-          const res = await videoFetch(
-            `/api/brands/${brandId}/recapture?runId=${encodeURIComponent(runId)}`,
-          );
-          const body = (await res.json().catch(() => null)) as {
-            run?: RecaptureRunState | null;
-            error?: string;
-          } | null;
-          const run = body?.run;
-          if (!res.ok || !run) {
-            throw new Error(body?.error ?? "読み直しの状態を取得できませんでした");
-          }
-          setRecaptureSteps(
-            toStepEvents(run.steps),
-          );
-          if (run.status === "error") {
-            throw new Error(run.error ?? "サイトから取り込めませんでした");
-          }
-          if (run.status === "done") {
-            await load();
-            await loadPipeline();
-            const result = run.result;
-            const parts = [
-              `${result?.adopted ?? 0}項目を採用`,
-              `${result?.claims ?? 0}件を記録`,
-              `画像${result?.files ?? 0}点を保存`,
-            ];
-            setNotice(
-              `サイトを読み直しました（${parts.join("・")}）。${result?.note ?? ""}`.trim(),
-            );
-            return;
-          }
-          await new Promise((resolve) => window.setTimeout(resolve, 2000));
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "サイトから取り込めませんでした");
-      } finally {
-        setRecaptureSteps(null);
-        setBusy(false);
-      }
-    },
-    [brandId, load, loadPipeline],
-  );
-
+  // 「サイトを読み直す」 starts a run; BrandRunStatus follows it and calls
+  // settleRun when it lands.
   const reimportSite = useCallback(async () => {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/recapture`, {
+      const res = await authedFetch(`/api/brands/${brandId}/recapture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -244,39 +173,36 @@ export default function BrandTop({ brandId }: { brandId: string }) {
       if (!res.ok || !body?.runId) {
         throw new Error(body?.error ?? "サイトから取り込めませんでした");
       }
-      await followRecapture(body.runId);
+      setRunWatch((count) => count + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "サイトから取り込めませんでした");
       setBusy(false);
     }
-  }, [brandId, followRecapture]);
+  }, [brandId]);
 
-  // A re-import still running from before a reload is picked back up.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await videoFetch(`/api/brands/${brandId}/recapture`);
-        const body = res.ok
-          ? ((await res.json()) as { run?: RecaptureRunState | null })
-          : null;
-        if (!cancelled && body?.run?.status === "running") {
-          await followRecapture(body.run.id);
-        }
-      } catch {
-        // Nothing to resume.
+  const settleRun = useCallback(
+    async (run: BrandRunState) => {
+      setBusy(false);
+      await load();
+      await loadPipeline();
+      if (run.status === "done") {
+        const result = run.result;
+        const parts = [
+          `${result?.adopted ?? 0}項目を採用`,
+          `${result?.claims ?? 0}件を記録`,
+          `画像${result?.files ?? 0}点を保存`,
+        ];
+        setNotice(`サイトを読み取りました（${parts.join("・")}）。${result?.note ?? ""}`.trim());
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId, followRecapture]);
+    },
+    [load, loadPipeline],
+  );
 
   const uploadMaterial = useCallback(
     async (file: File, data: string) => {
       setBusy(true);
       try {
-        await videoFetch(`/api/brands/businesses/${brandId}/materials`, {
+        await authedFetch(`/api/brands/businesses/${brandId}/materials`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ label: file.name, mediaType: file.type, data }),
@@ -293,7 +219,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     async (text: string) => {
       setBusy(true);
       try {
-        await videoFetch(`/api/brands/businesses/${brandId}/materials`, {
+        await authedFetch(`/api/brands/businesses/${brandId}/materials`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ label: "メモ", text }),
@@ -310,7 +236,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     async (materialId: string) => {
       setBusy(true);
       try {
-        await videoFetch(
+        await authedFetch(
           `/api/brands/businesses/${brandId}/materials/${materialId}`,
           { method: "DELETE" },
         );
@@ -344,13 +270,6 @@ export default function BrandTop({ brandId }: { brandId: string }) {
       // The categories on offer, not one template singled out by id.
       hint: VIDEO_TEMPLATE_FAMILIES.map((family) => family.name).join(" / "),
     },
-    {
-      href: `/brands/${brandId}/lp`,
-      label: "LP",
-      description: "Brand Kitから組み立てたセールスページの一覧。",
-      count: counts.lps,
-      hint: "セールスページ",
-    },
   ];
 
   // The AI's first guess, the user's to change. Saved on pick; the tree reads
@@ -361,7 +280,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     setOverview({ ...overview, brandKind: nextKind });
     setError(null);
     try {
-      const res = await videoFetch(`/api/brands/${brandId}`, {
+      const res = await authedFetch(`/api/brands/${brandId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandKind: nextKind }),
@@ -424,10 +343,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
           {notice}
         </p>
       ) : null}
-      <BrandGenerationStatus brandId={brandId} onSettled={() => void load()} />
-      {recaptureSteps && recaptureSteps.length > 0 ? (
-        <ProcessLogPopup steps={recaptureSteps} title="処理ログ — サイトを読み直しています" />
-      ) : null}
+      <BrandRunStatus brandId={brandId} watch={runWatch} onSettled={(run) => void settleRun(run)} />
       <header className="border-b border-hairline pb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="text-xs font-semibold text-ink-muted">BRAND</p>

@@ -17,9 +17,7 @@
 //
 // Shared bar for every lab: 「ロゴが立派に見えるか」— never "does it move".
 
-// "graduated" = the lab's research is done and the feature moved to a product
-// surface; the entry stays here as the record of where it went.
-export type LabStatus = "active" | "planned" | "graduated";
+export type LabStatus = "active" | "planned";
 
 export type LabMode = "assurance" | "exploration" | "integration";
 
@@ -39,7 +37,7 @@ export const MODE_INFO: Record<LabMode, { label: string; description: string }> 
   integration: {
     label: "統合モード",
     description:
-      "複数のソースとアセットをブランドキットへ統合し、LP・CM・バナーなどのマーケティング最終出力に仕立てる領域。Campaign LabではソースからLPまでの縦貫通が稼働中。",
+      "複数のソースとアセットを統合し、LP・CM・バナーなどのマーケティング最終出力に仕立てる領域。成果物はブランドから作る（/brands）。",
   },
 };
 
@@ -155,66 +153,6 @@ export const LABS: LabInfo[] = [
       {
         title: "Phase E3〜E4: ダイヤル詳細とマルチターン",
         body: "4軸ダイヤルの詳細UI、ワードマーク対策UX、対話で寄せる生成セッション(コスト上限と残量表示)、環境統合・シネマティック系統、社内ベンチマーク運用の自動化。",
-      },
-    ],
-  },
-  {
-    slug: "campaign",
-    name: "Campaign Lab",
-    titleJa: "統合表現研究所",
-    tagline: "本体機能 CM Maker（/campaigns）へ卒業。ソース→Brand Kit→セールスページの縦貫通を確立",
-    status: "graduated",
-    mode: "integration",
-    layer: "レイヤー5+: 統合(最重課金。30秒プロモ・キャンペーン一式)",
-    description:
-      "URL・PDF・画像・テキストからサービスを理解し、Service Brand Kitと自己完結LPを生成する統合ラボ。2026-07-20に製品面 /campaigns（CM Maker）へ格上げされ、このラボURLはリダイレクトになった。30秒CM動画（Phase 0b）以降の開発は /campaigns 上で継続する。",
-    scope: [
-      "ソース統合: URLスクレイピング、PDF・画像・テキストを共通入力へ正規化",
-      "Service Brand Kit: サービス理解・コピー・配色・30秒CMナレーションを構造化生成",
-      "最終出力: 自己完結LPは稼働中。Remotion動画・SNS素材・バナーは次フェーズ",
-    ],
-    modules: [
-      {
-        title: "Phase 0a: Brand Kit → LP",
-        body: "URL・ファイル・テキストからClaude structured outputsでBrand Kitを作り、テンプレート駆動のLPを生成する縦貫通が稼働中。",
-      },
-      {
-        title: "Phase 0a+: パレット精度",
-        body: "外部CSSを含む実サイトから証拠ベースで色を抽出するため、スクリーンショット・computed style・VLM裁定を追加する。",
-      },
-      {
-        title: "Phase 0b: 30秒CM動画",
-        body: "Brand KitのナレーションをTTS・タイミングJSON・Remotionテンプレートへ接続し、ブラウザプレビューと書き出しへ展開する。",
-      },
-    ],
-  },
-  {
-    slug: "event",
-    name: "Event PV",
-    titleJa: "イベントPVテンプレート",
-    tagline: "イベント・セミナー軸の30秒PV。素材ゼロでも完成品が出ることを要件にしたテンプレート",
-    status: "active",
-    mode: "integration",
-    layer: "レイヤー5+: 統合(最重課金。イベント告知PV・シリーズ運用)",
-    description:
-      "製品軸(CM Maker)とは別に、イベント・セミナーを対象にした動画テンプレート。ナレーションを持たず、BGMとタイポグラフィで成立させる(SNSのミュート再生が主戦場のため)。EventBriefという構造化データから固定タイムラインの6シーンを描画し、ロゴ・人物写真・シーン写真・BGMのすべてのスロットに設計済みフォールバックを持つ。1本目の実案件は「世界が恋する日本酒」(レオパレス21 × WealthPark Lab)。将来はBrand配下の動画編集画面へ卒業する。",
-    scope: [
-      "スタイルは決めつけ、事実は捏造しない: アートディレクションは作りきり、未確定の日時・会場はダミー枠ではなく画面から省く",
-      "素材の決定論的な整形: 巨大写真の縮小、焦点指定による人物のフレーミング、暗背景用のロゴ正規化",
-      "EventBriefの生成: 現状は手書き。雑テキスト→抽出→構造化のパイプライン接続が次段",
-    ],
-    modules: [
-      {
-        title: "v1: 固定タイムラインの30秒PV",
-        body: "6シーン(シリーズ枠・タイトル・価値提示・プログラム・ゲスト・クロージング)を30秒固定尺で描画し、ブラウザプレビューとローカルMP4書き出しまで通した。",
-      },
-      {
-        title: "次: 実写クリップと15秒版",
-        body: "提供された実写素材をシーンへ差し込み、15秒版をシーン尺の再配分で派生させる。",
-      },
-      {
-        title: "次: 編集画面への接続",
-        body: "ゴール(動画)を常時表示し、素材投入・抽出・構造化をドロワーで開く編集体験へ。EventBriefをDB(brand_assets)へ載せ、Brand配下の正規導線に移す。",
       },
     ],
   },

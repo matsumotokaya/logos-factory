@@ -13,7 +13,6 @@
  * the metaphor would stop paying off.
  */
 
-import type { EventBrief } from "@/remotion/event/types";
 import {
   STAGE_LABELS,
   goalProgress,
@@ -23,38 +22,8 @@ import {
   type PipelineStageStatus,
 } from "./stages";
 
-/**
- * What an event-promo brief needs before its output is anything but a shell.
- * Listed as a goal so the bar is the same one the user sees on the bar: a
- * missing field is a task to go pick up, not a debug log.
- *
- * product-cm has its own brief shape (see lib/templates/brief-schemas), and
- * it is run through a different goal — a single product-cm field (the voice
- * track) gates the rest of the pipeline, so it would be misleading to grade
- * it against the same checklist.
- */
-export const EVENT_BRIEF_GOAL: readonly GoalField[] = [
-  { path: "title", label: "タイトル", required: true },
-  { path: "kind", label: "イベント種別", required: true },
-  { path: "startsAt", label: "開始日時", required: true },
-  { path: "venue", label: "会場", required: true },
-  { path: "headline", label: "見出しコピー", required: true },
-  { path: "body", label: "本文コピー", required: false },
-  { path: "ctaLabel", label: "CTAラベル", required: true },
-  { path: "visualBrief", label: "ビジュアル指示", required: false },
-];
-
-/**
- * product-cm's brief is small enough that the goal is implicit: a pinned voice
- * track means the CM Take is self-contained and can be rendered. Anything else
- * is the narration workspace's problem, not a "missing field" on the pipeline.
- */
-export const PRODUCT_CM_BRIEF_GOAL: readonly GoalField[] = [
-  { path: "voice.track", label: "音声トラック", required: true },
-];
-
 export interface VideoPipelineInput {
-  template: "event-promo" | "product-cm" | string;
+  template: string;
   hasBrief: boolean;
   /** Materials the user actually supplied, pinned to this take. */
   sourceCount?: number;
@@ -100,13 +69,9 @@ export interface VideoPipeline {
   goal: GoalProgress;
 }
 
-/** Pick the right goal for the template — the same pipeline shape, different
- * checklists. */
-function goalFor(template: string): readonly GoalField[] {
-  if (template === "event-promo") return EVENT_BRIEF_GOAL;
-  if (template === "product-cm") return PRODUCT_CM_BRIEF_GOAL;
-  return [];
-}
+/** The fields a video brief must fill before its output is more than a shell.
+ *  No video template declares any yet, so the bar grades nothing. */
+const VIDEO_BRIEF_GOAL: readonly GoalField[] = [];
 
 /** Field paths that are actually populated in the current brief. */
 function filledPaths(brief: Record<string, unknown> | null): string[] {
@@ -150,7 +115,7 @@ export function latest(times: Array<string | null | undefined>): string | null {
  * Read-only — the only way a stage gets out of sync is if the rows do.
  */
 export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
-  const goal = goalProgress(goalFor(input.template), filledPaths(input.brief));
+  const goal = goalProgress(VIDEO_BRIEF_GOAL, filledPaths(input.brief));
 
   // input: material the USER supplied — not the brief.
   //
@@ -251,12 +216,7 @@ export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
         : "ready"
     : statusFor(outputAt, mapAt, outputHasOutput, mapStatus === "stale");
 
-  const templateLabel =
-    input.template === "event-promo"
-      ? "Event Promo"
-      : input.template === "product-cm"
-        ? "Product CM"
-        : input.template || "テンプレート未選択";
+  const templateLabel = input.template || "テンプレート未選択";
 
   const stages: PipelineStage[] = [
     {
@@ -320,5 +280,3 @@ export function videoPipeline(input: VideoPipelineInput): VideoPipeline {
   return { stages, goal };
 }
 
-/** Re-export so consumers can import the event-brief shape through this file. */
-export type { EventBrief };

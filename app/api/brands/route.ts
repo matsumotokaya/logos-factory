@@ -1,7 +1,10 @@
 import { guardBrandRequest } from "@/lib/brand-access";
+import { createBrandFromUrl } from "@/lib/brand/create-from-url";
+import { importSiteIntoBrand } from "@/lib/brand/import-site";
+import { startBrandRun, type BrandRunLog } from "@/lib/brand/runs";
+import { normalizePublicHttpUrl } from "@/lib/public-url";
 import type {
   BrandAssetSummary,
-  BrandCampaignSummary,
   BrandLogoSummary,
   BrandOrganizationSummary,
   BrandRecordStatus,
@@ -58,15 +61,6 @@ function paletteFrom(value: Record<string, unknown>): {
     accent: typeof row.accent === "string" ? row.accent : null,
     fontStyle: typeof row.font_style === "string" ? row.font_style : null,
   };
-}
-
-function campaignStatus(
-  status: BrandAssetSummary["status"],
-): BrandCampaignSummary["status"] {
-  if (status === "pending") return "running";
-  if (status === "failed") return "failed";
-  if (status === "archived") return "archived";
-  return "draft";
 }
 
 export async function GET(req: Request) {
@@ -127,7 +121,6 @@ export async function GET(req: Request) {
             status: "confirmed",
             logos: [],
             brands: [],
-            businesses: [],
           }),
         ),
       },
@@ -215,34 +208,6 @@ export async function GET(req: Request) {
     const profile = paletteFrom(resolvedProfile(brand));
     const resolvedLogos = availableLogos(brand);
     const brandAssets = assets.get(brand.id) ?? [];
-    const videosByJob = new Map(
-      brandAssets
-        .filter((asset) => asset.kind === "video" && asset.jobId)
-        .map((asset) => [asset.jobId!, asset]),
-    );
-    const campaigns: BrandCampaignSummary[] = brandAssets
-      .filter((asset) => asset.kind === "lp" && asset.jobId)
-      .map((asset) => {
-        const jobId = asset.jobId!;
-        const video = videosByJob.get(jobId);
-        return {
-          id: asset.id,
-          jobId,
-          name: asset.title.replace(/\s+LP$/, ""),
-          status: campaignStatus(asset.status),
-          logoId: resolvedLogos[0]?.id ?? null,
-          primary: profile.primary,
-          accent: profile.accent,
-          createdAt: asset.createdAt,
-          lpUrl: asset.publicPath ?? `/brands/${brand.id}/lp/${asset.id}`,
-          videoStatus:
-            video?.status === "ready"
-              ? "mp4_ready"
-              : video
-                ? "preview_ready"
-                : "not_created",
-        };
-      });
     const summary: BrandSummary = {
       id: brand.id,
       organizationId: brand.organization_id,
@@ -260,7 +225,6 @@ export async function GET(req: Request) {
       logos: resolvedLogos,
       logoIds: resolvedLogos.map((logo) => logo.id),
       assets: brandAssets,
-      campaigns,
     };
     const current = summariesByOrganization.get(brand.organization_id) ?? [];
     current.push(summary);
@@ -282,9 +246,6 @@ export async function GET(req: Request) {
         status: "confirmed" as BrandRecordStatus,
         logos: [],
         brands: organizationBrands,
-        businesses: organizationBrands.filter(
-          (brand) => brand.kind !== "corporate",
-        ),
       };
     },
   );
@@ -292,5 +253,92 @@ export async function GET(req: Request) {
   return Response.json(
     { organizations: result },
     { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+// POST: make a brand from its site's URL.
+//
+// The brand (and a workspace, when asked for) exists at once and the answer
+// carries its id, so the client goes to the brand's page; the site is read
+// into it detached, logging to brand_runs (importSiteIntoBrand). Which
+// workspace it goes in is the caller's choice and never inferred: with none
+// a new one is made, with one that one, with several the caller must say.
+export async function POST(req: Request) {
+  const denied = await guardBrandRequest(req);
+  if (denied) return denied;
+  const user = await requireUser(req);
+  const supabase = createServerSupabaseForToken(user.token);
+
+  let url: string;
+  let organizationId: string | null = null;
+  let newWorkspace = false;
+  try {
+    const body = (await req.json().catch(() => ({}))) as {
+      url?: unknown;
+      organizationId?: unknown;
+      newWorkspace?: unknown;
+    };
+    if (typeof body.url !== "string" || !body.url.trim()) {
+      throw new Error("URLを入力してください");
+    }
+    url = normalizePublicHttpUrl(body.url.trim()).href;
+
+    if (body.newWorkspace === true) {
+      newWorkspace = true;
+    } else if (typeof body.organizationId === "string" && body.organizationId.trim()) {
+      // The form offers only the caller's workspaces, so a miss is refused.
+      const { data: membership, error } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("org_id", body.organizationId.trim())
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error || !membership) throw new Error("選択したワークスペースを利用できません");
+      organizationId = membership.org_id as string;
+    } else {
+      const { data: memberships, error } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("user_id", user.id);
+      if (error) throw new Error("ワークスペースを確認できませんでした");
+      if (!memberships || memberships.length === 0) newWorkspace = true;
+      else if (memberships.length === 1) organizationId = memberships[0].org_id as string;
+      else throw new Error("ブランドを入れるワークスペースを選んでください");
+    }
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "リクエストが不正です" },
+      { status: 400 },
+    );
+  }
+
+  let created: Awaited<ReturnType<typeof createBrandFromUrl>>;
+  let log: BrandRunLog;
+  try {
+    created = await createBrandFromUrl(supabase, user.id, {
+      url,
+      organizationId: newWorkspace ? null : organizationId,
+    });
+    log = await startBrandRun(supabase, { brandId: created.brandId, userId: user.id });
+  } catch (error) {
+    console.error("Brand creation failed:", error);
+    return Response.json({ error: "ブランドを作成できませんでした" }, { status: 500 });
+  }
+
+  void importSiteIntoBrand({
+    supabase,
+    userId: user.id,
+    brandId: created.brandId,
+    url,
+    log,
+    identify: { provisionalWorkspaceName: created.provisionalWorkspaceName },
+  }).catch(async (error) => {
+    console.error("Site import failed:", error);
+    await log.fail(error instanceof Error ? error.message : "サイトを読み取れませんでした");
+  });
+
+  return Response.json(
+    { brandId: created.brandId, organizationId: created.organizationId, runId: log.id },
+    { status: 202 },
   );
 }

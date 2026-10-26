@@ -265,7 +265,7 @@ function DeviceModelViewer({
       .then(() => {
         if (disposed) return;
         viewer = document.createElement("model-viewer") as ModelViewerElement;
-        viewer.setAttribute("src", `/campaigns/models/device-${variant}-v1.glb`);
+        viewer.setAttribute("src", `/models/device-${variant}-v1.glb`);
         viewer.setAttribute("alt", `${scene.name}の${deviceLabel(variant)}3Dモックアップ`);
         viewer.setAttribute("camera-controls", "");
         viewer.setAttribute("touch-action", "pan-y");

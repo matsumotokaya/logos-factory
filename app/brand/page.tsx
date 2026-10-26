@@ -142,8 +142,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Access-management workspace. Real-world organizations and their
-            brand identities live in the brand catalog under /campaigns. */}
+        {/* Access-management workspace. Brands themselves live in brand
+            management (/brands). */}
         <section className="flex flex-col gap-3">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">管理ワークスペース</h2>

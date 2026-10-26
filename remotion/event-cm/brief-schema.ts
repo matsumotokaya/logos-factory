@@ -6,7 +6,7 @@ import {
   EventProgramSchema,
   EventScheduleSchema,
 } from "@/remotion/event/brief-schema";
-import { CmVoiceTrackSchema } from "@/lib/templates/voice-schema";
+import { VoiceTrackSchema } from "@/lib/templates/voice-schema";
 import {
   EVENT_CM_NARRATED_ROLES,
   eventCmSceneKey,
@@ -155,7 +155,7 @@ export const EventCmBriefSchema = z.object({
   narrator: z.string().optional(),
   voice: z
     .object({
-      track: CmVoiceTrackSchema,
+      track: VoiceTrackSchema,
       audio: z.string().startsWith("material:"),
     })
     .optional(),

@@ -3,7 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteR2Object, headR2Object, putR2Object } from "@/lib/r2";
-import type { CmVoiceTrackOf } from "@/lib/campaign/cm-types";
+import type { VoiceTrackOf } from "@/lib/voice/track";
 
 // Pin a spoken narration to its take.
 //
@@ -22,7 +22,7 @@ export async function attachTakeNarration<Scene>(
     brandId: string;
     userId: string;
     wav: Buffer;
-    track: CmVoiceTrackOf<Scene>;
+    track: VoiceTrackOf<Scene>;
     /** take_inputs role. One per narration slot a template has. */
     role: string;
     label: string;

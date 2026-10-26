@@ -5,7 +5,7 @@
 // whoever is waiting:
 //
 //   per minute  clears by itself. The synthesiser reads the delay the provider
-//               states and carries on (labs/campaign/audio/tts-lib/tts.mjs
+//               states and carries on (lib/voice/tts-lib/tts.mjs
 //               `retryDelayMs`), so this only reaches a person when waiting did
 //               not help.
 //   per day     does not clear until tomorrow. Waiting inside a run cannot fix
@@ -28,7 +28,7 @@ export function explainTtsError(error: unknown): string {
       "Gemini の1日あたりの上限に達しました。読み上げは1本の動画でシーンの数だけ" +
       "使います（イベント紹介動画は7回）。待っても今日は解除されないので、" +
       "Google AI Studio でこのプロジェクトの請求先と割り当てを確認してください。" +
-      "急ぐ場合は CAMPAIGN_TTS_MOCK=1 で仮の音声を使えます"
+      "急ぐ場合は TTS_MOCK=1 で仮の音声を使えます"
     );
   }
 
@@ -42,7 +42,7 @@ export function explainTtsError(error: unknown): string {
   if (/GEMINI_API_KEY/.test(raw)) {
     return (
       "GEMINI_API_KEY が設定されていません。リポジトリ直下の .env に入れるか、" +
-      "CAMPAIGN_TTS_MOCK=1 で仮の音声を使ってください"
+      "TTS_MOCK=1 で仮の音声を使ってください"
     );
   }
 

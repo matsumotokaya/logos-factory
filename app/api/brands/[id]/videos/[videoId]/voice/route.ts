@@ -68,7 +68,7 @@ export async function POST(
   }
   if (!voiceAvailable()) {
     return Response.json(
-      { error: "音声の生成が設定されていません（GEMINI_API_KEY / CAMPAIGN_TTS_MOCK）" },
+      { error: "音声の生成が設定されていません（GEMINI_API_KEY / TTS_MOCK）" },
       { status: 503 },
     );
   }

@@ -1,4 +1,4 @@
-import type { SiteCapture } from "@/lib/campaign/capture";
+import type { SiteCapture } from "@/lib/site/capture";
 import type { AdoptKnowledgeField, AppendKnowledgeField } from "@/lib/brand/knowledge";
 
 /**

@@ -30,14 +30,14 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { synthesizeSection } from "../../campaign/audio/tts-lib/tts.mjs";
-import { parseUtterances, speechText, buildTimingJson } from "../../campaign/audio/tts-lib/timing.mjs";
+import { synthesizeSection } from "../../../lib/voice/tts-lib/tts.mjs";
+import { parseUtterances, speechText, buildTimingJson } from "../../../lib/voice/tts-lib/timing.mjs";
 import {
   int16ToF32,
   injectIntervals,
   mixEpisode,
   encodeWav16,
-} from "../../campaign/audio/tts-lib/audio.mjs";
+} from "../../../lib/voice/tts-lib/audio.mjs";
 
 // Decode at the channel count the file already has.
 //

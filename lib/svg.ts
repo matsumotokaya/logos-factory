@@ -71,8 +71,8 @@ function validBrandColor(value: BrandColor | undefined): value is BrandColor {
 
 /**
  * Complete legacy or provisional logo records before rendering the presentation.
- * Campaign-created candidates can have an SVG without the browser analysis that
- * normal uploads persist, while raster-only candidates can have neither.
+ * Candidates captured from a site can have an SVG without the browser analysis
+ * that normal uploads persist, while raster-only candidates can have neither.
  */
 export function normalizeLogoData(
   raw: Partial<LogoData> | null | undefined,

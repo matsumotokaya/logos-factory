@@ -6,7 +6,7 @@
 // exists so those facts do not have to sit on the film.
 
 import { useEffect, useState } from "react";
-import { authedFetch } from "@/app/campaigns/campaign-ui";
+import { authedFetch } from "@/lib/authed-fetch";
 import { VIDEO_STATE_LABEL, type VideoState } from "@/lib/video/asset";
 import type { VideoTemplateId } from "@/lib/video/templates";
 import { eventCmFilm } from "@/remotion/event-cm/film";
@@ -47,7 +47,7 @@ type LoadState =
  *  someone can watch. Templates that are not drawn by Remotion at a fixed
  *  frame (product-cm) report nothing rather than a guess. */
 function filmSpec(video: VideoFacts): { frame: string | null; length: string | null } {
-  const framed = video.template === "event-cm" || video.template === "event-promo";
+  const framed = video.template === "event-cm";
   const frame = framed ? `16:9 / ${EVENT_WIDTH}×${EVENT_HEIGHT}` : null;
   if (video.template !== "event-cm") return { frame, length: null };
   const brief = (video.bakedBrief ?? video.brief) as EventCmBrief | null;

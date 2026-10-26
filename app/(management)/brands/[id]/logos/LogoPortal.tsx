@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { videoFetch } from "@/lib/video/client";
+import { authedFetch } from "@/lib/authed-fetch";
 import type { LogoSummary } from "@/app/api/brands/[id]/logos/route";
 
 const VISIBILITY_LABEL: Record<string, string> = {
@@ -25,7 +25,7 @@ export default function LogoPortal({ brandId }: { brandId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/logos`);
+      const res = await authedFetch(`/api/brands/${brandId}/logos`);
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "ロゴを取得できませんでした");

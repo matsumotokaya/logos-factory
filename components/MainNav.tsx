@@ -44,9 +44,6 @@ export default function MainNav({
   if (enabled && !loading && isSignedIn) {
     items.push({ href: "/brands", label: "ブランド管理" });
     if (canAccessLabs) {
-      // Campaigns (CM Maker) is a product surface, but generation still runs
-      // on labs-gated APIs — expose it to the same audience until the public
-      // funnel (Phase 1) opens.
       items.push({ href: "/labs", label: dict.header.labs });
     }
   }

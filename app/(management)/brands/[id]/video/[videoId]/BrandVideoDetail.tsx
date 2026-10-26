@@ -1,13 +1,7 @@
 "use client";
 
-// One V2 video Take under a brand. This component renders the matching surface:
-//
-//   event-promo → EventVideoWorkspace (goal + material slots)
-//   product-cm with no pinned voice → the campaign narration screen
-//   product-cm with pinned voice → the V2 render/publication workspace
-//
-// The narration screen remains the authoring entry point. Once it produces a
-// voice track, the Take becomes self-contained and the V2 workspace takes over.
+// One video take under a brand, on the one authoring surface every video
+// template shares (docs/template-contract.md §2).
 //
 // A Slide-Factory pipeline bar sits above the workspace for the two surfaces
 // that have one. Read-only by intent: actions stay on the screens that own
@@ -17,9 +11,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { videoFetch } from "@/lib/video/client";
+import { authedFetch } from "@/lib/authed-fetch";
 import { cn } from "@/lib/cn";
-import EventVideoWorkspace from "@/components/video/EventVideoWorkspace";
 import EventCmWorkspace from "@/components/video/EventCmWorkspace";
 import VoiceDialog from "@/components/video/VoiceDialog";
 import BgmDialog from "@/components/video/BgmDialog";
@@ -69,7 +62,6 @@ import type { PipelineStage } from "@/lib/pipeline/stages";
 import { bulkRunPlan, pendingReadStages } from "@/lib/pipeline/stage-actions";
 import { VIDEO_STATE_LABEL, type VideoState } from "@/lib/video/asset";
 import { videoTemplate, type VideoTemplateId } from "@/lib/video/templates";
-import type { EventBrief } from "@/remotion/event/types";
 import type { EventCmBrief, EventCmSceneRole } from "@/remotion/event-cm/types";
 
 type VideoAsset = {
@@ -83,14 +75,11 @@ type VideoAsset = {
   published: boolean;
   publicUrl: string | null;
   briefSlug: string | null;
-  /** One of the known template shapes, or an unknown record for the rest. Both
-   *  event briefs are named because they are no longer one type: `EventCmBrief`
-   *  stopped extending `EventBrief` (remotion/event-cm/types.ts). */
-  brief: EventBrief | EventCmBrief | Record<string, unknown> | null;
+  /** The working brief, as the server validated it. */
+  brief: EventCmBrief | Record<string, unknown> | null;
   /** The brief a run fixed — what the player runs. Null = never run. */
   bakedBrief: Record<string, unknown> | null;
   bakedAt: string | null;
-  campaignJobId: string | null;
   /** Materials the brief points at that are not pinned to this take. The
    *  preview cannot fetch them, so say so rather than let the player fail
    *  silently — an empty slot here would read as a designed fallback. */
@@ -135,58 +124,6 @@ let runCardSeq = 0;
 const nextRunCardId = (label: string) => `${label}-${(runCardSeq += 1)}`;
 
 type Resolved = { kind: "asset"; video: VideoAsset };
-
-function hasPinnedProductVoice(brief: VideoAsset["brief"]): boolean {
-  if (!brief || typeof brief !== "object") return false;
-  const voice = (brief as Record<string, unknown>).voice;
-  if (!voice || typeof voice !== "object") return false;
-  return (
-    typeof (voice as Record<string, unknown>).track === "object" &&
-    typeof (voice as Record<string, unknown>).audio === "string"
-  );
-}
-
-function ProductCmInputSection({
-  brandId,
-  videoId,
-}: {
-  brandId: string;
-  videoId: string;
-}) {
-  // The button paths the user out to CM Maker (top page) so the LLM-driven
-  // pipeline can build a fresh Brand Kit, then comes back to this page after
-  // the user runs the voice step in the Maker. The Maker page already accepts
-  // a `resumeFor={videoId}` query parameter — see app/page.tsx.
-  return (
-    <section className="rounded-2xl border border-hairline p-5">
-      <h2 className="text-balance text-sm font-semibold">Product CM入力</h2>
-      <p className="mt-2 text-pretty text-xs text-ink-muted">
-        Brand Kit、ナレーションタイミング、固定済みWAVをTakeが保持します。
-        MP4の再生成はローカルのキャンペーンジョブに依存しません。
-      </p>
-      <p className="mt-2 text-pretty text-xs text-ink-muted">
-        このTakeはまだ音声が固定されていません。下のどちらかから始めて、Brand KitとWAVが揃ったあと、ページ上部の「MP4を作成」で書き出します。
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link
-          href={`/?resumeFor=${encodeURIComponent(videoId)}`}
-          className="rounded-full bg-ink px-5 py-2.5 text-xs font-semibold text-paper transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-        >
-          CM Makerで再生成する →
-        </Link>
-        <Link
-          href={`/brands/${brandId}/video`}
-          className="rounded-full border border-hairline px-5 py-2.5 text-xs font-semibold transition hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-        >
-          動画一覧に戻る
-        </Link>
-      </div>
-      <p className="mt-3 font-mono text-[10px] text-ink-faint">
-        {videoId}
-      </p>
-    </section>
-  );
-}
 
 export default function BrandVideoDetail({
   brandId,
@@ -295,7 +232,7 @@ export default function BrandVideoDetail({
   // set inside the same callback is not visible to the rest of that callback.
   const load = useCallback(async (): Promise<Resolved | null> => {
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}`);
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}`);
       if (!res.ok) {
         const json = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(json?.error ?? "動画を取得できませんでした");
@@ -311,7 +248,7 @@ export default function BrandVideoDetail({
   }, [brandId, videoId]);
 
   useEffect(() => {
-    // Kept off the synchronous effect path (same as CampaignDetail): setState
+    // Kept off the synchronous effect path: setState
     // during the effect body triggers cascading renders.
     let cancelled = false;
     (async () => {
@@ -340,7 +277,7 @@ export default function BrandVideoDetail({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await videoFetch(
+        const res = await authedFetch(
           `/api/brands/${brandId}/videos/${videoId}/pipeline`,
         );
         if (!res.ok) return;
@@ -362,7 +299,7 @@ export default function BrandVideoDetail({
     const card = openRunCard("MP4の書き出し");
     busy("MP4を書き出しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/render`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/render`, {
         method: "POST",
       });
       if (!res.ok && res.status !== 202) {
@@ -399,7 +336,7 @@ export default function BrandVideoDetail({
   async function downloadProject(): Promise<boolean> {
     busy("プロジェクトデータを書き出しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/project`);
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/project`);
       if (!res.ok) {
         const json = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(json?.error ?? "プロジェクトを書き出せませんでした");
@@ -444,7 +381,7 @@ export default function BrandVideoDetail({
     busy("ナレーションを書いています…");
     try {
       card.log("ブリーフの事実から書き起こしています（LLM）");
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/narration`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/narration`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(force ? { force: true } : {}),
@@ -489,7 +426,7 @@ export default function BrandVideoDetail({
       // What is about to change, named before the request: this is the one step
       // that moves what a viewer sees, and the pending list is already on screen.
       if (bake?.changes.length) card.log(`未反映 ${bake.changes.length}件を反映します`);
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/bake`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/bake`, {
         method: "POST",
       });
       const json = (await res.json().catch(() => null)) as {
@@ -528,7 +465,7 @@ export default function BrandVideoDetail({
   ): Promise<boolean> {
     busy("ナレーションを保存しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/narration`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/narration`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         // `reading` always goes, including as "": the field is on screen next to
@@ -570,7 +507,7 @@ export default function BrandVideoDetail({
     if (scene.index !== undefined) query.set("index", String(scene.index));
     busy("シーンを削除しています…");
     try {
-      const res = await videoFetch(
+      const res = await authedFetch(
         `/api/brands/${brandId}/videos/${videoId}/panels?${query}`,
         { method: "DELETE" },
       );
@@ -605,7 +542,7 @@ export default function BrandVideoDetail({
   }, [notice]);
 
   const loadSources = useCallback(async () => {
-    const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/materials`);
+    const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/materials`);
     if (!res.ok) return;
     const body = (await res.json()) as { materials?: BriefSource[]; children?: PdfChild[] };
     setSources(body.materials ?? []);
@@ -613,14 +550,14 @@ export default function BrandVideoDetail({
   }, [brandId, videoId]);
 
   const loadRuns = useCallback(async () => {
-    const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/runs`);
+    const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/runs`);
     if (!res.ok) return;
     const body = (await res.json()) as { runs?: TakeRunRecord[] };
     setRuns(body.runs ?? []);
   }, [brandId, videoId]);
 
   const loadInventory = useCallback(async () => {
-    const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/inventory`);
+    const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/inventory`);
     if (!res.ok) return;
     setInventory((await res.json()) as InventoryPayload);
   }, [brandId, videoId]);
@@ -633,7 +570,7 @@ export default function BrandVideoDetail({
   const classifyMaterial = useCallback(
     async (materialId: string, category: string | null) => {
       try {
-        const res = await videoFetch(`/api/brands/${brandId}/materials/${materialId}`, {
+        const res = await authedFetch(`/api/brands/${brandId}/materials/${materialId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ category }),
@@ -657,7 +594,7 @@ export default function BrandVideoDetail({
     async (materialId: string) => {
       busy("ブランドへコピーしています…");
       try {
-        const res = await videoFetch(`/api/brands/${brandId}/materials/${materialId}`, {
+        const res = await authedFetch(`/api/brands/${brandId}/materials/${materialId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ scope: "brand" }),
@@ -686,7 +623,7 @@ export default function BrandVideoDetail({
     async (materialId: string) => {
       busy("正規化バージョンを作成しています…");
       try {
-        const res = await videoFetch(
+        const res = await authedFetch(
           `/api/brands/${brandId}/materials/${materialId}/normalize`,
           { method: "POST" },
         );
@@ -753,7 +690,7 @@ export default function BrandVideoDetail({
   ): Promise<boolean> {
     busy("資料を登録しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/materials`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/materials`, {
         ...init,
       });
       if (!res.ok) {
@@ -800,7 +737,7 @@ export default function BrandVideoDetail({
   async function expandPdf(materialId: string) {
     busy("PDFの中身を取り出しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/materials/${materialId}/expand`, {
+      const res = await authedFetch(`/api/brands/${brandId}/materials/${materialId}/expand`, {
         method: "POST",
       });
       const json = (await res.json().catch(() => null)) as {
@@ -834,7 +771,7 @@ export default function BrandVideoDetail({
   async function removeSource(materialId: string) {
     busy("資料を削除しています…");
     try {
-      const res = await videoFetch(
+      const res = await authedFetch(
         `/api/brands/${brandId}/videos/${videoId}/materials?materialId=${materialId}`,
         { method: "DELETE" },
       );
@@ -940,7 +877,7 @@ export default function BrandVideoDetail({
 
     try {
       appendLine(id, `${sources.length}件の資料を対象に開始`);
-      const res = await videoFetch(
+      const res = await authedFetch(
         `/api/brands/${brandId}/videos/${videoId}/run/${stage}`,
         { method: "POST" },
       );
@@ -1113,7 +1050,7 @@ export default function BrandVideoDetail({
   async function editFact(edit: FactEdit): Promise<boolean> {
     busy("変更を保存しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/facts`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/facts`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(edit),
@@ -1137,7 +1074,7 @@ export default function BrandVideoDetail({
   async function answerTitleOffer(answer: "accept" | "decline") {
     busy("タイトルを保存しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ titleOffer: answer }),
@@ -1161,7 +1098,7 @@ export default function BrandVideoDetail({
     busy("読み上げを作成しています…");
     try {
       card.log("シーンごとに合成しています（TTS）");
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(voiceId ? { voiceId } : {}),
@@ -1181,7 +1118,7 @@ export default function BrandVideoDetail({
       }
       // Said out loud: a mock recording is the right length and the wrong voice,
       // and a screen that does not mention it looks like the real thing.
-      if (json?.mock) card.log("※ ダミー音声（CAMPAIGN_TTS_MOCK）");
+      if (json?.mock) card.log("※ ダミー音声（TTS_MOCK）");
       card.settle("succeeded");
       await load();
       return true;
@@ -1207,7 +1144,7 @@ export default function BrandVideoDetail({
   async function chooseNarrator(voiceId: string): Promise<boolean> {
     busy("声を保存しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceId }),
@@ -1231,7 +1168,7 @@ export default function BrandVideoDetail({
   async function turnNarrationOff(): Promise<boolean> {
     busy("読み上げを外しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}/voice`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -1252,7 +1189,7 @@ export default function BrandVideoDetail({
     if (resolved?.kind !== "asset") return;
     busy(next ? "公開しています…" : "公開を終了しています…");
     try {
-      const res = await videoFetch(`/api/brands/${brandId}/videos/${videoId}`, {
+      const res = await authedFetch(`/api/brands/${brandId}/videos/${videoId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ published: next }),
@@ -1834,23 +1771,6 @@ export default function BrandVideoDetail({
           }
           writing={saving}
         />
-      ) : video.template === "event-promo" && video.brief ? (
-        <EventVideoWorkspace brief={video.brief as EventBrief} />
-      ) : video.template === "product-cm" && !hasPinnedProductVoice(video.brief) ? (
-        // Product CM without a pinned voice: surface the regeneration actions.
-        // Two ways in: CM Maker rebuilds the Brand Kit from a URL, then the
-        // voice RPC pins the WAV; uploading a WAV skips the kit and attaches
-        // a take-local material. Either path puts the Take in a state where
-        // the "MP4を作成" button above becomes useful.
-        <ProductCmInputSection brandId={brandId} videoId={videoId} />
-      ) : video.template === "product-cm" ? (
-        <section className="rounded-2xl border border-hairline p-5">
-          <h2 className="text-balance text-sm font-semibold">Product CM入力</h2>
-          <p className="mt-2 text-pretty text-xs text-ink-muted">
-            Brand Kit、ナレーションタイミング、固定済みWAVをTakeが保持します。
-            MP4の再生成はローカルのキャンペーンジョブに依存しません。
-          </p>
-        </section>
       ) : (
         <p className="rounded-xl border border-hairline bg-ink/[0.03] px-4 py-3 text-[12px] text-ink-muted">
           このイベント動画にはまだブリーフがありません。

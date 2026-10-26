@@ -7,15 +7,15 @@ test("production版の同一version変更を検出する", () => {
     productionTemplateDrift(
       [
         {
-          template_id: "campaign-lp",
+          template_id: "event-cm",
           version: 2,
           definition_hash: "old",
           stage: "production",
         },
       ],
-      [{ template_id: "campaign-lp", version: 2, definition_hash: "new" }],
+      [{ template_id: "event-cm", version: 2, definition_hash: "new" }],
     ),
-    ["campaign-lp@2"],
+    ["event-cm@2"],
   );
 });
 
@@ -24,21 +24,21 @@ test("draft変更と新versionはdriftにしない", () => {
     productionTemplateDrift(
       [
         {
-          template_id: "event-promo",
+          template_id: "logo-presentation",
           version: 1,
           definition_hash: "old",
           stage: "draft",
         },
         {
-          template_id: "campaign-lp",
+          template_id: "event-cm",
           version: 1,
           definition_hash: "old",
           stage: "production",
         },
       ],
       [
-        { template_id: "event-promo", version: 1, definition_hash: "new" },
-        { template_id: "campaign-lp", version: 2, definition_hash: "new" },
+        { template_id: "logo-presentation", version: 1, definition_hash: "new" },
+        { template_id: "event-cm", version: 2, definition_hash: "new" },
       ],
     ),
     [],

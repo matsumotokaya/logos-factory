@@ -1,10 +1,26 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BrandUrlInspection } from "@/lib/brand-detail";
+import type { DesignTokens } from "@/lib/site/evidence";
 
-/** The brandAssets half of an inspection, once validated. */
-export type BrandImport = NonNullable<BrandUrlInspection["brandAssets"]>;
+/** What reading a site found for the brand's look: roles, tokens, the mark. */
+export type BrandImport = {
+  palette: Record<string, string>;
+  designTokens: DesignTokens | null;
+  logo: {
+    /**
+     * The site's own vector master, when it ships one. Sites serve .svg for
+     * the mark and raster for photography, so this is the file the capture
+     * should be judged on — carrying only the rendered PNG is what made a site
+     * with a perfectly good logo end up with its favicon.
+     */
+    svg: string | null;
+    /** base64 raster, used when there is no vector to be had. */
+    data: string | null;
+    mediaType: string;
+    sourceUrl: string;
+  } | null;
+};
 import { newLogoId } from "@/lib/id";
 import {
   adoptBrandKnowledge,
@@ -37,99 +53,6 @@ const TOKEN_PATHS: Record<string, string> = {
   section_spacing: "tokens.section_spacing",
   container_width: "tokens.container_width",
 };
-
-function httpUrl(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 2048) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Validate the brandAssets an inspection produced. Rejecting the whole payload
- * because one part is malformed would throw away a good palette over a bad
- * logo, so each part is checked on its own.
- */
-export function parseBrandImport(value: unknown): BrandImport | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Partial<BrandImport>;
-
-  const rawPalette = candidate.palette;
-  const palette =
-    rawPalette && typeof rawPalette === "object"
-      ? Object.fromEntries(
-          Object.entries(rawPalette)
-            .filter(
-              ([key, color]) =>
-                key.length <= 40 &&
-                typeof color === "string" &&
-                /^#[0-9a-f]{6}$/i.test(color),
-            )
-            .slice(0, 8),
-        )
-      : {};
-
-  const tokenKeys = [
-    "body_font",
-    "heading_font",
-    "button_radius",
-    "button_padding",
-    "section_spacing",
-    "container_width",
-  ] as const;
-  const rawTokens = candidate.designTokens;
-  const designTokens = rawTokens
-    ? (Object.fromEntries(
-        tokenKeys.map((key) => {
-          const token = rawTokens[key];
-          return [
-            key,
-            typeof token === "string" ? token.trim().slice(0, 240) : null,
-          ];
-        }),
-      ) as BrandImport["designTokens"])
-    : null;
-
-  const rawLogo = candidate.logo;
-  const sourceUrl = httpUrl(rawLogo?.sourceUrl);
-  let logo: BrandImport["logo"] = null;
-  if (rawLogo && sourceUrl) {
-    const svg =
-      typeof rawLogo.svg === "string" &&
-      rawLogo.svg.includes("<svg") &&
-      rawLogo.svg.length <= 400_000
-        ? rawLogo.svg
-        : null;
-    const data =
-      typeof rawLogo.data === "string" &&
-      rawLogo.data.length > 0 &&
-      rawLogo.data.length <= 2_000_000
-        ? rawLogo.data
-        : null;
-    if (svg || data) {
-      logo = {
-        svg,
-        data,
-        mediaType: svg ? "image/svg+xml" : "image/png",
-        sourceUrl,
-      };
-    }
-  }
-
-  if (Object.keys(palette).length === 0 && !designTokens && !logo) return null;
-  return { palette, designTokens, logo };
-}
-
-export function brandAssetsFrom(
-  inspection: Pick<BrandUrlInspection, "brandAssets">,
-): BrandImport | null {
-  return parseBrandImport(inspection.brandAssets);
-}
 
 /**
  * A raster mark still has to reach the logo tables, and those only accept SVG

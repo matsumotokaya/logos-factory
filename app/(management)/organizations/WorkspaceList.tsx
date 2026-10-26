@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ORG_ROLE_LABELS, listMyOrgs, type Organization } from "@/lib/org";
-import { authedFetch } from "@/app/campaigns/campaign-ui";
+import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandOrganizationSummary } from "@/lib/brand-hierarchy";
 import {
   readCurrentWorkspaceId,

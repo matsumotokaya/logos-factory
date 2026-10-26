@@ -3,13 +3,12 @@ import { z } from "zod";
 // The voice track a narrated template pins into its brief: the mixed WAV's
 // timing, scene by scene and caption by caption.
 //
-// Its own file because every narrated template needs it — product-cm and the
-// narrated event promo today — and the brief schemas that use it are imported
-// by the module that collects them. Passthrough because the track is written
-// by the voice stage, not by a user: validation here is a guard against a
-// truncated write, not a contract negotiation.
+// Its own file because every narrated template needs it, and the brief schemas
+// that use it are imported by the module that collects them. Passthrough
+// because the track is written by the voice stage, not by a user: validation
+// here is a guard against a truncated write, not a contract negotiation.
 
-export const CmVoiceTrackSchema = z
+export const VoiceTrackSchema = z
   .object({
     version: z.literal(1),
     generatedAt: z.string(),

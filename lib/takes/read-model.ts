@@ -54,12 +54,6 @@ const assetStatus = (
     : "pending";
 };
 
-const campaignJobId = (brief: unknown): string | null => {
-  if (!brief || typeof brief !== "object") return null;
-  const value = (brief as Record<string, unknown>).campaignJobId;
-  return typeof value === "string" && value.length > 0 ? value : null;
-};
-
 export function takeAssetSummary(take: TakeRow): BrandAssetSummary {
   const publicPath = (take.take_renders ?? [])
     .flatMap((render) => render.publications ?? [])
@@ -76,8 +70,6 @@ export function takeAssetSummary(take: TakeRow): BrandAssetSummary {
     title: take.title,
     status: assetStatus(take),
     publicPath: publicPath ?? null,
-    generationRunId: null,
-    jobId: campaignJobId(take.brief),
     createdAt: take.created_at,
   };
 }

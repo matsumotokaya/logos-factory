@@ -4,10 +4,9 @@
 // title, or canonical publication state.
 
 import { guardBrandRequest } from "@/lib/brand-access";
-import { campaignCmMp4Exists, getCampaignJob } from "@/lib/campaign/jobs";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
-import { videoState, type VideoState } from "@/lib/video/asset";
+import { videoState } from "@/lib/video/asset";
 import { VIDEO_TEMPLATES, videoDisplayName } from "@/lib/video/templates";
 import { renderOutputSignatureToken } from "../../takes/[takeId]/renders/[renderId]/output/route";
 import { resolveBriefMaterialUrls } from "@/lib/takes/materials";
@@ -23,12 +22,6 @@ import {
 } from "@/lib/takes/publication";
 
 const unauthorized = () => Response.json({ error: "Unauthorized" }, { status: 401 });
-
-function campaignVideoState(jobId: string | null): VideoState {
-  if (!jobId) return "empty";
-  if (campaignCmMp4Exists(jobId)) return "mp4_ready";
-  return getCampaignJob(jobId)?.cm?.track ? "preview_ready" : "empty";
-}
 
 export async function GET(
   req: Request,
@@ -142,14 +135,6 @@ export async function GET(
           renderOutputSignatureToken(brandId, take.id, render.id, artifact.r2_key),
         )
       : null;
-    const briefRecord = take.brief as Record<string, unknown> | null;
-    const eventBrief = take.template_id === "event-promo" ? briefForClient : null;
-    const campaignJobId =
-      typeof briefRecord?.campaignJobId === "string"
-        ? briefRecord.campaignJobId
-        : null;
-    const hasPinnedVoice =
-      briefRecord?.voice != null && typeof briefRecord.voice === "object";
     // Whether the drawing itself has moved on since this file was made.
     //
     // Only the server can answer it: the comparison is against the catalog this
@@ -210,7 +195,7 @@ export async function GET(
           published: (publicationResult.data?.length ?? 0) > 0,
           publicUrl: publicationResult.data?.[0]?.url_path ?? null,
           briefSlug: null,
-          brief: take.template_id === "event-promo" ? eventBrief : briefForClient,
+          brief: briefForClient,
           // What a run fixed. Null = never run, which the screen answers with
           // guidance rather than a warning (§9.9).
           bakedBrief: bakedForClient,
@@ -230,20 +215,16 @@ export async function GET(
                   take.baked_at ?? null,
                 )
               : null,
-          campaignJobId,
           unresolvedMaterials,
           // material:<uuid> → the signed URL it became, so a picker can tell
           // which of its options the brief currently holds.
           materialUrls,
           // What this take can actually do right now — derived in
-          // lib/video/asset.ts, which the portal's list reads too. The two used
-          // to answer separately and disagreed about product-cm.
+          // lib/video/asset.ts, which the portal's list reads too.
           state: videoState({
             template: take.template_id,
             hasRender: Boolean(artifact),
             hasBrief: Boolean(briefForClient),
-            hasVoice: hasPinnedVoice,
-            campaign: () => campaignVideoState(campaignJobId),
           }),
           createdAt: take.created_at,
         },

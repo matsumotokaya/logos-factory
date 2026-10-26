@@ -22,7 +22,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/lab", destination: "/labs/motion", permanent: true },
       { source: "/labs/image", destination: "/labs/workflow", permanent: true },
-      { source: "/labs/campaign", destination: "/campaigns", permanent: true },
     ];
   },
 };

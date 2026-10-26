@@ -7,7 +7,7 @@
 /**
  * The provider's per-request ceiling.
  *
- * The same number is written in labs/campaign/audio/tts-lib/tts.mjs, which runs
+ * The same number is written in lib/voice/tts-lib/tts.mjs, which runs
  * as a standalone ESM script and cannot import this file. Both sides say so;
  * changing one alone means the editor accepts a line the synthesiser refuses.
  */

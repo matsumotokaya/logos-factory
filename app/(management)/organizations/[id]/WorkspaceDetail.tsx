@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { authedFetch } from "@/app/campaigns/campaign-ui";
+import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandOrganizationSummary } from "@/lib/brand-hierarchy";
 import {
   ORG_ROLE_LABELS,

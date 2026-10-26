@@ -33,8 +33,8 @@ import { LengthFinishReasonError } from "openai/error";
  * stages simply run on different models and the run log says so in a line
  * nobody reads.
  *
- * `LLM_ENGINE` is the sentence the campaign progress log shows a user, so it
- * is derived here rather than written out again.
+ * `LLM_ENGINE` is the sentence a run's log shows a user, so it is derived here
+ * rather than written out again.
  */
 export const LLM_MODEL = "gpt-5.6-luna";
 export const LLM_PROVIDER = "OpenAI API";

@@ -106,16 +106,6 @@ export interface TemplateEntry {
   /** Video-specific: whether narration is part of the template. */
   narration?: boolean;
   /**
-   * Video-specific: whether the brief alone is enough to play the film.
-   *
-   * True for the templates that hand back a finished film the moment the take
-   * exists — the fallbacks are designed, so nothing is missing. False for one
-   * that assembles around a recorded narration: without it there is no timeline
-   * to draw, and calling that state "playable" would put a player on screen
-   * with nothing in it. Defaults to true, which is the product's stance.
-   */
-  playableFromBrief?: boolean;
-  /**
    * Video-specific: whether editing accumulates instead of reaching the film.
    *
    * True means the take carries two briefs — the one being edited and the one a
@@ -266,77 +256,6 @@ export const TEMPLATES: TemplateEntry[] = [
     isBrandDefault: false,
     // The view resolves the immutable template version plus the still-canonical
     // logo master and this Take's editorial snapshot at request time.
-    rerenderable: true,
-  },
-  {
-    id: "product-cm",
-    version: 2,
-    toolKind: "video",
-    briefSchemaVersion: 2,
-    rendererRevision: "remotion/cm@2026-08-07-v2-materials",
-    summary:
-      "課題解決型の30秒CM。Service Brand Kitのコピーとナレーションから、ロゴ・配色をそのまま使って組み立てます。",
-    requires: "ソース（URL・PDF・テキスト）から生成したService Brand Kit",
-    duration: "30秒",
-    narration: true,
-    // The standard bed (owner's call, 2026-08-30). A product film is not
-    // 和モダン, and everything that is not takes this one now — the corporate
-    // template and the corporate painting of the event template both — so the
-    // product film and the standard event film open on the same music by
-    // decision rather than by the pool having only two tracks.
-    //
-    // `bgm-bright-corporate` stays in the pool as the second choice. It is a
-    // 40-second track, which is why it is no longer first: a bed shorter than
-    // the film has to loop, and there was nowhere good to put the seam
-    // (lib/assets/defaults.ts `startFromSec`).
-    defaultBgm: "bgm-shine-through-tokyo",
-    // The brief is a Brand Kit plus narration timing: until the voice has been
-    // recorded and pinned, there is no length and nothing to play.
-    playableFromBrief: false,
-    family: "製品紹介動画",
-    variant: "スタンダード",
-    stages: ["collect", "extract", "structure", "render", "publish"],
-    publishSurfaces: ["canonical_url", "embed"],
-    costProfile: { llm: true, tts: true, render: "local" },
-    defaultRenders: [
-      { locale: "ja", aspectRatio: "16:9", theme: "", format: "mp4" },
-    ],
-    isBrandDefault: true,
-    // Kit, timing metadata and the pinned voice material all live with the
-    // Take, so a render no longer depends on the local campaign job store.
-    rerenderable: true,
-  },
-  {
-    id: "event-promo",
-    version: 1,
-    toolKind: "video",
-    briefSchemaVersion: 1,
-    rendererRevision: "remotion/event@2026-08-04",
-    summary:
-      "イベント・セミナー告知の30秒PV。和モダンの固定タイムラインで、読み上げを持たずBGMとタイポグラフィで成立させます。素材が無いスロットは設計済みのフォールバックで描かれます。",
-    requires: "イベントの文言・日時・登壇者（EventBrief）",
-    duration: "30秒",
-    narration: false,
-    // Placeholder: the only 和モダン track in the pool. This film has no voice,
-    // so the music carries it alone and deserves its own commissioned track.
-    defaultBgm: "bgm-ink-cinematic",
-    // No LLM anywhere: the brief is authored, and the renderer is deterministic.
-    family: "イベント紹介動画",
-    // Not 「スタンダード」 any more: that word now names event-cm's corporate
-    // painting, and this is the older, voiceless PV that 廃止 was decided for
-    // (2026-08-21). The label says what it is so the two cannot be confused in
-    // a list; the flag below keeps it out of the add dialog altogether.
-    variant: "PV（読み上げなし）",
-    addable: false,
-    stages: ["collect", "render", "publish"],
-    publishSurfaces: ["canonical_url", "embed", "social"],
-    costProfile: { llm: false, tts: false, render: "local" },
-    defaultRenders: [
-      { locale: "ja", aspectRatio: "16:9", theme: "sumi", format: "mp4" },
-    ],
-    isBrandDefault: false,
-    // The brief lives on the take and the composition is pure, so an old
-    // version can be rendered again as long as its materials still exist.
     rerenderable: true,
   },
   {
@@ -497,26 +416,7 @@ export const TEMPLATES: TemplateEntry[] = [
     // version renders again as long as its materials exist.
     rerenderable: true,
   },
-  {
-    id: "campaign-lp",
-    version: 2,
-    toolKind: "lp",
-    briefSchemaVersion: 2,
-    rendererRevision: "lib/campaign/render-lp@2026-08-05",
-    name: "セールスページ",
-    summary:
-      "ソースから生成したService Brand Kitを、業種に合わせた7種のデザインテーマのいずれかで1枚のセールスページに描画します。テーマは後から変更して再レンダーできます。",
-    requires: "ソース（URL・PDF・テキスト）から生成したService Brand Kit",
-    stages: ["collect", "extract", "structure", "render", "publish"],
-    publishSurfaces: ["canonical_url", "vanity_url"],
-    // The page is derived from the kit on every read, so rendering costs nothing.
-    costProfile: { llm: true, tts: false, render: "none" },
-    defaultRenders: [
-      { locale: "ja", aspectRatio: "responsive", theme: "", format: "html" },
-    ],
-    isBrandDefault: false,
-    rerenderable: true,
-  },
+
 ];
 
 /**

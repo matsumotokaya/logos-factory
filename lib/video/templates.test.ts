@@ -12,24 +12,15 @@ import {
 } from "./templates";
 import { LUXURY_THEME, STANDARD_THEME, SUMI_THEME } from "@/remotion/kit/theme";
 
-test("廃止予定のテンプレートは追加ダイアログに出ないが、一覧からは消えない", () => {
-  // event-promo's 廃止 was decided on 2026-08-21. Hiding it from the dialog is
-  // the first step; its takes still exist and still need a label and a place.
-  assert.equal(VIDEO_TEMPLATES["event-promo"]?.addable, false);
-  assert.ok(!ADDABLE_VIDEO_TEMPLATES.some((template) => template.id === "event-promo"));
-  assert.ok(
-    !VIDEO_TEMPLATE_FAMILIES.some((family) =>
-      family.styles.some((style) => style.templateId === "event-promo"),
-    ),
-  );
-  assert.ok(VIDEO_TEMPLATES["event-promo"], "既存Takeのために台帳には残る");
-  assert.ok(videoFamilyIndex("event-promo") < VIDEO_TEMPLATE_FAMILIES.length + 1);
+test("追加ダイアログに出るのは追加できるテンプレートだけ", () => {
+  for (const template of ADDABLE_VIDEO_TEMPLATES) {
+    assert.equal(VIDEO_TEMPLATES[template.id]?.addable, true);
+    assert.ok(videoFamilyIndex(template.id) < VIDEO_TEMPLATE_FAMILIES.length);
+  }
 });
 
 test("イベント紹介動画のスタイルはアートディレクションで、3つ並ぶ", () => {
-  // The dialog's second question. Before this, 「スタンダード」 in the event
-  // family created the voiceless event-promo — the retired template — and
-  // there was no way to order event-cm in its corporate painting at all.
+  // The dialog's second question: the painting, not a second template.
   const family = VIDEO_TEMPLATE_FAMILIES.find((entry) => entry.name === "イベント紹介動画");
   assert.ok(family);
   assert.deepEqual(
@@ -56,7 +47,6 @@ test("スタイルのキーは往復する", () => {
       });
     }
   }
-  assert.deepEqual(parseVideoStyle("product-cm"), { templateId: "product-cm", artDirection: null });
   assert.ok(DEFAULT_ADDABLE_VIDEO_STYLE.key.length > 0);
 });
 
@@ -66,7 +56,4 @@ test("Takeの名前は家族と塗りで組む", () => {
   assert.equal(videoDisplayName("event-cm", "luxury"), "イベント紹介動画 - ラグジュアリー");
   // An old take with no painting recorded is named the way it is painted.
   assert.equal(styleLabel("event-cm", null), SUMI_THEME.name);
-  // A template that is its own style keeps its own label.
-  assert.equal(videoDisplayName("product-cm", null), "製品紹介動画 - スタンダード");
-  assert.equal(styleLabel("event-promo", null), VIDEO_TEMPLATES["event-promo"].variant);
 });

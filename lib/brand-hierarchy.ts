@@ -26,23 +26,7 @@ export type BrandAssetSummary = {
   title: string;
   status: "pending" | "ready" | "failed" | "archived";
   publicPath: string | null;
-  generationRunId: string | null;
-  jobId: string | null;
   createdAt: string;
-};
-
-export type BrandCampaignSummary = {
-  id: string;
-  /** Local generation job that supplied this campaign Take, when present. */
-  jobId: string | null;
-  name: string;
-  status: "running" | "draft" | "published" | "failed" | "archived";
-  logoId: string | null;
-  primary: string | null;
-  accent: string | null;
-  createdAt: string;
-  lpUrl: string;
-  videoStatus: "not_created" | "preview_ready" | "mp4_ready";
 };
 
 export type BrandLogoSummary = {
@@ -72,11 +56,7 @@ export type BrandSummary = {
   logos: BrandLogoSummary[];
   logoIds: string[];
   assets: BrandAssetSummary[];
-  campaigns: BrandCampaignSummary[];
 };
-
-/** @deprecated Transitional alias while the remaining business routes move. */
-export type BrandBusinessSummary = BrandSummary;
 
 export type BrandOrganizationSummary = {
   id: string;
@@ -87,6 +67,4 @@ export type BrandOrganizationSummary = {
   status: BrandRecordStatus;
   logos: BrandLogoSummary[];
   brands: BrandSummary[];
-  /** @deprecated Transitional alias for older campaign intake components. */
-  businesses: BrandBusinessSummary[];
 };

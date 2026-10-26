@@ -1,15 +1,13 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { copyFile, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentTemplate, type RenderFormat } from "@/lib/templates/catalog";
 import { validateBrief } from "@/lib/templates/brief-schemas";
 import { renderRemotionComposition } from "@/lib/video/remotion-cli";
-import { renderLandingPage } from "@/lib/campaign/render-lp";
-import type { CampaignBrandKit } from "@/lib/campaign/schema";
 import { deleteR2Object } from "@/lib/r2";
 import { putRenderArtifact } from "./storage";
 import { stageBriefMaterials } from "./materials";
@@ -93,9 +91,9 @@ export async function renderTake(
   //
   // Reading the working brief here would hand somebody an MP4 of edits they
   // were still making — including a narration with no recording, which would
-  // export at the estimated length rather than the measured one. Templates with
-  // no fixing step (product-cm, event-promo) have no `baked_brief`, and for
-  // them this is the brief it always was (migration 0050, §9.4).
+  // export at the estimated length rather than the measured one. A template
+  // with no fixing step has no `baked_brief`, and for it this is the brief it
+  // always was (migration 0050, §9.4).
   const source = take.baked_brief ?? take.brief;
   const validated = validateBrief(template.id, source);
   if (!validated.ok) {
@@ -230,73 +228,12 @@ async function produce(
   format: RenderFormat,
   brief: unknown,
 ): Promise<Buffer> {
-  if (templateId === "event-promo" && format === "mp4") {
-    return renderEventMp4(supabase, takeId, brief, "event");
-  }
-  // Same production as event-promo — stage the materials, hand the brief over
-  // as props — differing only in which composition reads it. The narrated film
-  // had no arm here at all, so 「MP4を作成」 answered with the not-connected
-  // error while every other surface behaved as though the video existed.
   if (templateId === "event-cm" && format === "mp4") {
-    return renderEventMp4(supabase, takeId, brief, "event-cm");
-  }
-  if (templateId === "product-cm" && format === "mp4") {
-    return renderProductCmMp4(supabase, takeId, brief);
-  }
-  if (templateId === "campaign-lp" && format === "html") {
-    const kit = (brief as { kit?: CampaignBrandKit }).kit;
-    if (!kit) throw new Error("LPのService Brand Kitが未充足です");
-    return Buffer.from(renderLandingPage(kit), "utf8");
+    return renderEventCmMp4(supabase, takeId, brief);
   }
   throw new Error(
     `${templateId} の ${format} レンダラーはまだv2経路に接続されていません`,
   );
-}
-
-async function renderProductCmMp4(
-  supabase: SupabaseClient,
-  takeId: string,
-  brief: unknown,
-): Promise<Buffer> {
-  const dir = await mkdtemp(path.join(tmpdir(), "logos-product-cm-"));
-  const propsPath = path.join(dir, "props.json");
-  const outPath = path.join(dir, "out.mp4");
-  const publicDir = path.join(dir, "public");
-  try {
-    const staged = await stageBriefMaterials(supabase, takeId, brief, publicDir);
-    const productBrief = staged as {
-      kit?: CampaignBrandKit;
-      voice?: { track?: unknown; audio?: string };
-    };
-    if (!productBrief.kit || !productBrief.voice?.track || !productBrief.voice.audio) {
-      throw new Error("Product CMのBrand Kitまたは固定済み音声が未充足です");
-    }
-
-    let bgmSrc: string | null = null;
-    try {
-      await copyFile(
-        path.join(process.cwd(), "public", "campaigns", "bgm.mp3"),
-        path.join(publicDir, "bgm.mp3"),
-      );
-      bgmSrc = "bgm.mp3";
-    } catch {
-      // BGM is a template-owned optional asset. Narration alone is a complete
-      // render and stays deterministic when the optional file is absent.
-    }
-    await writeFile(
-      propsPath,
-      JSON.stringify({
-        kit: productBrief.kit,
-        track: productBrief.voice.track,
-        audioSrc: productBrief.voice.audio,
-        bgmSrc,
-      }),
-    );
-    await renderRemotionComposition("cm", propsPath, outPath, publicDir);
-    return await readFile(outPath);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
 }
 
 /**
@@ -328,11 +265,10 @@ async function stagePoolAssets(publicDir: string): Promise<void> {
   }
 }
 
-async function renderEventMp4(
+async function renderEventCmMp4(
   supabase: SupabaseClient,
   takeId: string,
   brief: unknown,
-  composition: "event" | "event-cm",
 ): Promise<Buffer> {
   const dir = await mkdtemp(path.join(tmpdir(), "logos-take-"));
   const propsPath = path.join(dir, "props.json");
@@ -342,7 +278,7 @@ async function renderEventMp4(
     await stagePoolAssets(publicDir);
     const stagedBrief = await stageBriefMaterials(supabase, takeId, brief, publicDir);
     await writeFile(propsPath, JSON.stringify({ brief: stagedBrief }));
-    await renderRemotionComposition(composition, propsPath, outPath, publicDir);
+    await renderRemotionComposition("event-cm", propsPath, outPath, publicDir);
     return await readFile(outPath);
   } finally {
     await rm(dir, { recursive: true, force: true });

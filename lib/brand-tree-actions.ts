@@ -20,7 +20,7 @@
 // their own subordinates (a take's renders and artifacts, a logo's candidates
 // and presentation), which is what the cascades already do.
 
-export type TreeNodeKind = "brand" | "logo" | "video" | "lp";
+export type TreeNodeKind = "brand" | "logo" | "video";
 
 export type TreeActionId = "info" | "duplicate" | "delete";
 
@@ -92,8 +92,8 @@ export function logoActions(): TreeAction[] {
   return [infoAction(), deleteAction("ロゴを削除", null)];
 }
 
-export function takeActions(kind: "video" | "lp", facts: TakeActionFacts): TreeAction[] {
-  const noun = kind === "video" ? "動画" : "LP";
+export function takeActions(kind: "video", facts: TakeActionFacts): TreeAction[] {
+  const noun = { video: "動画" }[kind];
   return [
     infoAction(),
     duplicateAction(),
@@ -116,7 +116,5 @@ export function deletionConsequence(kind: TreeNodeKind, name: string): string {
       return `${subject}と、そのプレゼンテーション・生成モックアップ・タグ・作業履歴を削除します。`;
     case "video":
       return `${subject}と、書き出したMP4・レンダー履歴を削除します。`;
-    case "lp":
-      return `${subject}と、生成したHTML・レンダー履歴を削除します。`;
   }
 }

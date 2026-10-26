@@ -10,7 +10,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { retryDelayMs } from "../../labs/campaign/audio/tts-lib/tts.mjs";
+import { retryDelayMs } from "./tts-lib/tts.mjs";
 
 const quota = (body: string) => new Error(body);
 

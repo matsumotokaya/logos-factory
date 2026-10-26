@@ -1,8 +1,7 @@
 // Render one v2 video Take to MP4 and store it in R2.
 //
-// Fire-and-forget with the state kept on the take's own row, mirroring the
-// campaign CM route: a render takes minutes, so the request returns 202 and the
-// detail screen polls. Progress lives in metadata.render rather than in memory
+// Fire-and-forget with the state kept on the take's own row: a render takes
+// minutes, so the request returns 202 and the detail screen polls. Progress lives in metadata.render rather than in memory
 // so a reload — or a different machine — still sees what happened.
 
 import { guardBrandRequest } from "@/lib/brand-access";

@@ -5,15 +5,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { requestAuthDialog } from "@/lib/auth";
 import { refreshBrandTree } from "@/lib/brand-events";
-import { authedFetch, AuthRequiredError } from "@/app/campaigns/campaign-ui";
+import { authedFetch, AuthRequiredError } from "@/lib/authed-fetch";
 
 // "ブランドを追加" from the bottom of the sidebar.
 //
-// The same move as the top page's hero — a URL goes in, a Brand stands up in
-// the workspace (§19.3) — without leaving the management screen. It takes only
-// a URL: files and pasted text stay on the top page, where the drop zone and
-// the catalog give them room. The run itself lives on /campaigns/[jobId], as it
-// does from the top page, so this dialog closes as soon as the job exists.
+// The same move as the top page — a URL goes in, a Brand stands up in the
+// workspace shown here (§19.3) — without leaving the management screen. The
+// brand exists the moment the request returns, so the dialog closes and the
+// brand's page follows the reading of the site.
 
 export default function AddBrandDialog({
   open,
@@ -45,13 +44,12 @@ export default function AddBrandDialog({
     setError(null);
     setStarting(true);
     try {
-      const res = await authedFetch("/api/labs/campaign/generate", {
+      const res = await authedFetch("/api/brands", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim(), organizationId }),
       });
       const json = ((await res.json().catch(() => null)) ?? {}) as {
-        jobId?: string;
         brandId?: string;
         error?: string;
       };
@@ -99,7 +97,7 @@ export default function AddBrandDialog({
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-pretty text-sm text-ink-muted">
               URLを入れると、「{organizationName}」にブランドが1つ立ちます。
-              ブランドプロフィール、仮ロゴ、LPがまとめて登録されます。
+              サイトから名前・種別・色・書体・ロゴ・画像を読み取って登録します。
             </Dialog.Description>
 
             <form

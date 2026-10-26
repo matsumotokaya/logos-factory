@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FetchedSiteImage, SiteCapture } from "@/lib/campaign/capture";
+import type { FetchedSiteImage, SiteCapture } from "@/lib/site/capture";
 import { deleteR2Object, isR2Configured, putR2Object } from "@/lib/r2";
 import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
 

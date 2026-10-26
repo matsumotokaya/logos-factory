@@ -1,19 +1,14 @@
 import AppHeader from "@/components/AppHeader";
-import CampaignsTop from "@/app/campaigns/CampaignsTop";
+import TopPage from "./TopPage";
 
-// The top page is the front door of everything: add a source and get a brand,
-// a sales page and a CM. It renders standalone (no management sidebar) with a
-// transparent header that floats over the full-viewport hero, so the chrome
-// blends into the landing rather than sitting in a solid bar.
+// The top page is the front door: a site's URL in, a brand out
+// (docs/template-contract.md §6.1). It renders standalone, without the
+// management sidebar.
 export default function Home() {
   return (
-    <div className="relative min-h-dvh">
-      {/* Floating, transparent header over the dark hero. Not sticky: it
-          scrolls away before the white content below comes into view. */}
-      <div className="absolute inset-x-0 top-0 z-30">
-        <AppHeader tone="light" />
-      </div>
-      <CampaignsTop />
+    <div className="min-h-dvh bg-paper text-ink">
+      <AppHeader />
+      <TopPage />
     </div>
   );
 }

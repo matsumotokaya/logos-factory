@@ -64,7 +64,7 @@ export function stageActions(input: {
   /**
    * What the film step would do, from `pendingFilmSteps`.
    *
-   * Null for a template with no fixing step (product-cm, event-promo): the chain
+   * Null for a template with no fixing step: the chain
    * ends at the mapping, so that drawer offers nothing rather than a button that
    * would call nothing. An empty array means the played film already says
    * everything the workbench holds.

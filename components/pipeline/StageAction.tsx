@@ -52,7 +52,7 @@ export default function StageAction({
   /**
    * Run the film half of the chain: narration → reading aloud → fix.
    *
-   * Absent for templates with no fixing step (product-cm, event-promo), which is
+   * Absent for templates with no fixing step, which is
    * what takes the mapping stage's button away — nothing follows the mapping
    * there.
    */

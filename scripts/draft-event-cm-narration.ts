@@ -44,8 +44,8 @@ async function main() {
     .maybeSingle();
   if (error) throw new Error(`Takeを読めませんでした: ${error.message}`);
   if (!data) throw new Error(`Takeが見つかりません: ${takeId}`);
-  if (data.template_id !== "event-promo" && data.template_id !== "event-cm") {
-    throw new Error(`イベントTakeではありません: ${data.template_id}`);
+  if (data.template_id !== "event-cm") {
+    throw new Error(`イベント動画のTakeではありません: ${data.template_id}`);
   }
 
   const brief = data.brief as EventCmNarrationInput;

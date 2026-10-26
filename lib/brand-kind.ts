@@ -1,4 +1,15 @@
-import type { BrandKind } from "@/lib/campaign/classification";
+/**
+ * The category a Brand wears. A label, not structure: it decides nothing
+ * about where the Brand sits, and the user can change it at any time.
+ */
+export type BrandKind =
+  | "organization"
+  | "corporate"
+  | "business"
+  | "service"
+  | "product"
+  | "media"
+  | "event";
 
 /**
  * Every value brand_entities.brand_kind accepts (its CHECK constraint), in the
