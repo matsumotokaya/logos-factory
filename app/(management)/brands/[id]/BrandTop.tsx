@@ -1,24 +1,25 @@
 "use client";
 
-// The brand's top page, in the order the brand itself is built:
+// The brand kit's workspace page — the DRAFT of /k/[brandId].
 //
-//   1. The pipeline that fills this brand — the five stages, opened over the
-//      page rather than navigated to (§17.3)
-//   2. The brand profile (name, description, industry, location, website)
-//   3. **Brand assets**, shown two ways: DESIGN (palette / typography /
-//      tokens, adopted into brand_knowledge_values) and LOGOS (all of them)
-//   4. The marketing tools built out of those assets — videos, LPs, banners
+// Everything on this screen is one of two things (docs/product.md §2.1):
 //
-// (3) and (4) are different kinds of thing and the page has to say so. A logo
-// is not a deliverable sitting beside a video: it is global, like the palette,
-// and every video, LP and banner is made out of it. Listing 動画 / LP / ロゴ as
-// three peer tiles said the opposite.
+//   THE PAGE     what the published kit will show: the mark, the facts, the
+//                four cards, the assets. Drawn by KitView, the same component
+//                the public page uses, so the preview is the page itself
+//                rather than a second drawing of it.
+//   THE TOOLS    what only an editor needs: the pipeline that fills the brand
+//                (opened over the page rather than navigated to, §17.3), the
+//                last run's line, 推定 → 採用 on every claim, the exhaustive
+//                three-state list, the files the capture brought home, and
+//                the deliverables made from the kit.
 //
-// (1) is here because this IS the brand screen, and the pipeline has to be
-// reachable from it. Re-fetching the site refreshes what the brand LOOKS like
-// — palette, type, logo — and deliberately leaves its facts alone, since a
-// name and description someone has confirmed should not be reverted by a
-// crawl.
+// 「プレビュー」 hides the tools and nothing else. The publish bar is the one
+// line that moves between the two: 下書き → 公開中, 更新あり → 更新を公開.
+//
+// Re-fetching the site refreshes what the brand LOOKS like — palette, type,
+// logo — and deliberately leaves its facts alone, since a name and description
+// someone has confirmed should not be reverted by a crawl.
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -32,16 +33,19 @@ import BrandPipelinePanel, {
   type BrandPipelinePayload,
 } from "@/components/pipeline/BrandPipelinePanel";
 import type { BrandMaterial } from "@/components/pipeline/MaterialIntake";
-import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
-import BrandRunStatus, { type BrandRunState } from "@/components/brand/BrandRunStatus";
+import BrandRunStatus from "@/components/brand/BrandRunStatus";
 import BrandKnowledgePanel, {
   BrandSiteFiles,
 } from "@/components/brand/BrandKnowledgePanel";
+import KitPublishBar, { type KitStatusView } from "@/components/brand/KitPublishBar";
+import KitView, { type KitViewData } from "@/components/brand/KitView";
 import { BRAND_KINDS, BRAND_KIND_LABEL, isBrandKind } from "@/lib/brand-kind";
 import { refreshBrandTree } from "@/lib/brand-events";
 import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
+import { MainMark } from "@/components/management/MainMark";
+import { isMeasuredClaim } from "@/lib/brand/profile";
 
 type Tile = {
   href: string;
@@ -51,12 +55,16 @@ type Tile = {
   hint: string;
 };
 
+type KitResponse = {
+  kit?: { state: KitStatusView["state"]; urlPath: string; publishedAt: string | null } | null;
+  error?: string;
+};
+
 export default function BrandTop({ brandId }: { brandId: string }) {
   const [overview, setOverview] = useState<BrandOverview | null>(null);
   const [logos, setLogos] = useState<LogoSummary[]>([]);
   const [counts, setCounts] = useState({ videos: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [pipeline, setPipeline] = useState<
     (BrandPipelinePayload & { stages: PipelineStage[] }) | null
   >(null);
@@ -65,6 +73,9 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   const [busy, setBusy] = useState(false);
   // Bumped when this page starts a run, so the status polls it to the end.
   const [runWatch, setRunWatch] = useState(0);
+  const [kit, setKit] = useState<KitStatusView | null>(null);
+  const [kitBusy, setKitBusy] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   // The brand's key visual, if it has declared one.
   //
@@ -75,6 +86,14 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   // `category` stays what the picture DEPICTS (a sake still life is a product
   // shot whether or not a brand made it their key visual).
   const keyVisuals = materials.filter((material) => material.kind === "keyvisual");
+
+  const loadKit = useCallback(async () => {
+    const res = await authedFetch(`/api/brands/${brandId}/kit`);
+    const body = (await res.json().catch(() => null)) as KitResponse | null;
+    if (res.ok && body?.kit) {
+      setKit({ state: body.kit.state, urlPath: body.kit.urlPath, publishedAt: body.kit.publishedAt });
+    }
+  }, [brandId]);
 
   const load = useCallback(async () => {
     try {
@@ -97,13 +116,17 @@ export default function BrandTop({ brandId }: { brandId: string }) {
       const logoJson = logoRes.ok
         ? ((await logoRes.json()) as { logos?: LogoSummary[] } | null)
         : null;
-      setLogos(logoJson?.logos ?? []);
+      // The library endpoint spans every brand in the workspace (the Logos
+      // page lists them all); the kit shows THIS brand's own marks, the same
+      // set the published kit freezes. A sub-brand with none keeps none.
+      setLogos((logoJson?.logos ?? []).filter((logo) => logo.subjectEntityId === brandId));
       setCounts({ videos: videoJson?.videos?.length ?? 0 });
       setError(null);
+      await loadKit();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "ブランドトップを読み込めませんでした");
+      setError(e instanceof Error ? e.message : "ブランドキットを読み込めませんでした");
     }
-  }, [brandId]);
+  }, [brandId, loadKit]);
 
   // The pipeline and the material list are derived from the same rows the page
   // reads, so they are refreshed by the same call that refreshes the page.
@@ -137,29 +160,11 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     };
   }, [load, loadPipeline]);
 
-  /**
-   * Re-read the brand's own site and adopt what it wears.
-   *
-   * One action, no confirmation step: the golden path is that nobody has to
-   * choose anything. The result lands in the design-rules section below, where
-   * it can be judged — and re-run — after the fact.
-   */
-  /**
-   * Read the site again through the server-side capture.
-   *
-   * The old route sent the browser to `inspect-url`, took the small JSON it
-   * returns, and PATCHed it back — a shape that can hold a palette and one
-   * logo. The capture now brings home a type scale, component shapes, the
-   * page's own sections, contact details and a dozen files, none of which can
-   * travel through a JSON the client carries. So the work happens where the
-   * bytes already are, and this only asks for it and reloads.
-   */
   // 「サイトを読み直す」 starts a run; BrandRunStatus follows it and calls
   // settleRun when it lands.
   const reimportSite = useCallback(async () => {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       const res = await authedFetch(`/api/brands/${brandId}/recapture`, {
         method: "POST",
@@ -180,23 +185,13 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     }
   }, [brandId]);
 
-  const settleRun = useCallback(
-    async (run: BrandRunState) => {
-      setBusy(false);
-      await load();
-      await loadPipeline();
-      if (run.status === "done") {
-        const result = run.result;
-        const parts = [
-          `${result?.adopted ?? 0}項目を採用`,
-          `${result?.claims ?? 0}件を記録`,
-          `画像${result?.files ?? 0}点を保存`,
-        ];
-        setNotice(`サイトを読み取りました（${parts.join("・")}）。${result?.note ?? ""}`.trim());
-      }
-    },
-    [load, loadPipeline],
-  );
+  // The run's own line (BrandRunStatus) says what it brought back; this only
+  // has to put it on the page.
+  const settleRun = useCallback(async () => {
+    setBusy(false);
+    await load();
+    await loadPipeline();
+  }, [load, loadPipeline]);
 
   const uploadMaterial = useCallback(
     async (file: File, data: string) => {
@@ -248,6 +243,62 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     [brandId, loadPipeline],
   );
 
+  // 推定 → 採用. The value moves from claims to values; the page re-reads so
+  // the chip goes and the kit's 「更新あり」 follows.
+  const adopt = useCallback(
+    async (fieldPath: string) => {
+      setError(null);
+      const res = await authedFetch(`/api/brands/${brandId}/knowledge/adopt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fieldPath }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        setError(body?.error ?? "採用できませんでした");
+        return;
+      }
+      await load();
+    },
+    [brandId, load],
+  );
+
+  const publishKit = useCallback(async () => {
+    setKitBusy(true);
+    setError(null);
+    try {
+      const res = await authedFetch(`/api/brands/${brandId}/kit`, { method: "POST" });
+      const body = (await res.json().catch(() => null)) as KitResponse | null;
+      if (!res.ok) throw new Error(body?.error ?? "公開できませんでした");
+      if (body?.kit) {
+        setKit({ state: body.kit.state, urlPath: body.kit.urlPath, publishedAt: body.kit.publishedAt });
+      }
+      refreshBrandTree();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "公開できませんでした");
+    } finally {
+      setKitBusy(false);
+    }
+  }, [brandId]);
+
+  const unpublishKit = useCallback(async () => {
+    setKitBusy(true);
+    setError(null);
+    try {
+      const res = await authedFetch(`/api/brands/${brandId}/kit`, { method: "DELETE" });
+      const body = (await res.json().catch(() => null)) as KitResponse | null;
+      if (!res.ok) throw new Error(body?.error ?? "非公開にできませんでした");
+      if (body?.kit) {
+        setKit({ state: body.kit.state, urlPath: body.kit.urlPath, publishedAt: body.kit.publishedAt });
+      }
+      refreshBrandTree();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "非公開にできませんでした");
+    } finally {
+      setKitBusy(false);
+    }
+  }, [brandId]);
+
   if (!overview) {
     return (
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
@@ -263,8 +314,8 @@ export default function BrandTop({ brandId }: { brandId: string }) {
 
   const tiles: Tile[] = [
     {
-      href: `/brands/${brandId}/video`,
-      label: "動画",
+      href: `/brands/${brandId}/works/video`,
+      label: "Videos",
       description: "テンプレートを選んで追加できます。",
       count: counts.videos,
       // The categories on offer, not one template singled out by id.
@@ -288,6 +339,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error ?? "種別を変更できませんでした");
       refreshBrandTree();
+      await loadKit();
     } catch (changeError) {
       setOverview((current) => (current ? { ...current, brandKind: previous } : current));
       setError(
@@ -298,9 +350,60 @@ export default function BrandTop({ brandId }: { brandId: string }) {
 
   const openStageDef = pipeline?.stages.find((stage) => stage.id === openStage);
 
+  // The key visual's bytes are in overview.files (signed URL); the material
+  // list only names it.
+  const keyVisualFile = keyVisuals[0]
+    ? overview.files.find((file) => file.id === keyVisuals[0].id) ?? null
+    : null;
+
+  const kitData: KitViewData = {
+    brand: {
+      id: overview.id,
+      name: overview.name,
+      description: overview.description,
+      industry: overview.industry,
+      location: overview.location,
+      website: overview.website,
+    },
+    values: overview.knowledge,
+    // The preview is the published page: values and measured facts, no guesses.
+    claims: previewing ? overview.claims.filter(isMeasuredClaim) : overview.claims,
+    logos: logos.map((logo) => ({
+      id: logo.id,
+      title: logo.title,
+      previewUrl: logo.previewUrl,
+      href: `/brands/${brandId}/assets/logos/${logo.id}`,
+    })),
+    keyVisual: keyVisuals[0]
+      ? {
+          id: keyVisuals[0].id,
+          name: materialFileName(keyVisuals[0]),
+          url: keyVisualFile?.url ?? null,
+        }
+      : null,
+  };
+
+  const kindControl = (
+    <label className="flex items-center gap-2 text-[10px] text-ink-faint">
+      種別
+      <select
+        value={isBrandKind(overview.brandKind) ? overview.brandKind : ""}
+        onChange={(e) => void changeKind(e.target.value)}
+        className="rounded-full border border-hairline bg-white px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted outline-none hover:border-ink focus-visible:border-ink"
+      >
+        {isBrandKind(overview.brandKind) ? null : <option value="">未設定</option>}
+        {BRAND_KINDS.map((kind) => (
+          <option key={kind} value={kind}>
+            {BRAND_KIND_LABEL[kind]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
-      {pipeline ? (
+      {pipeline && !previewing ? (
         <div className="-mx-6 -mt-2 md:-mx-10">
           <PipelineBar
             stages={pipeline.stages}
@@ -309,7 +412,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
           />
         </div>
       ) : null}
-      {pipeline && openStageDef ? (
+      {pipeline && openStageDef && !previewing ? (
         <StageDrawer
           title={openStageDef.label}
           description={openStageDef.summary}
@@ -338,182 +441,108 @@ export default function BrandTop({ brandId }: { brandId: string }) {
           {error}
         </p>
       ) : null}
-      {notice ? (
-        <p className="rounded-xl border border-hairline bg-ink/[0.03] px-4 py-2.5 text-[12px] text-ink-muted">
-          {notice}
-        </p>
+
+      <KitPublishBar
+        status={kit}
+        values={overview.knowledge}
+        claims={overview.claims}
+        busy={kitBusy}
+        previewing={previewing}
+        onTogglePreview={() => setPreviewing((on) => !on)}
+        onPublish={publishKit}
+        onUnpublish={unpublishKit}
+      />
+
+      {!previewing ? (
+        <BrandRunStatus
+          brandId={brandId}
+          watch={runWatch}
+          onSettled={() => void settleRun()}
+          website={overview.website || null}
+          busy={busy}
+          onReimport={() => void reimportSite()}
+        />
       ) : null}
-      <BrandRunStatus brandId={brandId} watch={runWatch} onSettled={(run) => void settleRun(run)} />
-      <header className="border-b border-hairline pb-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="text-xs font-semibold text-ink-muted">BRAND</p>
-          <label className="flex items-center gap-2 text-[10px] text-ink-faint">
-            種別
-            <select
-              value={isBrandKind(overview.brandKind) ? overview.brandKind : ""}
-              onChange={(e) => void changeKind(e.target.value)}
-              className="rounded-full border border-hairline bg-white px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted outline-none hover:border-ink focus-visible:border-ink"
-            >
-              {isBrandKind(overview.brandKind) ? null : (
-                <option value="">未設定</option>
-              )}
-              {BRAND_KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {BRAND_KIND_LABEL[kind]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
-          {overview.name}
-        </h1>
-        <p className="mt-3 text-pretty text-sm text-ink-muted">
-          {overview.description
-            ? overview.description
-            : "このブランドのプロフィール・デザインルール・アセットの一覧です。"}
-        </p>
-        <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
-          {overview.industry ? (
-            <div>
-              <dt className="text-ink-faint">業種</dt>
-              <dd className="mt-1 text-ink">{overview.industry}</dd>
-            </div>
-          ) : null}
-          {overview.location ? (
-            <div>
-              <dt className="text-ink-faint">所在地</dt>
-              <dd className="mt-1 text-ink">{overview.location}</dd>
-            </div>
-          ) : null}
-          {overview.website ? (
-            <div>
-              <dt className="text-ink-faint">Webサイト</dt>
-              <dd className="mt-1 truncate">
-                <a
-                  href={overview.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-ink underline-offset-4 hover:underline"
-                >
-                  {overview.website}
-                </a>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      </header>
 
-      {/* Brand assets: global, and the material every tool below is made of.
-          Two views of one thing — what it looks like, and what its mark is. */}
-      <section aria-labelledby="brand-assets" className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 id="brand-assets" className="text-balance text-lg font-semibold">
-            ブランドアセット
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-ink-muted">
-              動画・LP・バナーのすべてが、ここから作られます
+      <KitView
+        data={kitData}
+        kindControl={previewing ? undefined : kindControl}
+        eyebrow={
+          overview.parent ? (
+            <span className="flex items-center gap-1.5">
+              <Link href={`/brands/${overview.parent.id}`} className="hover:text-ink hover:underline">
+                {overview.parent.name}
+              </Link>
+              <span aria-hidden="true" className="text-ink-faint">›</span>
+              <span>サブブランド</span>
             </span>
-            {overview.website ? (
-              <button
-                type="button"
-                onClick={() => void reimportSite()}
-                disabled={busy}
-                className="shrink-0 rounded-full border border-ink px-4 py-1.5 text-xs font-semibold transition hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-50"
-              >
-                {busy ? "取り込み中…" : "サイトから取り込む"}
-              </button>
-            ) : null}
-          </div>
-        </div>
+          ) : overview.isMain ? (
+            <span className="flex items-center gap-1.5">
+              <MainMark />
+              メインブランド
+            </span>
+          ) : (
+            "ブランド"
+          )
+        }
+        logosHref={previewing ? undefined : `/brands/${brandId}/assets/logos`}
+        onAdopt={previewing ? undefined : adopt}
+        emptyNote={
+          <p className="rounded-2xl border border-dashed border-hairline px-4 py-5 text-sm text-ink-muted">
+            このブランドはまだ何も読み取っていません。
+            {overview.website
+              ? "「サイトから取り込む」でこのブランドのサイトを読み取ると、配色・書体・構成・ロゴがここに入ります。"
+              : "サイトURLを登録すると、そこから配色・書体・構成・ロゴを取り込めます。"}
+          </p>
+        }
+      />
 
-        <div className="flex flex-col gap-3">
-          <div className="flex items-baseline gap-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
-              このブランドについてわかっていること
-            </h3>
-            <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
-          </div>
+      {!previewing ? (
+        <>
           {/* Three states, not two. Reading values alone made a brand that had
               just been measured look untouched — see BrandKnowledgePanel. */}
-          <BrandKnowledgePanel
-            values={overview.knowledge}
-            claims={overview.claims}
-          />
-          {overview.knowledge.length === 0 && overview.claims.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-hairline px-4 py-5 text-sm text-ink-muted">
-              このブランドはまだ何も読み取っていません。
-              {overview.website
-                ? "「サイトから取り込む」でこのブランドのサイトを読み取ると、配色・書体・構成・ロゴがここに入ります。"
-                : "サイトURLを登録すると、そこから配色・書体・構成・ロゴを取り込めます。"}
-            </p>
+          {overview.knowledge.length > 0 || overview.claims.length > 0 ? (
+            <details className="group rounded-2xl border border-hairline">
+              <summary className="cursor-pointer select-none px-5 py-3 text-xs font-semibold text-ink-muted hover:text-ink">
+                すべての項目（採用・推定・まだわからない）
+                <span className="ml-1 text-ink-faint group-open:hidden">を見る</span>
+                <span className="ml-1 hidden text-ink-faint group-open:inline">を閉じる</span>
+              </summary>
+              <div className="border-t border-hairline px-5 py-5">
+                <BrandKnowledgePanel values={overview.knowledge} claims={overview.claims} />
+              </div>
+            </details>
           ) : null}
-        </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex items-baseline gap-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
-              サイトから取り込んだ画像
-            </h3>
-            <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
-          </div>
-          <BrandSiteFiles files={overview.files} />
-        </div>
+          <section className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+                サイトから取り込んだ画像
+              </h3>
+              <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
+            </div>
+            <BrandSiteFiles files={overview.files} />
+          </section>
 
-        {/* Logos and the key visual as NAMED SLOTS, so an empty one is
-            visible. A brand with no key visual used to render no key-visual
-            section at all, which reads as 「この製品にはその概念が無い」 rather
-            than 「まだ指定していない」. Same component the video page uses, so
-            the two answer the same question in the same shape. */}
-        <BrandAssetSlots
-          slots={[
-            {
-              key: "logo",
-              label: "ロゴ",
-              hint: "動画の冒頭と締め、LPのヘッダーに出ます",
-              items: logos.map((logo) => ({
-                id: logo.id,
-                name: logo.title,
-                previewUrl: logo.previewUrl,
-                note: logo.subjectEntityName,
-                href: `/brands/${brandId}/logos/${logo.id}`,
-              })),
-              emptyNote:
-                "まだロゴがありません。サイトから取り込むか、トップからSVGをアップロードします。無いあいだは明朝のクレジット表記で代替されます。",
-              href: `/brands/${brandId}/logos`,
-            },
-            {
-              key: "keyvisual",
-              label: "キービジュアル",
-              hint: "動画の主役シーンやLPのヒーローの地になります",
-              items: keyVisuals.map((material) => ({
-                id: material.id,
-                name: materialFileName(material),
-                previewUrl: null,
-                note: "ブランドの素材",
-              })),
-              emptyNote:
-                "このブランドはキービジュアルを持っていません。成果物ごとに写真を入れるか、ずっと使う1枚を素材から「ブランドの基盤へ」上げると、ここに出ます。",
-            },
-          ]}
-        />
-      </section>
-
-      {/* The tools built out of the assets above. */}
-      <section aria-labelledby="brand-tools" className="flex flex-col gap-3">
-        <div className="flex items-baseline gap-3">
-          <h2 id="brand-tools" className="text-balance text-lg font-semibold">
-            マーケティングツール
-          </h2>
-          <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {tiles.map((tile) => (
-            <TileLink key={tile.href} tile={tile} />
-          ))}
-        </div>
-      </section>
+          {/* The works made from the kit — examples, not the product. */}
+          <section aria-labelledby="brand-tools" className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-3">
+              <h2 id="brand-tools" className="text-balance text-lg font-semibold">
+                Works — このキットから作ったもの
+              </h2>
+              <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
+              <Link href={`/brands/${brandId}/works`} className="shrink-0 text-[11px] text-accent hover:underline">
+                すべての Works →
+              </Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {tiles.map((tile) => (
+                <TileLink key={tile.href} tile={tile} />
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
     </main>
   );
 }

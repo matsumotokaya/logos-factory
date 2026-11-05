@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import BrandTop from "./BrandTop";
 
 export const metadata: Metadata = {
-  title: "ブランド — トップ",
+  title: "ブランドキット",
   robots: { index: false, follow: false },
 };
 

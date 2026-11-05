@@ -62,6 +62,10 @@ export type BrandOverview = {
   /** The Organization this brand sits under. Re-importing the brand's look
    *  goes through the business PATCH, which requires it. */
   brandOrganizationId: string;
+  /** The brand this one inherits from, if any (parent_brand_id). */
+  parent: { id: string; name: string } | null;
+  /** Another brand in the workspace inherits from this one. */
+  isMain: boolean;
   website: string;
   industry: string;
   location: string;
@@ -185,11 +189,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   });
 
   const row = entityResult.data;
+  const parentId = (row.parent_brand_id as string | null) ?? null;
+  const [parentResult, childrenResult] = await Promise.all([
+    parentId
+      ? supabase.from("brand_entities").select("id, name").eq("id", parentId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from("brand_entities")
+      .select("id", { count: "exact", head: true })
+      .eq("parent_brand_id", brandId),
+  ]);
   const overview: BrandOverview = {
     id: row.id as string,
     name: row.name as string,
     brandKind: (row.brand_kind as string) ?? "",
     brandOrganizationId: (row.organization_id as string) ?? "",
+    parent: parentResult.data
+      ? { id: parentResult.data.id as string, name: parentResult.data.name as string }
+      : null,
+    isMain: (childrenResult.count ?? 0) > 0,
     website: (row.website as string) ?? "",
     industry: (row.industry as string) ?? "",
     location: (row.location as string) ?? "",

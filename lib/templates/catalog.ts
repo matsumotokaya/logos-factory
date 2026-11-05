@@ -238,6 +238,33 @@ export interface TemplateEntry {
 
 export const TEMPLATES: TemplateEntry[] = [
   {
+    // The brand kit — the product's own output (docs/product.md §2). One take
+    // per published version: the brief is the brand profile frozen at the
+    // moment of publishing, and /k/[brandId] resolves the current one through
+    // canonical_slots(brand_guide). The HTML, brand.md, tokens.json and
+    // tokens.css are all derived from that brief on read.
+    id: "brand-kit",
+    version: 1,
+    toolKind: "guideline",
+    briefSchemaVersion: 1,
+    rendererRevision: "react/kit@2026-11-05",
+    name: "ブランドキット",
+    summary:
+      "ブランドの採用された値（色・書体・形・構成・連絡先・ロゴ）を、人とAIエージェントが同じURLで読める1枚にまとめた公開版です。",
+    requires: "採用されたブランド知識とロゴ",
+    stages: ["collect", "render", "publish"],
+    publishSurfaces: ["canonical_url", "vanity_url"],
+    costProfile: { llm: false, tts: false, render: "none" },
+    defaultRenders: [
+      { locale: "und", aspectRatio: "responsive", theme: "", format: "html" },
+    ],
+    isBrandDefault: false,
+    // Not offered in the add dialog: a kit is published from the brand page,
+    // never added beside a video.
+    addable: false,
+    rerenderable: true,
+  },
+  {
     id: "logo-presentation",
     version: 1,
     toolKind: "logo_presentation",
