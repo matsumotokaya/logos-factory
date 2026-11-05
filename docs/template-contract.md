@@ -17,7 +17,7 @@
 
 イベント動画と製品紹介動画は、作るものの内容が違う。だから違うのは、ブリーフの語彙・シーン構成・描画であって、**利用者が触る画面ではない**。テンプレートごとに別の編集画面があるのは、テンプレートという概念の誤用である。
 
-現状はこの原則を満たしていない。動画詳細ページ（[BrandVideoDetail.tsx](../app/(management)/brands/[id]/video/[videoId]/BrandVideoDetail.tsx)）は `event-cm` 限定のゲートを7箇所持ち、パイプラインの結果表示・絵コンテ・ナレーション・焼き付け・インベントリはすべてその内側にある。`product-cm` と `event-promo` はゲートの外なので、代わりに小さな入力スタブが出る。
+現状はこの原則を満たしていない。動画詳細ページ（[BrandVideoDetail.tsx](../app/(management)/brands/[id]/works/video/[videoId]/BrandVideoDetail.tsx)）は `event-cm` 限定のゲートを7箇所持ち、パイプラインの結果表示・絵コンテ・ナレーション・焼き付け・インベントリはすべてその内側にある。`product-cm` と `event-promo` はゲートの外なので、代わりに小さな入力スタブが出る。
 
 **これは設計ではなく実装の欠落である。** `event-cm` だけが編集面の要求する部品を揃えている（[lib/event-cm/](../lib/templates/event-cm/) が約7,800行）。他の2つはそれより前の世代で、事実のオントロジーも初期投影も焼き付けも持たない。画面は描くものが無く、スタブに落ちる。
 

@@ -14,13 +14,31 @@
 
 ## 2. このプロダクトは何か
 
-**ブランドの正本(System of Record)と、その正本から成果物を出す生成ワークフロー。**
+**2つのシステムでできている(2026-11-05 決定)。**
 
-- **正本**: 「この会社・この事業について真であること」を、出典と確度付きで持つ。ロゴ・色・書体・声・実績。
-- **生成ワークフロー**: LP・動画・SNS・資料。正本を読んで作り、作った内容が正本に貯まる。使うほど次が速く正確になる。
-- **読む口**: 正本を外部(CRM・自動化ツール・AIエージェント)から読めるようにする。公開 JSON・ファイル書き出し・API・MCP。
+| | ブランドキット | ファクトリー |
+|---|---|---|
+| 向き | 帰納。サイト・資料・ロゴからブランドを抽出し、キットとして定義する | 演繹。キットを読んで成果物を出す |
+| 最終出力 | **キットそのもの。** ロゴ・素材・ガイドライン・AI向けスキルを参照する、公開可能な1枚のまとめ(URL) | 動画・LP・バナーなど。キットから出た**作品の例** |
+| 使い手 | 人と、URL を渡された外部の AI エージェント | この製品のハーネス/ワークフローで直接作る利用者 |
 
-**内部設計では正本が芯、UI では成果物が主役。** 利用者が欲しいのは成果物であって正本ではない。トップページでは URL ひとつ・ロゴひとつを「ポンと入れるだけ」で成果物が出る——構造の精密さが入力負担に化けたら失敗([deliverable-architecture.md §1](deliverable-architecture.md))。
+**本体はブランドキット。** 利用者はキットの URL を自分のエージェント(Claude Code・Claude Design など)に渡して作らせてもよいし、ファクトリーでこの製品上で作ってもよい。ファクトリーの成果物はキットの参照例であって、製品の中心ではない。
+
+- **正本**: 「この会社・この事業について真であること」を、出典と確度付きで持つ。ロゴ・色・書体・声・実績。キットはその公開版。
+- **読む口**: キットの URL は HTML(人向け)と `brand.md` / `tokens.json` / `tokens.css` / `logo.svg`(機械向け)を同じ住所で返す。
+
+### 2.1 二重構造: ワークスペースは編集、公開版はその表側
+
+ワークスペース(ログインの内側)のページは、**すべてが公開ページの下書き**で、1対1に対応する。ブランドキット・ロゴ・動画・素材集のどれも同じ。
+
+- **公開はスナップショット。** 公開版は下書きに追随しない。再取り込みや編集で下書きが進むと「更新あり」になり、「更新を公開」で次の版が出る。前の版は残り、戻せる。Publication が Render(凍結した出力)を対象にする設計(§4.5)をそのまま使う
+- **公開版に載るのは、測定された値と採用された値だけ。** 推定(モデルの読み)は載せない。ルールが測った事実(フッターのSNS・連絡先・言語。`confidence='evidenced'`)は採用と同じ扱いで載る。ワークスペースの仕事は、推定を採用に変えてから公開すること。推定が残っていても公開はブロックせず、警告で列挙する
+- **ブランドキットは Take。** テンプレート `brand-kit`、ブリーフはプロファイルの凍結、公開 URL は `/k/[brandId]`(`canonical_slots` の `brand_guide` が Take を解決。`/p/[logoId]` と同じ型)。版ごとに Take が1つ。バニティ `/[handle]/[slug]` は層2として後から足す
+- **調査の部品は編集の道具。** パイプラインバー・処理ログ・「まだわからない」の一覧・読み直しは、ページの中身ではなく編集の枠に置く。プレビュー=同じページから道具を外した表示。だからプレビューと公開版は定義上一致する
+- **ブランドはワークスペース直下に並列。親子は属性。** `parent_brand_id` は「どのフォルダにいるか」ではなく**継承元**(2026-11-05)。サブブランドは自分に無い色・書体・ロゴを継承元から受け取る別のブランドで、メインの持ち物ではない。持ち物(Assets / Works)だけが入れ子になる。ツリーでは誰かに継承されているブランドに星が付くだけで、キットのページが「メインブランド」「{継承元} › サブブランド」と言う。並び順は利用者が決める(`sort_order`、migration 0060)
+- **語彙と位置を全ページで統一する。** 下書き / 公開中 / 更新あり / 非公開 を、ヘッダーの同じ場所に同じ語で。パイプラインの段の鮮度(緑/橙)とは別の軸なので、同じ見た目を使わない
+
+**内部設計では正本が芯、UI ではキットと成果物が主役。** トップページでは URL ひとつ・ロゴひとつを「ポンと入れるだけ」でキットが立ち上がる——構造の精密さが入力負担に化けたら失敗([deliverable-architecture.md §1](deliverable-architecture.md))。
 
 ## 3. 「正本」を名乗れていない(2026-08-30 時点)
 
@@ -40,13 +58,14 @@
 前の節のギャップを埋める順。**日付は置かない。**
 
 0. **CI**(`npm test` + `npm run docs:check` + lint/typecheck/build)。`.github/workflows` が無い。テスト48ファイルを回さずに正本の配線替えはしない
-1. **`campaign-lp@2` を knowledge 投影で描く**。`brief.kit` の値を knowledge から解決し、brief には Take 固有値だけ残す
-2. **採用UI**。claims→採用→再レンダー。同 PR で機械採用の格下げ、DELETE 廃止、`adopt` RPC の `source_kind → confidence` 写像
-3. **field_path レジストリ**。実装の27パスに `mark.*`(クリアスペース・最小サイズ・禁止背景・反転条件)と `voice.*` を足す。`voice.* / audience.*` は `BrandTop.tsx` にラベルだけ存在し、書き手が無い
-4. **公開 JSON + BRAND.md**。`brand_entities.knowledge_public`(既定オフ・明示公開)。`publications` 表は使えない(`surface` 5値 check、`render_id not null`。[0030](../supabase/migrations/0030_publications_canonical_slots.sql))
-5. **外部組織が入れる門**。`guardLabsRequest` の解除範囲を実測。LP 生成を `run/[stage]` 方式へ
-6. **法務6ページ**。`/company` `/contact` `/pricing` `/terms` `/privacy` `/legal/tokushoho` は**1つも存在しない**([components/SiteFooter.tsx](../components/SiteFooter.tsx) のリンク先が全部404)
-7. その先: 課金、`brand_releases`、API キー(+ [lib/rate-limit.ts](../lib/rate-limit.ts) の分散化)、DTCG/SKILL.md、remote MCP、`file_extraction`、本番実行環境
+1. **ブランドキットの公開**(§2.1)。`brand-kit` Take、`/k/[brandId]` で HTML と `brand.md` / `tokens.json` / `tokens.css` / `logo.svg`、ワークスペースに公開ヘッダー(下書き/公開中/更新あり/非公開)と推定→採用の操作。`publications` をそのまま使う(Take にすれば `render_id not null` は満たせる)
+2. **公開したキットで LP を作って確かめる。** 外部のエージェントに URL だけ渡して作らせ、キットに足りないもの(使い方の規則・素材の住所)を洗う。足りなかったものがキットの次の項目になる
+3. **ロゴ・動画・素材集の公開を同じ語彙にそろえる。** ヘッダーの状態表示とツリーの点を共通部品にする
+4. **採用UI の残り**。機械採用の格下げ、DELETE 廃止、`adopt` RPC の `source_kind → confidence` 写像
+5. **field_path レジストリ**。実装の27パスに `mark.*`(クリアスペース・最小サイズ・禁止背景・反転条件)と `voice.*` を足す。`voice.* / audience.*` は `BrandTop.tsx` にラベルだけ存在し、書き手が無い
+6. **外部組織が入れる門**。`guardLabsRequest` の解除範囲を実測。LP 生成を `run/[stage]` 方式へ
+7. **法務6ページ**。`/company` `/contact` `/pricing` `/terms` `/privacy` `/legal/tokushoho` は**1つも存在しない**([components/SiteFooter.tsx](../components/SiteFooter.tsx) のリンク先が全部404)
+8. その先: 課金、`brand_releases`、API キー(+ [lib/rate-limit.ts](../lib/rate-limit.ts) の分散化)、DTCG/SKILL.md、remote MCP、`file_extraction`、本番実行環境
 
 **テンプレートは実案件が決める。** 受けた仕事の種類がテンプレートの種類になる。外部で作ったワークフローは [lib/templates/catalog.ts](../lib/templates/catalog.ts) に版固定で登録し、`remotion/kit/` の部品語彙へ寄せる。
 
