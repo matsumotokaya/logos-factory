@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
     return [
       { source: "/lab", destination: "/labs/motion", permanent: true },
       { source: "/labs/image", destination: "/labs/workflow", permanent: true },
+      // 2026-11-05: the brand tree split into Assets and Works, and the URLs
+      // mirror the branches (docs/product.md §2.1). Old bookmarks keep working.
+      {
+        source: "/brands/:id/logos/:path*",
+        destination: "/brands/:id/assets/logos/:path*",
+        permanent: true,
+      },
+      {
+        source: "/brands/:id/video/:path*",
+        destination: "/brands/:id/works/video/:path*",
+        permanent: true,
+      },
     ];
   },
 };

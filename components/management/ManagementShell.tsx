@@ -29,6 +29,8 @@ import {
 import RowActionsMenu from "./RowActionsMenu";
 import WorkspaceMenu from "./WorkspaceMenu";
 import AddBrandDialog from "./AddBrandDialog";
+import SetParentDialog from "./SetParentDialog";
+import { MainMark } from "./MainMark";
 import TreeDeleteDialog, {
   type AtRiskMaterial,
   type MaterialChoice,
@@ -115,9 +117,11 @@ function activeBrandId(
 // The tree, built the way a file explorer is (VS Code's Explorer, Finder's
 // list view): one row height, a disclosure chevron, an icon that says what the
 // row is, indent guides, the selected row filled edge to edge, and a row's
-// menu shown on hover. Brands are folders; inside one are its nested brands,
-// then ロゴ / 動画 folders, then the files. People already know how to
-// read this, which is the whole point.
+// menu shown on hover. Brands are folders; inside one are Assets (logos,
+// materials, guidelines), Works (videos, LPs, banners) and then its nested
+// brands, which repeat the shape. People already know how to read this,
+// which is the whole point. The English folder names are deliberate: they
+// are the same in every locale, so the structure reads the same everywhere.
 // ---------------------------------------------------------------------------
 
 /** Left padding of a depth-0 row, and the step per level. */
@@ -181,6 +185,7 @@ function TreeRow({
   actions,
   rowProps,
   dropActive = false,
+  mark,
 }: {
   depth: number;
   href: string;
@@ -188,6 +193,8 @@ function TreeRow({
   /** null for a leaf: no chevron, the space is kept so icons line up. */
   open: boolean | null;
   icon: RowIconKind;
+  /** A small sign on the icon's corner — the main brand's star. */
+  mark?: ReactNode;
   label: string;
   /** Quiet text after the label: a brand's kind, a folder's count. */
   meta?: string;
@@ -205,7 +212,7 @@ function TreeRow({
       className={cn(
         "group relative flex h-6 items-center pr-1 text-[13px] text-ink",
         active ? "bg-ink/10" : "hover:bg-ink/5",
-        dropActive && "bg-ink/10 outline outline-1 -outline-offset-1 outline-ink",
+        dropActive && "shadow-[inset_0_2px_0_0_var(--accent)]",
       )}
       style={{ paddingLeft: ROW_BASE + depth * ROW_INDENT }}
     >
@@ -237,7 +244,10 @@ function TreeRow({
         draggable={false}
         className="ml-1 flex h-full min-w-0 flex-1 items-center gap-1.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
       >
-        <TreeIcon kind={icon} open={open ?? false} />
+        <span className="relative flex shrink-0">
+          <TreeIcon kind={icon} open={open ?? false} />
+          {mark ? <span className="absolute -right-1 -top-1">{mark}</span> : null}
+        </span>
         <span className="truncate">{label}</span>
         {meta ? (
           <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">{meta}</span>
@@ -255,8 +265,10 @@ function TreeRow({
 /** The drag payload type: a brand row being moved, never a link or a file. */
 const BRAND_DRAG_TYPE = "application/x-logos-brand";
 
+/** Dragging a brand row REORDERS the flat list: dropping on a row puts the
+ *  dragged brand before it. Inheritance is never set by dragging. */
 type BrandDrag = {
-  /** Can the dragged brand be dropped onto this one? */
+  /** Can the dragged brand be dropped before this one? */
   canDropOn: (targetId: string) => boolean;
   /** The row currently under the pointer, for the highlight. */
   overId: string | null;
@@ -266,15 +278,43 @@ type BrandDrag = {
   onDrop: (targetId: string) => void;
 };
 
-/** Keys in the shell's expanded set: a brand by id, its folders by section. */
-function sectionKey(section: "logos" | "video", brandId: string): string {
+/**
+ * Keys in the shell's expanded set: a brand by id, its folders by section.
+ *
+ * The folders are the two branches every brand has (docs/product.md §2.1) and
+ * the kinds inside them:
+ *
+ *   assets   what the brand IS       → logos / materials / guidelines
+ *   works    what was MADE from it   → video / lp / banner
+ */
+type TreeSection =
+  | "assets"
+  | "logos"
+  | "materials"
+  | "guidelines"
+  | "works"
+  | "video"
+  | "lp"
+  | "banner";
+
+function sectionKey(section: TreeSection, brandId: string): string {
   return `${section}:${brandId}`;
+}
+
+/** The sections a pathname sits inside, for revealing the open file. */
+export function sectionsForPath(pathname: string): TreeSection[] {
+  const match = pathname.match(
+    /^\/brands\/[^/]+\/(assets|works)(?:\/(logos|materials|guidelines|video|lp|banner))?(?:\/|$)/,
+  );
+  if (!match) return [];
+  const sections: TreeSection[] = [match[1] as TreeSection];
+  if (match[2]) sections.push(match[2] as TreeSection);
+  return sections;
 }
 
 function BrandNode({
   brand,
   depth,
-  childrenOf,
   pathname,
   expanded,
   onToggle,
@@ -285,7 +325,6 @@ function BrandNode({
 }: {
   brand: BrandSummary;
   depth: number;
-  childrenOf: Map<string | null, BrandSummary[]>;
   pathname: string;
   expanded: Set<string>;
   onToggle: (key: string) => void;
@@ -296,57 +335,70 @@ function BrandNode({
   drag: BrandDrag;
 }) {
   const open = expanded.has(brand.id);
-  const nested = childrenOf.get(brand.id) ?? [];
   const ownedLogos = brand.logos.filter((logo) => logo.subjectEntityId === brand.id);
   const videoAssets = brand.assets.filter((asset) => asset.kind === "video");
+  const lpAssets = brand.assets.filter((asset) => asset.kind === "lp");
+  const bannerAssets = brand.assets.filter((asset) => asset.kind === "banner");
   const kindLabel = isBrandKind(brand.kind) ? BRAND_KIND_LABEL[brand.kind] : "";
   const dropActive = drag.overId === brand.id;
 
-  const logoPath = `/brands/${brand.id}/logos`;
-  const videoPath = `/brands/${brand.id}/video`;
-  const within = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
+  const base = `/brands/${brand.id}`;
+  const assetsPath = `${base}/assets`;
+  const worksPath = `${base}/works`;
+  const logoPath = `${assetsPath}/logos`;
+  const videoPath = `${worksPath}/video`;
+  const within = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
+  /**
+   * A folder row. `count` null means a branch whose children are folders (no
+   * number, always openable); a number is shown and, with children, gates
+   * the chevron. A folder with no children listed here (Materials, until a
+   * file has a page of its own) only navigates.
+   */
   const folder = (
-    section: "logos" | "video",
+    section: TreeSection,
     label: string,
     path: string,
-    count: number,
-    files: ReactNode,
+    rowDepth: number,
+    count: number | null,
+    children: ReactNode,
   ) => {
     const key = sectionKey(section, brand.id);
-    const folderOpen = count > 0 && expanded.has(key);
+    const openable = children !== null && (count === null || count > 0);
+    const folderOpen = openable && expanded.has(key);
     return (
       <li>
         <TreeRow
-          depth={depth + 1}
+          depth={rowDepth}
           href={path}
           active={pathname === path}
-          open={count > 0 ? folderOpen : null}
+          open={openable ? folderOpen : null}
           icon="folder"
           label={label}
-          meta={String(count)}
+          meta={count === null ? undefined : String(count)}
           onToggle={() => onToggle(key)}
           onActivate={() => {
-            if (count > 0) onOpen(key);
+            if (openable) onOpen(key);
             onNavigate();
           }}
         />
-        {folderOpen ? <ul>{files}</ul> : null}
+        {folderOpen ? <ul>{children}</ul> : null}
       </li>
     );
   };
 
   return (
     <li>
-      {/* The row is what moves: drag it onto another brand to nest it there.
-          The drop decides nothing about the brand's kind or its deliverables;
-          a take pins its inputs, so only what comes next can change. */}
+      {/* The row is what moves: drag it above another brand to reorder the
+          list. The star is the one sign a main brand carries here; the kit
+          page says 「メインブランド」 / 「サブブランド」 in words. */}
       <TreeRow
         depth={depth}
-        href={`/brands/${brand.id}`}
-        active={pathname === `/brands/${brand.id}`}
+        href={base}
+        active={pathname === base}
         open={open}
         icon="folder"
+        mark={brand.isMain ? <MainMark className="size-2.5" /> : undefined}
         label={brand.name}
         meta={kindLabel}
         onToggle={() => onToggle(brand.id)}
@@ -385,7 +437,7 @@ function BrandNode({
             actions={brandActions({
               logoCount: ownedLogos.length,
               videoCount: videoAssets.length,
-              lpCount: brand.assets.filter((asset) => asset.kind === "lp").length,
+              lpCount: lpAssets.length,
             })}
             onSelect={(action) =>
               onAction(
@@ -404,94 +456,102 @@ function BrandNode({
 
       {open ? (
         <ul>
-          {/* Nested brands first, the way a folder lists its folders before
-              its files. */}
-          {nested.map((child) => (
-            <BrandNode
-              key={child.id}
-              brand={child}
-              depth={depth + 1}
-              childrenOf={childrenOf}
-              pathname={pathname}
-              expanded={expanded}
-              onToggle={onToggle}
-              onOpen={onOpen}
-              onNavigate={onNavigate}
-              onAction={onAction}
-              drag={drag}
-            />
-          ))}
-
+          {/* Assets: what the brand is. */}
           {folder(
-            "logos",
-            "ロゴ",
-            logoPath,
-            ownedLogos.length,
-            ownedLogos.map((logo) => (
-              <li key={logo.id}>
-                <TreeRow
-                  depth={depth + 2}
-                  href={`${logoPath}/${logo.id}`}
-                  active={within(`${logoPath}/${logo.id}`)}
-                  open={null}
-                  icon="logo"
-                  label={logo.title}
-                  onActivate={onNavigate}
-                  actions={
-                    <RowActionsMenu
+            "assets",
+            "Assets",
+            assetsPath,
+            depth + 1,
+            null,
+            <>
+              {folder(
+                "logos",
+                "Logos",
+                logoPath,
+                depth + 2,
+                ownedLogos.length,
+                ownedLogos.map((logo) => (
+                  <li key={logo.id}>
+                    <TreeRow
+                      depth={depth + 3}
+                      href={`${logoPath}/${logo.id}`}
+                      active={within(`${logoPath}/${logo.id}`)}
+                      open={null}
+                      icon="logo"
                       label={logo.title}
-                      actions={logoActions()}
-                      compact
-                      onSelect={(action) =>
-                        onAction(
-                          { kind: "logo", id: logo.id, name: logo.title, brandId: brand.id },
-                          action,
-                        )
+                      onActivate={onNavigate}
+                      actions={
+                        <RowActionsMenu
+                          label={logo.title}
+                          actions={logoActions()}
+                          compact
+                          onSelect={(action) =>
+                            onAction(
+                              { kind: "logo", id: logo.id, name: logo.title, brandId: brand.id },
+                              action,
+                            )
+                          }
+                        />
                       }
                     />
-                  }
-                />
-              </li>
-            )),
+                  </li>
+                )),
+              )}
+              {/* Materials have a list page and no page of their own yet, so
+                  the folder carries its count and does not open. */}
+              {folder("materials", "Materials", `${assetsPath}/materials`, depth + 2, brand.materialCount, null)}
+              {folder("guidelines", "Guidelines", `${assetsPath}/guidelines`, depth + 2, 0, null)}
+            </>,
           )}
 
+          {/* Works: what was made from the kit. */}
           {folder(
-            "video",
-            "動画",
-            videoPath,
-            videoAssets.length,
+            "works",
+            "Works",
+            worksPath,
+            depth + 1,
+            null,
             <>
-              {videoAssets.map((asset) => (
-                <li key={`video-asset-${asset.id}`}>
-                  <TreeRow
-                    depth={depth + 2}
-                    href={`${videoPath}/${asset.id}`}
-                    active={within(`${videoPath}/${asset.id}`)}
-                    open={null}
-                    icon="video"
-                    label={asset.title}
-                    onActivate={onNavigate}
-                    actions={
-                      <RowActionsMenu
-                        label={asset.title}
-                        actions={takeActions("video", {
-                          // publicPath is set only by a live canonical
-                          // publication, which is exactly what delete_take
-                          // refuses on.
-                          published: asset.publicPath !== null,
-                        })}
-                        compact
-                        onSelect={(action) =>
-                          onAction(
-                            { kind: "video", id: asset.id, name: asset.title, brandId: brand.id },
-                            action,
-                          )
-                        }
-                      />
-                    }
-                  />
-                </li>
-              ))}
+              {folder(
+                "video",
+                "Videos",
+                videoPath,
+                depth + 2,
+                videoAssets.length,
+                videoAssets.map((asset) => (
+                  <li key={`video-asset-${asset.id}`}>
+                    <TreeRow
+                      depth={depth + 3}
+                      href={`${videoPath}/${asset.id}`}
+                      active={within(`${videoPath}/${asset.id}`)}
+                      open={null}
+                      icon="video"
+                      label={asset.title}
+                      onActivate={onNavigate}
+                      actions={
+                        <RowActionsMenu
+                          label={asset.title}
+                          actions={takeActions("video", {
+                            // publicPath is set only by a live canonical
+                            // publication, which is exactly what delete_take
+                            // refuses on.
+                            published: asset.publicPath !== null,
+                          })}
+                          compact
+                          onSelect={(action) =>
+                            onAction(
+                              { kind: "video", id: asset.id, name: asset.title, brandId: brand.id },
+                              action,
+                            )
+                          }
+                        />
+                      }
+                    />
+                  </li>
+                )),
+              )}
+              {folder("lp", "LPs", `${worksPath}/lp`, depth + 2, lpAssets.length, null)}
+              {folder("banner", "Banners", `${worksPath}/banner`, depth + 2, bannerAssets.length, null)}
             </>,
           )}
 
@@ -509,7 +569,7 @@ function ManagementTree({
   onOpen,
   onNavigate,
   onAction,
-  onMoveBrand,
+  onReorder,
 }: {
   organization: BrandOrganizationSummary;
   pathname: string;
@@ -518,86 +578,50 @@ function ManagementTree({
   onOpen: (key: string) => void;
   onNavigate: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
-  onMoveBrand: (brandId: string, parentBrandId: string | null) => void;
+  /** The brands in their new order, after a drop. */
+  onReorder: (orderedIds: string[]) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
-  // One workspace at a time: its name heads the pane, so what is listed here
-  // is brands — nested by parent_brand_id, the user's own arrangement. A brand
-  // whose parent is not in the list (it should not happen inside one
-  // workspace) is shown at the top rather than lost.
+  // One workspace at a time: its name heads the pane, and what is listed is
+  // its brands, flat, in the user's order (sort_order). A sub-brand is not
+  // inside its parent — inheritance is a pointer the kit page shows — so the
+  // list reads like a folder of folders.
   const brands = organization.brands;
-  const ids = new Set(brands.map((brand) => brand.id));
-  const childrenOf = new Map<string | null, BrandSummary[]>();
-  for (const brand of brands) {
-    const parent =
-      brand.parentBrandId && ids.has(brand.parentBrandId) ? brand.parentBrandId : null;
-    childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), brand]);
-  }
-  const parentOf = (id: string) => brands.find((brand) => brand.id === id)?.parentBrandId ?? null;
-  const isDescendant = (candidate: string, ancestor: string) => {
-    for (let cursor = parentOf(candidate); cursor; cursor = parentOf(cursor)) {
-      if (cursor === ancestor) return true;
-    }
-    return false;
-  };
+  const ids = brands.map((brand) => brand.id);
 
   const endDrag = () => {
     setDraggingId(null);
     setOverId(null);
   };
+  const reorder = (beforeId: string | null) => {
+    if (!draggingId) return;
+    const without = ids.filter((id) => id !== draggingId);
+    const at = beforeId ? without.indexOf(beforeId) : without.length;
+    const next = [...without.slice(0, at), draggingId, ...without.slice(at)];
+    if (next.some((id, index) => id !== ids[index])) onReorder(next);
+  };
   const drag: BrandDrag = {
-    // Not onto itself, its own parent (nothing would change) or anything
-    // below it (a cycle, which enforce_brand_membership refuses anyway).
-    canDropOn: (targetId) =>
-      draggingId !== null &&
-      targetId !== draggingId &&
-      parentOf(draggingId) !== targetId &&
-      !isDescendant(targetId, draggingId),
+    canDropOn: (targetId) => draggingId !== null && targetId !== draggingId,
     overId,
     onStart: setDraggingId,
     onEnd: endDrag,
     onOver: setOverId,
     onDrop: (targetId) => {
-      if (draggingId) onMoveBrand(draggingId, targetId);
+      reorder(targetId);
       endDrag();
     },
   };
-  const canDropAtRoot = draggingId !== null && parentOf(draggingId) !== null;
 
   return (
     <nav aria-label="ブランドと成果物">
-      {/* Only while a nested brand is being dragged: the way back to the top
-          of the workspace. */}
-      {canDropAtRoot ? (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            if (overId !== "root") setOverId("root");
-          }}
-          onDragLeave={() => setOverId(null)}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (draggingId) onMoveBrand(draggingId, null);
-            endDrag();
-          }}
-          className={cn(
-            "mx-2 mb-1 flex h-6 items-center justify-center rounded border border-dashed text-[11px] text-ink-muted",
-            overId === "root" ? "border-ink bg-ink/10 text-ink" : "border-hairline",
-          )}
-        >
-          ワークスペースの直下へ
-        </div>
-      ) : null}
       <ul>
-        {(childrenOf.get(null) ?? []).map((brand) => (
+        {brands.map((brand) => (
           <BrandNode
             key={brand.id}
             brand={brand}
             depth={0}
-            childrenOf={childrenOf}
             pathname={pathname}
             expanded={expanded}
             onToggle={onToggle}
@@ -608,6 +632,28 @@ function ManagementTree({
           />
         ))}
       </ul>
+      {/* Only while a brand is being dragged: the way to the end of the list. */}
+      {draggingId ? (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (overId !== "end") setOverId("end");
+          }}
+          onDragLeave={() => setOverId(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            reorder(null);
+            endDrag();
+          }}
+          className={cn(
+            "mx-2 mt-1 flex h-6 items-center justify-center rounded border border-dashed text-[11px] text-ink-muted",
+            overId === "end" ? "border-ink bg-ink/10 text-ink" : "border-hairline",
+          )}
+        >
+          一番下へ
+        </div>
+      ) : null}
       {brands.length === 0 ? (
         <p className="px-4 py-1.5 text-pretty text-xs text-ink-faint">
           このワークスペースにはまだブランドがありません。上の「＋」から、サイトのURLで追加できます。
@@ -675,7 +721,7 @@ function SidebarContent({
   onRetry,
   onAction,
   onAddBrand,
-  onMoveBrand,
+  onReorder,
 }: {
   /** The workspace being viewed; null while loading or when the user has none. */
   organization: BrandOrganizationSummary | null;
@@ -690,7 +736,7 @@ function SidebarContent({
   onRetry: () => void;
   onAction: (target: TreeTarget, action: TreeActionId) => void;
   onAddBrand: () => void;
-  onMoveBrand: (brandId: string, parentBrandId: string | null) => void;
+  onReorder: (orderedIds: string[]) => void;
 }) {
   const workspaceName = organization?.name?.trim() || "名称未設定のワークスペース";
   return (
@@ -753,7 +799,7 @@ function SidebarContent({
             onOpen={onOpen}
             onNavigate={onNavigate}
             onAction={onAction}
-            onMoveBrand={onMoveBrand}
+            onReorder={onReorder}
           />
         ) : (
           <div className="px-4 pt-3">
@@ -797,6 +843,12 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     null,
   );
   const [addingBrand, setAddingBrand] = useState(false);
+  // The brand a new one goes under, when the menu asked for a sub-brand.
+  const [addParent, setAddParent] = useState<{ id: string; name: string } | null>(null);
+  // 「継承元を指定」 in progress for this brand.
+  const [parentTarget, setParentTarget] = useState<BrandSummary | null>(null);
+  const [parentSaving, setParentSaving] = useState(false);
+  const [parentError, setParentError] = useState<string | null>(null);
   // Which world we are in. Read once on mount because localStorage is not
   // available while the server renders this component.
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(
@@ -805,9 +857,15 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
   const [expandedBusinesses, setExpandedBusinesses] = useState<Set<string>>(
     () => new Set(),
   );
+  // Rows the user closed although the page would reveal them.
+  const [closedRows, setClosedRows] = useState<Set<string>>(() => new Set());
 
+  // The tree is fetched once and on explicit refresh, never because the
+  // pathname moved: a click inside the tree must not redraw the tree. The
+  // skeleton shows only while there is nothing to show — a refetch keeps the
+  // rows on screen and swaps them when the new ones land.
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading((current) => current && organizations.length === 0);
     setError(null);
     try {
       const response = await authedFetch("/api/brands");
@@ -818,25 +876,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       if (!response.ok || !body?.organizations) {
         throw new Error(body?.error ?? "事業一覧を取得できませんでした");
       }
-      const nextOrganizations = body.organizations;
-      setOrganizations(nextOrganizations);
-      // Open the way to the page on screen: its brand, every brand above it,
-      // and the folder it sits in — as an explorer reveals the open file.
-      const brandId = activeBrandId(pathname, nextOrganizations);
-      if (brandId) {
-        const all = nextOrganizations.flatMap((organization) => organization.brands);
-        const reveal: string[] = [];
-        for (
-          let cursor: string | null = brandId;
-          cursor && !reveal.includes(cursor);
-          cursor = all.find((brand) => brand.id === cursor)?.parentBrandId ?? null
-        ) {
-          reveal.push(cursor);
-        }
-        const section = pathname.match(/^\/brands\/[^/]+\/(logos|video|lp)(?:\/|$)/)?.[1];
-        if (section) reveal.push(`${section}:${brandId}`);
-        setExpandedBusinesses((current) => new Set([...current, ...reveal]));
-      }
+      setOrganizations(body.organizations);
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -846,7 +886,8 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- organizations is read only to decide whether a skeleton is warranted
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -858,6 +899,20 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [load]);
+
+  // Open the way to the page on screen: its brand, every brand above it, and
+  // the folders it sits in — as an explorer reveals the open file. Derived
+  // at render and unioned with what the user opened, so a navigation never
+  // has to write state to show its own row.
+  const revealed = (() => {
+    const brandId = activeBrandId(pathname, organizations);
+    if (!brandId) return new Set<string>();
+    const keys: string[] = [brandId];
+    for (const section of sectionsForPath(pathname)) {
+      keys.push(sectionKey(section, brandId));
+    }
+    return new Set(keys);
+  })();
 
   useEffect(() => {
     const refresh = () => void load();
@@ -913,6 +968,24 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (action === "set-parent") {
+        if (target.kind !== "brand") return;
+        const brand = organizations
+          .flatMap((organization) => organization.brands)
+          .find((row) => row.id === target.id);
+        if (!brand) return;
+        setParentError(null);
+        setMobileOpen(false);
+        setParentTarget(brand);
+        return;
+      }
+      if (action === "add-child") {
+        if (target.kind !== "brand") return;
+        setAddParent({ id: target.id, name: target.name });
+        setMobileOpen(false);
+        setAddingBrand(true);
+        return;
+      }
       if (action === "delete") {
         setPendingDelete(target);
         setAtRiskMaterials(null);
@@ -922,7 +995,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       }
       void runDuplicate(target);
     },
-    [runDuplicate, router],
+    [runDuplicate, router, organizations],
   );
 
   const confirmDelete = useCallback(async () => {
@@ -957,73 +1030,125 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
 
   // One set holds every open row: brands by id, their folders by
   // `${section}:${brandId}`.
+  const expandedRows = new Set(
+    [...expandedBusinesses, ...revealed].filter((key) => !closedRows.has(key)),
+  );
   const toggleBusiness = (id: string) => {
-    setExpandedBusinesses((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    if (expandedRows.has(id)) {
+      setExpandedBusinesses((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      if (revealed.has(id)) setClosedRows((current) => new Set([...current, id]));
+    } else {
+      setExpandedBusinesses((current) => new Set([...current, id]));
+      setClosedRows((current) => {
+        if (!current.has(id)) return current;
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   };
   const openRow = (id: string) => {
     setExpandedBusinesses((current) =>
       current.has(id) ? current : new Set([...current, id]),
     );
+    setClosedRows((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   };
 
   // A stored id the user can no longer see falls back to the first workspace
   // rather than emptying the pane (resolveWorkspace).
   const workspace = resolveWorkspace(organizations, currentWorkspaceId);
 
-  // A drop in the tree. The tree is reloaded rather than patched locally: the
-  // trigger may refuse the move, and the row the server returns is the truth.
-  const moveBrand = async (brandId: string, parentBrandId: string | null) => {
+  // A drop in the tree: every brand whose position changed is written, then
+  // the tree is reloaded so the server's order is the one on screen.
+  const reorderBrands = async (orderedIds: string[]) => {
     const brands = workspace?.brands ?? [];
-    const name = brands.find((brand) => brand.id === brandId)?.name ?? "ブランド";
-    const parentName = parentBrandId
-      ? (brands.find((brand) => brand.id === parentBrandId)?.name ?? "ブランド")
-      : null;
+    const current = new Map(brands.map((brand) => [brand.id, brand.sortOrder]));
     try {
-      const response = await authedFetch(`/api/brands/${brandId}`, {
+      await Promise.all(
+        orderedIds.map((id, index) => {
+          if (current.get(id) === index + 1) return Promise.resolve();
+          return authedFetch(`/api/brands/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sortOrder: index + 1 }),
+          }).then(async (response) => {
+            if (!response.ok) {
+              const body = (await response.json().catch(() => null)) as { error?: string } | null;
+              throw new Error(body?.error ?? "並び順を保存できませんでした");
+            }
+          });
+        }),
+      );
+      await load();
+    } catch (reorderError) {
+      setNotice({
+        tone: "error",
+        text: reorderError instanceof Error ? reorderError.message : "並び順を保存できませんでした",
+      });
+    }
+  };
+
+  // 「継承元」 saved from the dialog. The server refuses cycles and brands from
+  // another workspace; its sentence is shown in the dialog.
+  const saveParent = async (parentBrandId: string | null) => {
+    if (!parentTarget) return;
+    setParentSaving(true);
+    setParentError(null);
+    try {
+      const response = await authedFetch(`/api/brands/${parentTarget.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parentBrandId }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "ブランドを移動できませんでした");
-      if (parentBrandId) {
-        setExpandedBusinesses((current) => new Set([...current, parentBrandId]));
-      }
+      if (!response.ok) throw new Error(body?.error ?? "継承元を変更できませんでした");
+      const parentName = parentBrandId
+        ? (workspace?.brands.find((brand) => brand.id === parentBrandId)?.name ?? "ブランド")
+        : null;
+      setParentTarget(null);
       setNotice({
         tone: "ok",
         text: parentName
-          ? `「${name}」を「${parentName}」の下に移動しました`
-          : `「${name}」をワークスペースの直下に移動しました`,
+          ? `「${parentTarget.name}」は「${parentName}」を継承します`
+          : `「${parentTarget.name}」は独立したブランドになりました`,
       });
       await load();
-    } catch (moveError) {
-      setNotice({
-        tone: "error",
-        text: moveError instanceof Error ? moveError.message : "ブランドを移動できませんでした",
-      });
+    } catch (parentSaveError) {
+      setParentError(
+        parentSaveError instanceof Error ? parentSaveError.message : "継承元を変更できませんでした",
+      );
+    } finally {
+      setParentSaving(false);
     }
   };
 
   const sidebarProps = {
     organization: workspace,
-    onMoveBrand: (brandId: string, parentBrandId: string | null) =>
-      void moveBrand(brandId, parentBrandId),
+    onReorder: (orderedIds: string[]) => void reorderBrands(orderedIds),
     pathname,
     loading,
     error,
-    expanded: expandedBusinesses,
+    expanded: expandedRows,
     onToggle: toggleBusiness,
     onOpen: openRow,
-    onCollapseAll: () => setExpandedBusinesses(new Set()),
+    onCollapseAll: () => {
+      setExpandedBusinesses(new Set());
+      setClosedRows(new Set(revealed));
+    },
     onRetry: () => void load(),
     onAction: handleAction,
     onAddBrand: () => {
       setMobileOpen(false);
+      setAddParent(null);
       setAddingBrand(true);
     },
   };
@@ -1095,9 +1220,27 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       {workspace ? (
         <AddBrandDialog
           open={addingBrand}
-          onOpenChange={setAddingBrand}
+          onOpenChange={(open) => {
+            setAddingBrand(open);
+            if (!open) setAddParent(null);
+          }}
           organizationId={workspace.id}
           organizationName={workspace.name.trim() || "名称未設定のワークスペース"}
+          parent={addParent}
+        />
+      ) : null}
+
+      {parentTarget && workspace ? (
+        <SetParentDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !parentSaving) setParentTarget(null);
+          }}
+          brand={{ id: parentTarget.id, name: parentTarget.name, parentBrandId: parentTarget.parentBrandId }}
+          brands={workspace.brands}
+          saving={parentSaving}
+          error={parentError}
+          onSave={(parentBrandId) => void saveParent(parentBrandId)}
         />
       ) : null}
 

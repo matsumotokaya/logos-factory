@@ -37,6 +37,8 @@ export async function createBrandFromUrl(
     url: string;
     /** The workspace to file it in; null to make a new one. */
     organizationId: string | null;
+    /** The brand this one sits under (a sub-brand), else null. */
+    parentBrandId?: string | null;
   },
 ): Promise<{
   organizationId: string;
@@ -59,6 +61,17 @@ export async function createBrandFromUrl(
     if (workspace.error) throw new Error(workspace.error.message);
   }
 
+  // Last in the workspace's list; the user moves it from there.
+  const last = await supabase
+    .from("brand_entities")
+    .select("sort_order")
+    .eq("organization_id", organizationId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last.error) throw new Error(last.error.message);
+  const sortOrder = ((last.data?.sort_order as number | undefined) ?? 0) + 1;
+
   const brandId = randomUUID();
   const website = normalizedWebsite(input.url);
   const brand = await supabase.from("brand_entities").insert({
@@ -74,6 +87,8 @@ export async function createBrandFromUrl(
     },
     created_by: userId,
     organization_id: organizationId,
+    parent_brand_id: input.parentBrandId ?? null,
+    sort_order: sortOrder,
     brand_kind: "business",
   });
   if (brand.error) throw new Error(brand.error.message);

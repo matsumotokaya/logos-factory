@@ -55,7 +55,7 @@ export default function RasterLogoView({
     <main className="flex min-h-[calc(100dvh-7rem)] flex-col bg-paper text-ink">
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-end gap-3 border-b border-hairline bg-paper px-6 py-2.5 md:px-10">
         <Link
-          href={`/brands/${brandId}/logos`}
+          href={`/brands/${brandId}/assets/logos`}
           className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           ロゴ一覧
@@ -83,7 +83,7 @@ export default function RasterLogoView({
         <p className="max-w-prose text-pretty text-center text-sm text-ink-muted">
           画像ロゴのプレゼンテーションは準備中です。SVGを差し替えるとベクター正本になり、プレゼンテーションを生成できます。差し替えは
           <Link
-            href={`/brands/${brandId}/logos/${logoId}/info`}
+            href={`/brands/${brandId}/assets/logos/${logoId}/info`}
             className="mx-1 underline underline-offset-4 hover:text-ink"
           >
             詳細

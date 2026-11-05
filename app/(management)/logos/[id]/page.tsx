@@ -31,7 +31,7 @@ export default async function ManagedLogoPage({
       const subject = rows[0]?.subject_entity_id;
       if (subject) {
         const { redirect } = await import("next/navigation");
-        redirect(`/brands/${subject}/logos/${id}/info`);
+        redirect(`/brands/${subject}/assets/logos/${id}/info`);
       }
     }
   }

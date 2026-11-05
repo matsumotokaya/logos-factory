@@ -23,7 +23,7 @@ export default async function BrandLogoPage({
       params={Promise.resolve({ id: logoId })}
       embedded
       editable
-      resetHref={`/brands/${id}/logos`}
+      resetHref={`/brands/${id}/assets/logos`}
       resetLabel="ロゴ一覧"
       rasterFallback={<RasterLogoView brandId={id} logoId={logoId} />}
     />

@@ -99,7 +99,7 @@ export default function BrandVideoInfo({
     };
   }, [brandId, videoId]);
 
-  const bodyPath = `/brands/${brandId}/video/${videoId}`;
+  const bodyPath = `/brands/${brandId}/works/video/${videoId}`;
 
   if (state.kind !== "ready") {
     return (

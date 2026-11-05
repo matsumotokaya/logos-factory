@@ -58,19 +58,19 @@ export default function LogoPortal({ brandId }: { brandId: string }) {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-ink-muted">LOGO</p>
+          <p className="text-xs font-semibold text-ink-muted">ASSETS / LOGOS</p>
           <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
-            {brandName ? `${brandName}のロゴ` : "ロゴ"}
+            {brandName ? `${brandName} の Logos` : "Logos"}
           </h1>
           <p className="mt-3 text-pretty text-sm text-ink-muted">
             同じOrganizationに紐づくブランド全体のロゴ一覧です。ロゴをクリックするとロゴプレゼンの編集画面が開きます。
           </p>
         </div>
         <Link
-          href={`/brands/${brandId}`}
+          href={`/brands/${brandId}/assets`}
           className="text-xs text-ink-muted underline-offset-4 hover:text-ink"
         >
-          ← ブランドトップ
+          ← Assets
         </Link>
       </header>
 
@@ -102,7 +102,7 @@ export default function LogoPortal({ brandId }: { brandId: string }) {
 function LogoCard({ brandId, logo }: { brandId: string; logo: LogoSummary }) {
   return (
     <Link
-      href={`/brands/${brandId}/logos/${logo.id}`}
+      href={`/brands/${brandId}/assets/logos/${logo.id}`}
       className={cn(
         "flex flex-col gap-3 rounded-2xl border border-hairline bg-white p-4 transition",
         "hover:border-ink hover:bg-ink/[0.02]",

@@ -19,12 +19,15 @@ export default function AddBrandDialog({
   onOpenChange,
   organizationId,
   organizationName,
+  parent = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The workspace the pane is showing: the world the new Brand lands in. */
   organizationId: string;
   organizationName: string;
+  /** Set when the new brand goes UNDER a brand (a sub-brand), else null. */
+  parent?: { id: string; name: string } | null;
 }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
@@ -47,7 +50,11 @@ export default function AddBrandDialog({
       const res = await authedFetch("/api/brands", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), organizationId }),
+        body: JSON.stringify({
+          url: url.trim(),
+          organizationId,
+          parentBrandId: parent?.id ?? null,
+        }),
       });
       const json = ((await res.json().catch(() => null)) ?? {}) as {
         brandId?: string;
@@ -93,10 +100,12 @@ export default function AddBrandDialog({
             className="w-full max-w-lg rounded-2xl border border-hairline bg-white p-6 shadow-xl focus:outline-none"
           >
             <Dialog.Title className="text-balance font-display text-xl font-semibold text-ink">
-              ブランドを追加
+              {parent ? "サブブランドを追加" : "ブランドを追加"}
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-pretty text-sm text-ink-muted">
-              URLを入れると、「{organizationName}」にブランドが1つ立ちます。
+              {parent
+                ? `URLを入れると、「${parent.name}」の下にサブブランドが1つ立ちます。`
+                : `URLを入れると、「${organizationName}」にブランドが1つ立ちます。`}
               サイトから名前・種別・色・書体・ロゴ・画像を読み取って登録します。
             </Dialog.Description>
 
@@ -139,7 +148,7 @@ export default function AddBrandDialog({
                   disabled={!url.trim() || starting}
                   className="rounded-full bg-ink px-5 py-2 text-xs font-semibold text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  {starting ? "開始しています…" : "ブランドを追加"}
+                  {starting ? "開始しています…" : parent ? "サブブランドを追加" : "ブランドを追加"}
                 </button>
               </div>
             </form>

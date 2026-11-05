@@ -5,8 +5,9 @@ import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server
 // PATCH: relabel a Brand or move it in the tree.
 //
 //   { brandKind: "product" }        the label, any of BRAND_KINDS
-//   { parentBrandId: "<uuid>" }     nest under another Brand in the workspace
-//   { parentBrandId: null }         back to the top of the workspace
+//   { parentBrandId: "<uuid>" }     inherit from another Brand in the workspace
+//   { parentBrandId: null }         inherit from nothing
+//   { sortOrder: 3 }                position in the workspace's list
 //
 // Neither changes anything else: the kind is a label, and a move leaves every
 // deliverable as it was because a take pins its inputs. The tree's rules —
@@ -21,7 +22,7 @@ export async function PATCH(
   const user = await requireUser(req);
   const { id } = await ctx.params;
 
-  let body: { brandKind?: unknown; parentBrandId?: unknown };
+  let body: { brandKind?: unknown; parentBrandId?: unknown; sortOrder?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -59,7 +60,13 @@ export async function PATCH(
     }
     patch.parent_brand_id = body.parentBrandId;
   }
-  if (!("brand_kind" in patch) && !("parent_brand_id" in patch)) {
+  if ("sortOrder" in body) {
+    if (typeof body.sortOrder !== "number" || !Number.isInteger(body.sortOrder) || body.sortOrder < 0) {
+      return Response.json({ error: "並び順が不正です" }, { status: 400 });
+    }
+    patch.sort_order = body.sortOrder;
+  }
+  if (!("brand_kind" in patch) && !("parent_brand_id" in patch) && !("sort_order" in patch)) {
     return Response.json({ error: "変更する項目がありません" }, { status: 400 });
   }
 
@@ -67,7 +74,7 @@ export async function PATCH(
     .from("brand_entities")
     .update(patch)
     .eq("id", id)
-    .select("id, brand_kind, parent_brand_id")
+    .select("id, brand_kind, parent_brand_id, sort_order")
     .maybeSingle();
   if (updated.error) {
     const message = updated.error.message;

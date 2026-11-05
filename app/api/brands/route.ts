@@ -30,6 +30,7 @@ type BrandRow = {
   id: string;
   organization_id: string;
   parent_brand_id: string | null;
+  sort_order: number;
   brand_kind: BrandSummary["kind"];
   name: string;
   website: string;
@@ -93,12 +94,12 @@ export async function GET(req: Request) {
   const brandResult = await supabase
     .from("brand_entities")
     .select(
-      "id, organization_id, parent_brand_id, brand_kind, name, website, industry, description, status",
+      "id, organization_id, parent_brand_id, brand_kind, name, website, industry, description, status, sort_order",
     )
     .in("organization_id", organizationIds)
-    // Newest first: the left pane is a work surface, so what was just
-    // registered has to be at the top instead of scrolling off the bottom.
-    .order("created_at", { ascending: false });
+    // The user's own order (0060); creation time only breaks ties.
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (brandResult.error) {
     return Response.json(
       { error: "ブランドを取得できませんでした" },
@@ -128,18 +129,30 @@ export async function GET(req: Request) {
     );
   }
 
-  const [knowledgeResult, logoResult, takeAssetResult] = await Promise.all([
+  const [knowledgeResult, logoResult, takeAssetResult, materialResult] = await Promise.all([
     knowledgeProfilesByBrand(supabase, brandIds),
     supabase
       .from("logos")
       .select("id, subject_entity_id, title, role, visibility")
       .in("subject_entity_id", brandIds),
     listTakeAssetsByBrand(supabase, brandIds),
+    // The Materials folder's count. Brand-scope rows only: a take's own
+    // copies are the take's (docs/asset-normalization.md §12).
+    supabase
+      .from("brand_materials")
+      .select("brand_id")
+      .in("brand_id", brandIds)
+      .eq("scope", "brand"),
   ]);
   const relatedError =
     knowledgeResult.error ??
     logoResult.error ??
-    takeAssetResult.error;
+    takeAssetResult.error ??
+    materialResult.error;
+  const materialCounts = new Map<string, number>();
+  for (const row of (materialResult.data ?? []) as { brand_id: string }[]) {
+    materialCounts.set(row.brand_id, (materialCounts.get(row.brand_id) ?? 0) + 1);
+  }
   if (relatedError) {
     return Response.json(
       { error: "ブランド関連データを取得できませんでした" },
@@ -203,6 +216,11 @@ export async function GET(req: Request) {
     return resolved;
   };
 
+  // Inheritance is a reference, not a folder: a brand is 「Main」 when another
+  // one points at it, and the pointer's target is named on the sub.
+  const inheritedFrom = new Set(
+    brands.map((brand) => brand.parent_brand_id).filter((id): id is string => id !== null),
+  );
   const summariesByOrganization = new Map<string, BrandSummary[]>();
   for (const brand of brands) {
     const profile = paletteFrom(resolvedProfile(brand));
@@ -225,6 +243,12 @@ export async function GET(req: Request) {
       logos: resolvedLogos,
       logoIds: resolvedLogos.map((logo) => logo.id),
       assets: brandAssets,
+      materialCount: materialCounts.get(brand.id) ?? 0,
+      sortOrder: brand.sort_order,
+      isMain: inheritedFrom.has(brand.id),
+      parentName: brand.parent_brand_id
+        ? (brandById.get(brand.parent_brand_id)?.name ?? null)
+        : null,
     };
     const current = summariesByOrganization.get(brand.organization_id) ?? [];
     current.push(summary);
@@ -271,11 +295,13 @@ export async function POST(req: Request) {
 
   let url: string;
   let organizationId: string | null = null;
+  let parentBrandId: string | null = null;
   let newWorkspace = false;
   try {
     const body = (await req.json().catch(() => ({}))) as {
       url?: unknown;
       organizationId?: unknown;
+      parentBrandId?: unknown;
       newWorkspace?: unknown;
     };
     if (typeof body.url !== "string" || !body.url.trim()) {
@@ -305,6 +331,24 @@ export async function POST(req: Request) {
       else if (memberships.length === 1) organizationId = memberships[0].org_id as string;
       else throw new Error("ブランドを入れるワークスペースを選んでください");
     }
+
+    // A sub-brand: the parent decides the workspace, and must be one the
+    // caller can see (RLS answers that). The tree trigger refuses a parent
+    // from another workspace, so the two are checked to agree here first.
+    if (typeof body.parentBrandId === "string" && body.parentBrandId.trim()) {
+      const { data: parent, error } = await supabase
+        .from("brand_entities")
+        .select("id, organization_id")
+        .eq("id", body.parentBrandId.trim())
+        .maybeSingle();
+      if (error || !parent) throw new Error("親のブランドが見つかりません");
+      if (newWorkspace) throw new Error("サブブランドは親と同じワークスペースに入ります");
+      if (organizationId && organizationId !== parent.organization_id) {
+        throw new Error("親のブランドは別のワークスペースにあります");
+      }
+      organizationId = parent.organization_id as string;
+      parentBrandId = parent.id as string;
+    }
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "リクエストが不正です" },
@@ -318,6 +362,7 @@ export async function POST(req: Request) {
     created = await createBrandFromUrl(supabase, user.id, {
       url,
       organizationId: newWorkspace ? null : organizationId,
+      parentBrandId,
     });
     log = await startBrandRun(supabase, { brandId: created.brandId, userId: user.id });
   } catch (error) {

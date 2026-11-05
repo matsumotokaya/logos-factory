@@ -22,7 +22,7 @@
 
 export type TreeNodeKind = "brand" | "logo" | "video";
 
-export type TreeActionId = "info" | "duplicate" | "delete";
+export type TreeActionId = "info" | "add-child" | "set-parent" | "duplicate" | "delete";
 
 export interface TreeAction {
   id: TreeActionId;
@@ -77,6 +77,11 @@ export function brandActions(facts: BrandActionFacts): TreeAction[] {
   const assetCount = facts.videoCount + facts.lpCount;
   if (assetCount > 0) parts.push(`動画・LP${assetCount}件`);
   return [
+    // A sub-brand goes under this one: a subsidiary, a product line. Same
+    // shape one level down (docs/product.md §2.1).
+    { id: "add-child", label: "サブブランドを追加", blockedReason: null, danger: false },
+    // Inheritance is a pointer, set here, never by where the row sits.
+    { id: "set-parent", label: "継承元を指定…", blockedReason: null, danger: false },
     deleteAction(
       "ブランドを削除",
       parts.length > 0 ? `${parts.join("と")}を削除してください` : null,

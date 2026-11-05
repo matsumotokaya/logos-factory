@@ -113,9 +113,9 @@ export function pathAfterDelete(target: TreeTarget): string {
     case "brand":
       return "/brands";
     case "logo":
-      return `/brands/${target.brandId}/logos`;
+      return `/brands/${target.brandId}/assets/logos`;
     case "video":
-      return `/brands/${target.brandId}/video`;
+      return `/brands/${target.brandId}/works/video`;
   }
 }
 
@@ -126,9 +126,9 @@ export function infoPath(target: TreeTarget): string | null {
     case "brand":
       return null;
     case "logo":
-      return `/brands/${target.brandId}/logos/${target.id}/info`;
+      return `/brands/${target.brandId}/assets/logos/${target.id}/info`;
     case "video":
-      return `/brands/${target.brandId}/video/${target.id}/info`;
+      return `/brands/${target.brandId}/works/video/${target.id}/info`;
   }
 }
 
@@ -143,11 +143,11 @@ export function viewingTarget(pathname: string, target: TreeTarget): boolean {
     case "logo":
       return pathname.includes(`/logos/${target.id}`) || pathname === `/logos/${target.id}`;
     case "video":
-      return pathname.startsWith(`/brands/${target.brandId}/video/${target.id}`);
+      return pathname.startsWith(`/brands/${target.brandId}/works/video/${target.id}`);
   }
 }
 
 /** Where a freshly made copy should open. */
 export function pathAfterDuplicate(target: TreeTarget, newId: string): string {
-  return `/brands/${target.brandId}/video/${newId}`;
+  return `/brands/${target.brandId}/works/video/${newId}`;
 }

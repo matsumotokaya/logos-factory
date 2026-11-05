@@ -21,7 +21,7 @@ export default function BrandLogoInfoPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-2 px-6 pt-6 text-xs text-ink-muted">
-        <Link href={`/brands/${id}/logos/${logoId}`} className="hover:text-ink">
+        <Link href={`/brands/${id}/assets/logos/${logoId}`} className="hover:text-ink">
           ← プレゼンテーション
         </Link>
         <Link href={`/brands/${id}`} className="hover:text-ink">

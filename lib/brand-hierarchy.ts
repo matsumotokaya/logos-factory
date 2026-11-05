@@ -56,6 +56,14 @@ export type BrandSummary = {
   logos: BrandLogoSummary[];
   logoIds: string[];
   assets: BrandAssetSummary[];
+  /** Files in the brand's own library (brand_materials, scope=brand). */
+  materialCount: number;
+  /** Position in the workspace's list, the user's arrangement. */
+  sortOrder: number;
+  /** Derived: another brand in the workspace inherits from this one. */
+  isMain: boolean;
+  /** The brand this one inherits from (parentBrandId), by name. */
+  parentName: string | null;
 };
 
 export type BrandOrganizationSummary = {

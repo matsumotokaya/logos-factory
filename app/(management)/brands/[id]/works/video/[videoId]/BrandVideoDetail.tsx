@@ -1221,7 +1221,7 @@ export default function BrandVideoDetail({
         >
           {error}
         </p>
-        <Link href={`/brands/${brandId}/video`} className="mt-5 inline-block text-xs text-accent">
+        <Link href={`/brands/${brandId}/works/video`} className="mt-5 inline-block text-xs text-accent">
           ← 動画一覧へ
         </Link>
       </main>
@@ -1477,7 +1477,7 @@ export default function BrandVideoDetail({
           {video.brandName ?? "ブランド"}
         </Link>
         <span aria-hidden className="text-ink-faint">/</span>
-        <Link href={`/brands/${brandId}/video`} className="hover:text-ink">
+        <Link href={`/brands/${brandId}/works/video`} className="hover:text-ink">
           動画
         </Link>
         <span aria-hidden className="text-ink-faint">/</span>

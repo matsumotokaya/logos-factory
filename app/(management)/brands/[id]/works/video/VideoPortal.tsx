@@ -187,7 +187,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
       setTitle("");
       // The left tree lists videos too, so it has to pick the new one up.
       refreshBrandTree();
-      router.push(`/brands/${brandId}/video/${created}`);
+      router.push(`/brands/${brandId}/works/video/${created}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "動画を追加できませんでした";
       finish("failed", message);
@@ -212,9 +212,9 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
       />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-ink-muted">VIDEO</p>
+          <p className="text-xs font-semibold text-ink-muted">WORKS / VIDEOS</p>
           <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
-            {brandName ? `${brandName}の動画` : "動画"}
+            {brandName ? `${brandName} の Videos` : "Videos"}
           </h1>
           <p className="mt-3 text-pretty text-sm text-ink-muted">
             このブランドが持つ動画の一覧です。テンプレートを選んで追加でき、
@@ -289,7 +289,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
 function VideoRow({ brandId, video }: { brandId: string; video: VideoSummary }) {
   return (
     <Link
-      href={`/brands/${brandId}/video/${video.id}`}
+      href={`/brands/${brandId}/works/video/${video.id}`}
       className="flex flex-wrap items-center gap-4 rounded-2xl border border-hairline px-5 py-4 transition hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       <span className="min-w-0 flex-1">
