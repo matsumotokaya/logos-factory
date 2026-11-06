@@ -1,29 +1,36 @@
 "use client";
 
 // The line above the brand's name — 「メインブランド」, 「Funds › サブブランド」
-// or 「ブランド」 — as a menu. What it says is the brand's standing in the
-// workspace, so the same choices the tree's row menu offers are here too:
-// make it the main, put it under another brand, make it independent, add a
-// sub-brand beneath it. The page does what the row does, in the same words.
+// or 「ブランド」 — opens a drawer about the brand's standing in the
+// workspace. Each choice is explained before it is offered, because the
+// two 「メインブランド」 sentences mean different things: making THIS brand
+// the workspace's main, and naming the brand this one sits under.
 
-import { Menu } from "@base-ui/react/menu";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandOrganizationSummary, BrandSummary } from "@/lib/brand-hierarchy";
 import { refreshBrandTree } from "@/lib/brand-events";
-import { cn } from "@/lib/cn";
 import AddBrandDialog from "@/components/management/AddBrandDialog";
 import { MainMark } from "@/components/management/MainMark";
-import SetParentDialog from "@/components/management/SetParentDialog";
+import StageDrawer from "@/components/pipeline/StageDrawer";
 
-function ChevronDown() {
+function GearIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-3.5">
-      <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
+
+const buttonClass =
+  "rounded-full border border-ink px-4 py-1.5 text-xs font-semibold transition hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink";
 
 export default function BrandRoleMenu({
   brand,
@@ -41,15 +48,15 @@ export default function BrandRoleMenu({
   onChanged: () => void | Promise<void>;
   onError: (message: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [workspace, setWorkspace] = useState<BrandOrganizationSummary | null>(null);
   const [busy, setBusy] = useState(false);
-  const [choosingParent, setChoosingParent] = useState(false);
-  const [parentError, setParentError] = useState<string | null>(null);
   const [addingChild, setAddingChild] = useState(false);
+  const [parentChoice, setParentChoice] = useState<string>(brand.parent?.id ?? "");
 
-  // The workspace's brands, for the sub-brand dialog's list and the main's
-  // name. Read once; the dialogs are the only readers.
+  // The workspace's brands, for the list of possible parents.
   useEffect(() => {
+    if (!open) return;
     let cancelled = false;
     void (async () => {
       const res = await authedFetch("/api/brands").catch(() => null);
@@ -62,7 +69,7 @@ export default function BrandRoleMenu({
     return () => {
       cancelled = true;
     };
-  }, [brand.organizationId, brand.parent?.id, brand.isMain]);
+  }, [open, brand.organizationId, brand.parent?.id, brand.isMain]);
 
   const patch = useCallback(
     async (body: Record<string, unknown>, failure: string) => {
@@ -88,7 +95,21 @@ export default function BrandRoleMenu({
     [brand.id, onChanged, onError],
   );
 
-  const label: ReactNode = brand.isMain ? (
+  const brands: BrandSummary[] = workspace?.brands ?? [];
+  const mainBrand = brands.find((row) => row.isMain) ?? null;
+  // A brand cannot sit under itself or under anything that sits under it.
+  const parentOf = new Map(brands.map((row) => [row.id, row.parentBrandId]));
+  const descendsFrom = (candidate: string, ancestor: string) => {
+    for (let cursor = parentOf.get(candidate) ?? null; cursor; cursor = parentOf.get(cursor) ?? null) {
+      if (cursor === ancestor) return true;
+    }
+    return false;
+  };
+  const parentOptions = brands.filter((row) => row.id !== brand.id && !descendsFrom(row.id, brand.id));
+  const effectiveChoice =
+    parentChoice || (mainBrand && mainBrand.id !== brand.id ? mainBrand.id : "");
+
+  const standing = brand.isMain ? (
     <span className="flex items-center gap-1.5">
       <MainMark />
       メインブランド
@@ -109,96 +130,116 @@ export default function BrandRoleMenu({
     "ブランド"
   );
 
-  const items: { id: string; label: string; blocked: string | null; run: () => void }[] = [
-    {
-      id: "make-main",
-      label: "メインブランドにする",
-      blocked: brand.isMain ? "すでにメインブランドです" : null,
-      run: () => void patch({ main: true }, "メインブランドを変更できませんでした"),
-    },
-    {
-      id: "set-parent",
-      label: "サブブランドにする…",
-      blocked: null,
-      run: () => {
-        setParentError(null);
-        setChoosingParent(true);
-      },
-    },
-    {
-      id: "detach",
-      label: "独立したブランドにする",
-      blocked: brand.parent ? null : "どのブランドにも属していません",
-      run: () => void patch({ parentBrandId: null }, "独立したブランドにできませんでした"),
-    },
-    {
-      id: "add-child",
-      label: "サブブランドを追加",
-      blocked: null,
-      run: () => setAddingChild(true),
-    },
-  ];
-
-  const brands: BrandSummary[] = workspace?.brands ?? [];
-
   return (
     <>
-      <Menu.Root>
-        <Menu.Trigger
-          disabled={busy}
-          className={cn(
-            "flex items-center gap-1 rounded-full py-0.5 pl-1 pr-1.5 text-xs font-semibold text-ink-muted transition hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink data-[popup-open]:bg-ink/5 data-[popup-open]:text-ink disabled:opacity-50",
-          )}
-          title="このブランドの位置づけを変える"
-        >
-          {label}
-          <ChevronDown />
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner side="bottom" align="start" sideOffset={6} className="z-50 outline-none">
-            <Menu.Popup className="w-64 rounded-xl border border-hairline bg-paper p-1.5 shadow-lg outline-none">
-              {items.map((item) => (
-                <Menu.Item
-                  key={item.id}
-                  disabled={item.blocked !== null}
-                  onClick={item.run}
-                  className={cn(
-                    "cursor-pointer rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-ink/5",
-                    item.blocked !== null && "cursor-default text-ink-faint data-[highlighted]:bg-transparent",
-                  )}
-                >
-                  {item.label}
-                  {item.blocked ? (
-                    <span className="mt-0.5 block text-pretty text-[11px] leading-snug text-ink-faint">
-                      {item.blocked}
-                    </span>
-                  ) : null}
-                </Menu.Item>
-              ))}
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="このブランドの位置づけ（メイン／サブ）を変える"
+        className="flex items-center gap-1.5 rounded-full border border-hairline py-0.5 pl-2 pr-2.5 text-xs font-semibold text-ink-muted transition hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        {standing}
+        <GearIcon />
+      </button>
 
-      {choosingParent ? (
-        <SetParentDialog
-          open
-          onOpenChange={(open) => {
-            if (!open && !busy) setChoosingParent(false);
-          }}
-          brand={{ id: brand.id, name: brand.name, parentBrandId: brand.parent?.id ?? null }}
-          brands={brands}
-          mainBrandId={brands.find((row) => row.isMain)?.id ?? null}
-          saving={busy}
-          error={parentError}
-          onSave={(parentBrandId) =>
-            void (async () => {
-              setParentError(null);
-              const ok = await patch({ parentBrandId }, "サブブランドにできませんでした");
-              if (ok) setChoosingParent(false);
-            })()
-          }
-        />
+      {open ? (
+        <StageDrawer
+          title="このブランドの位置づけ"
+          description="ワークスペースの中でこのブランドがどこに立つかを決めます。メインは1つ、サブブランドは別のブランドの下に置かれ、自分に無い色・書体・ロゴをそのブランドから受け取ります。"
+          onClose={() => setOpen(false)}
+        >
+          <div className="flex flex-col gap-6 text-[12px]">
+            <section className="rounded-xl border border-hairline px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">いま</p>
+              <p className="mt-1 text-sm font-semibold text-ink">
+                {brand.isMain
+                  ? "ワークスペースのメインブランド"
+                  : brand.parent
+                    ? `「${brand.parent.name}」のサブブランド`
+                    : "独立したブランド（どのブランドにも属していません）"}
+              </p>
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-ink">ワークスペースのメインブランドにする</h3>
+              <p className="text-pretty text-ink-muted">
+                ワークスペースの顔になるブランドです。1つだけ選べて、ツリーに ★ が付きます。
+                {mainBrand && mainBrand.id !== brand.id ? ` いまは「${mainBrand.name}」です。` : ""}
+                付け替えても、どのブランドの値も動きません。
+              </p>
+              <div>
+                <button
+                  type="button"
+                  disabled={busy || brand.isMain}
+                  onClick={() => void patch({ main: true }, "メインブランドを変更できませんでした")}
+                  className={buttonClass}
+                >
+                  {brand.isMain ? "すでにメインブランドです" : "メインブランドにする"}
+                </button>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-ink">メインブランドを指定</h3>
+              <p className="text-pretty text-ink-muted">
+                このブランドをどのブランドの下に置くかを決めます。指定すると、このブランドはそのブランドのサブブランドになり、自分で決めていない項目だけ、そのブランドの値がそのまま使われます。自分で決めた項目はそのまま残ります。
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={effectiveChoice}
+                  onChange={(event) => setParentChoice(event.target.value)}
+                  disabled={busy || !workspace}
+                  className="min-w-56 rounded-xl border border-hairline bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+                >
+                  {parentOptions.length === 0 ? <option value="">（他のブランドがありません）</option> : null}
+                  {parentOptions.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                      {row.isMain ? "（ワークスペースのメイン）" : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={busy || !effectiveChoice || effectiveChoice === brand.parent?.id}
+                  onClick={() =>
+                    void patch({ parentBrandId: effectiveChoice }, "メインブランドを指定できませんでした")
+                  }
+                  className={buttonClass}
+                >
+                  {effectiveChoice === brand.parent?.id ? "指定済み" : "指定する"}
+                </button>
+              </div>
+              {brand.parent ? (
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void patch({ parentBrandId: null }, "独立したブランドにできませんでした")}
+                    className="text-xs text-ink-muted underline decoration-dotted underline-offset-4 hover:text-ink hover:decoration-solid"
+                  >
+                    「{brand.parent.name}」から外して、独立したブランドにする
+                  </button>
+                  <p className="mt-1 text-[11px] text-ink-faint">
+                    外しても、このブランド自身の値は何も消えません。受け取っていた項目が見えなくなるだけです。
+                  </p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-ink">サブブランドを追加</h3>
+              <p className="text-pretty text-ink-muted">
+                このブランドの下に、新しいブランドをサイトの URL から作ります。子会社や製品シリーズに。
+              </p>
+              <div>
+                <button type="button" disabled={busy || !workspace} onClick={() => setAddingChild(true)} className={buttonClass}>
+                  サブブランドを追加…
+                </button>
+              </div>
+            </section>
+          </div>
+        </StageDrawer>
       ) : null}
 
       {workspace ? (

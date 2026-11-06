@@ -82,13 +82,13 @@ export function brandActions(facts: BrandActionFacts): TreeAction[] {
     // One main per workspace: its face. The star in the tree is this.
     {
       id: "make-main",
-      label: "メインブランドにする",
+      label: "ワークスペースのメインブランドにする",
       blockedReason: facts.isMain ? "すでにメインブランドです" : null,
       danger: false,
     },
     // A sub-brand sits under another brand (usually the main). That is a
     // pointer on the brand, set here, never by where the row sits.
-    { id: "set-parent", label: "サブブランドにする…", blockedReason: null, danger: false },
+    { id: "set-parent", label: "メインブランドを指定…", blockedReason: null, danger: false },
     // A new brand under this one: a subsidiary, a product line.
     { id: "add-child", label: "サブブランドを追加", blockedReason: null, danger: false },
     deleteAction(

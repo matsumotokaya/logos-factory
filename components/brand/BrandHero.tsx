@@ -61,8 +61,16 @@ export default function BrandHero({
       ? {
           label: "Web",
           value: (
-            <a href={website} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
+            <a
+              href={website}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline decoration-ink-faint underline-offset-4 hover:decoration-ink"
+            >
               {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              <svg viewBox="0 0 20 20" fill="none" aria-label="別タブで開く" className="size-3 text-ink-faint">
+                <path d="M11 4h5v5M16 4l-7 7M14 11v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </a>
           ),
         }

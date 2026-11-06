@@ -107,18 +107,21 @@ export function BrandRunFact({
           ? when(run.createdAt)
           : "まだ読み取っていません";
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      title="サイトの読み取り — 詳細・処理ログ・読み直し"
-      className={
-        run?.status === "error"
-          ? "rounded-sm text-red-700 underline decoration-dotted underline-offset-4 hover:decoration-solid"
-          : "rounded-sm text-ink underline decoration-dotted decoration-ink-faint underline-offset-4 hover:decoration-solid"
-      }
-    >
-      {text}
-    </button>
+    <span className="inline-flex items-center gap-2">
+      <span className={run?.status === "error" ? "text-red-700" : undefined}>{text}</span>
+      <button
+        type="button"
+        onClick={onOpen}
+        title="サイトの読み取り — 結果・処理ログ・読み直し"
+        className="inline-flex items-center gap-1 rounded-full border border-hairline px-2 py-px text-[10px] font-semibold text-ink-muted transition hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-3">
+          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M10 9v5M10 6.5v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        詳細
+      </button>
+    </span>
   );
 }
 

@@ -61,10 +61,10 @@ export default function SetParentDialog({
             className="w-full max-w-md rounded-2xl border border-hairline bg-white p-6 shadow-xl focus:outline-none"
           >
             <Dialog.Title className="text-balance font-display text-xl font-semibold text-ink">
-              「{brand.name}」をサブブランドにする
+              「{brand.name}」のメインブランドを指定
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-pretty text-sm text-ink-muted">
-              どのブランドの下に置くかを選びます。サブブランドは、自分に無い色・書体・ロゴをそのブランドから受け取ります。「独立したブランド」を選ぶと、どのブランドにも属しません。
+              このブランドをどのブランドの下に置くかを選びます。指定するとサブブランドになり、自分で決めていない項目だけ、そのブランドの値がそのまま使われます。「独立したブランドにする」を選ぶと、どのブランドにも属しません。
             </Dialog.Description>
 
             <form
@@ -75,7 +75,7 @@ export default function SetParentDialog({
               }}
             >
               <label htmlFor="set-parent-select" className="text-[11px] font-semibold text-ink-muted">
-                置き先
+                メインブランド
               </label>
               <select
                 id="set-parent-select"

@@ -1136,7 +1136,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
         body: JSON.stringify({ parentBrandId }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "サブブランドにできませんでした");
+      if (!response.ok) throw new Error(body?.error ?? "メインブランドを指定できませんでした");
       const parentName = parentBrandId
         ? (workspace?.brands.find((brand) => brand.id === parentBrandId)?.name ?? "ブランド")
         : null;
@@ -1150,7 +1150,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       await load();
     } catch (parentSaveError) {
       setParentError(
-        parentSaveError instanceof Error ? parentSaveError.message : "サブブランドにできませんでした",
+        parentSaveError instanceof Error ? parentSaveError.message : "メインブランドを指定できませんでした",
       );
     } finally {
       setParentSaving(false);
