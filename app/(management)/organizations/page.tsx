@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function OrganizationsPage() {
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10 md:px-10">
+    <main className="w-full px-6 py-10 md:px-10">
       <p className="text-xs text-ink-muted">WORKSPACES</p>
       <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
         ワークスペース

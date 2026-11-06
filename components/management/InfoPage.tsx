@@ -58,7 +58,7 @@ export default function InfoPage({
   error?: string | null;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 md:px-10">
+    <main className="flex w-full flex-col gap-6 px-6 py-8 md:px-10">
       <nav aria-label="パンくず" className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
         <Link href={`/brands/${brandId}`} className="hover:text-ink">
           ブランドトップ

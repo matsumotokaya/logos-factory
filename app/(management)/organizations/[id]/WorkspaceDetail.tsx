@@ -92,7 +92,7 @@ export default function WorkspaceDetail({ id }: { id: string }) {
 
   if (notFound) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-10 md:px-10">
+      <main className="w-full px-6 py-10 md:px-10">
         <p className="text-pretty text-sm text-ink-muted">
           このワークスペースは見つかりませんでした。所属していないか、削除された可能性があります。
         </p>
@@ -107,7 +107,7 @@ export default function WorkspaceDetail({ id }: { id: string }) {
   }
   if (error) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-10 md:px-10">
+      <main className="w-full px-6 py-10 md:px-10">
         <p role="alert" className="text-pretty text-sm text-red-700">
           {error}
         </p>
@@ -116,7 +116,7 @@ export default function WorkspaceDetail({ id }: { id: string }) {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10 md:px-10">
+    <main className="w-full px-6 py-10 md:px-10">
       <nav className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
         <Link href="/organizations" className="underline underline-offset-4 hover:text-ink">
           ワークスペース

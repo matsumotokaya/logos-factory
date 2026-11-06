@@ -198,7 +198,7 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
+    <main className="w-full flex flex-col gap-6 px-6 py-8 md:px-10">
       {/* The same bar the video detail screen uses for every long step. The
           dialog says what is happening; this says it is still happening after
           the dialog has been left behind — creation continues through the

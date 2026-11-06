@@ -309,7 +309,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
 
   if (!overview) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
+      <main className="w-full flex flex-col gap-6 px-6 py-8 md:px-10">
         <p className="text-sm text-ink-muted">読み込み中…</p>
         {error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] text-red-700">
@@ -410,7 +410,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   );
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8 md:px-10">
+    <main className="w-full flex flex-col gap-6 px-6 py-8 md:px-10">
       {pipeline && !previewing ? (
         <div className="-mx-6 -mt-2 md:-mx-10">
           <PipelineBar

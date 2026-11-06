@@ -1214,7 +1214,7 @@ export default function BrandVideoDetail({
   // save was refused", and loses the work in the textarea.
   if (error && !resolved) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10 md:px-10">
+      <main className="w-full px-6 py-10 md:px-10">
         <p
           role="alert"
           className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] text-red-700"

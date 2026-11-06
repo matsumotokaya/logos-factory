@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function BrandsIndexPage() {
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 md:px-10">
+    <main className="w-full px-6 py-10 md:px-10">
       <p className="text-xs text-ink-muted">BRANDS</p>
       <h1 className="mt-2 text-balance font-display text-3xl font-semibold">
         ブランド管理

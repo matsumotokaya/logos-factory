@@ -98,7 +98,7 @@ export default function WorksIndex({ brandId }: { brandId: string }) {
         entries={entries}
       />
       {videos.length > 0 ? (
-        <section className="mx-auto w-full max-w-5xl px-6 pb-10 md:px-10">
+        <section className="w-full px-6 pb-10 md:px-10">
           <div className="flex items-baseline gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">Videos</h2>
             <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
