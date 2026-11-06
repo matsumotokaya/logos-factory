@@ -60,9 +60,9 @@ export type BrandSummary = {
   materialCount: number;
   /** Position in the workspace's list, the user's arrangement. */
   sortOrder: number;
-  /** Derived: another brand in the workspace inherits from this one. */
+  /** The workspace's main brand (organizations.main_brand_id). */
   isMain: boolean;
-  /** The brand this one inherits from (parentBrandId), by name. */
+  /** The brand this one sits under (parentBrandId), by name. */
   parentName: string | null;
 };
 

@@ -22,7 +22,7 @@
 
 export type TreeNodeKind = "brand" | "logo" | "video";
 
-export type TreeActionId = "info" | "add-child" | "set-parent" | "duplicate" | "delete";
+export type TreeActionId = "info" | "make-main" | "set-parent" | "add-child" | "duplicate" | "delete";
 
 export interface TreeAction {
   id: TreeActionId;
@@ -37,6 +37,8 @@ export interface BrandActionFacts {
   logoCount: number;
   videoCount: number;
   lpCount: number;
+  /** Already the workspace's main brand (0061). */
+  isMain?: boolean;
 }
 
 export interface TakeActionFacts {
@@ -77,11 +79,18 @@ export function brandActions(facts: BrandActionFacts): TreeAction[] {
   const assetCount = facts.videoCount + facts.lpCount;
   if (assetCount > 0) parts.push(`動画・LP${assetCount}件`);
   return [
-    // A sub-brand goes under this one: a subsidiary, a product line. Same
-    // shape one level down (docs/product.md §2.1).
+    // One main per workspace: its face. The star in the tree is this.
+    {
+      id: "make-main",
+      label: "メインブランドにする",
+      blockedReason: facts.isMain ? "すでにメインブランドです" : null,
+      danger: false,
+    },
+    // A sub-brand sits under another brand (usually the main). That is a
+    // pointer on the brand, set here, never by where the row sits.
+    { id: "set-parent", label: "サブブランドにする…", blockedReason: null, danger: false },
+    // A new brand under this one: a subsidiary, a product line.
     { id: "add-child", label: "サブブランドを追加", blockedReason: null, danger: false },
-    // Inheritance is a pointer, set here, never by where the row sits.
-    { id: "set-parent", label: "継承元を指定…", blockedReason: null, danger: false },
     deleteAction(
       "ブランドを削除",
       parts.length > 0 ? `${parts.join("と")}を削除してください` : null,

@@ -438,6 +438,7 @@ function BrandNode({
               logoCount: ownedLogos.length,
               videoCount: videoAssets.length,
               lpCount: lpAssets.length,
+              isMain: brand.isMain,
             })}
             onSelect={(action) =>
               onAction(
@@ -958,6 +959,26 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     [load, router],
   );
 
+  // 「メインブランドにする」: one per workspace, moved by the RPC (0061).
+  const makeMain = useCallback(async (brandId: string, name: string) => {
+    try {
+      const response = await authedFetch(`/api/brands/${brandId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ main: true }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "メインブランドを変更できませんでした");
+      setNotice({ tone: "ok", text: `「${name}」をメインブランドにしました` });
+      await load();
+    } catch (mainError) {
+      setNotice({
+        tone: "error",
+        text: mainError instanceof Error ? mainError.message : "メインブランドを変更できませんでした",
+      });
+    }
+  }, [load]);
+
   const handleAction = useCallback(
     (target: TreeTarget, action: TreeActionId) => {
       if (action === "info") {
@@ -979,6 +1000,11 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
         setParentTarget(brand);
         return;
       }
+      if (action === "make-main") {
+        if (target.kind !== "brand") return;
+        void makeMain(target.id, target.name);
+        return;
+      }
       if (action === "add-child") {
         if (target.kind !== "brand") return;
         setAddParent({ id: target.id, name: target.name });
@@ -995,7 +1021,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       }
       void runDuplicate(target);
     },
-    [runDuplicate, router, organizations],
+    [runDuplicate, router, organizations, makeMain],
   );
 
   const confirmDelete = useCallback(async () => {
@@ -1097,8 +1123,8 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     }
   };
 
-  // 「継承元」 saved from the dialog. The server refuses cycles and brands from
-  // another workspace; its sentence is shown in the dialog.
+  // 「サブブランドにする」 saved from the dialog. The server refuses cycles and
+  // brands from another workspace; its sentence is shown in the dialog.
   const saveParent = async (parentBrandId: string | null) => {
     if (!parentTarget) return;
     setParentSaving(true);
@@ -1110,7 +1136,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
         body: JSON.stringify({ parentBrandId }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "継承元を変更できませんでした");
+      if (!response.ok) throw new Error(body?.error ?? "サブブランドにできませんでした");
       const parentName = parentBrandId
         ? (workspace?.brands.find((brand) => brand.id === parentBrandId)?.name ?? "ブランド")
         : null;
@@ -1118,13 +1144,13 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
       setNotice({
         tone: "ok",
         text: parentName
-          ? `「${parentTarget.name}」は「${parentName}」を継承します`
+          ? `「${parentTarget.name}」は「${parentName}」のサブブランドになりました`
           : `「${parentTarget.name}」は独立したブランドになりました`,
       });
       await load();
     } catch (parentSaveError) {
       setParentError(
-        parentSaveError instanceof Error ? parentSaveError.message : "継承元を変更できませんでした",
+        parentSaveError instanceof Error ? parentSaveError.message : "サブブランドにできませんでした",
       );
     } finally {
       setParentSaving(false);
@@ -1238,6 +1264,7 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
           }}
           brand={{ id: parentTarget.id, name: parentTarget.name, parentBrandId: parentTarget.parentBrandId }}
           brands={workspace.brands}
+          mainBrandId={workspace.brands.find((brand) => brand.isMain)?.id ?? null}
           saving={parentSaving}
           error={parentError}
           onSave={(parentBrandId) => void saveParent(parentBrandId)}

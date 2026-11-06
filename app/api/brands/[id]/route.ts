@@ -8,6 +8,7 @@ import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server
 //   { parentBrandId: "<uuid>" }     inherit from another Brand in the workspace
 //   { parentBrandId: null }         inherit from nothing
 //   { sortOrder: 3 }                position in the workspace's list
+//   { main: true }                  make it the workspace's main brand (0061)
 //
 // Neither changes anything else: the kind is a label, and a move leaves every
 // deliverable as it was because a take pins its inputs. The tree's rules —
@@ -22,7 +23,7 @@ export async function PATCH(
   const user = await requireUser(req);
   const { id } = await ctx.params;
 
-  let body: { brandKind?: unknown; parentBrandId?: unknown; sortOrder?: unknown };
+  let body: { brandKind?: unknown; parentBrandId?: unknown; sortOrder?: unknown; main?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -40,6 +41,20 @@ export async function PATCH(
   }
   if (!current.data) {
     return Response.json({ error: "ブランドが見つかりません" }, { status: 404 });
+  }
+
+  if (body.main === true) {
+    const { error } = await supabase.rpc("set_main_brand", { p_brand_id: id });
+    if (error) {
+      if (/MAIN_BRAND_FORBIDDEN/.test(error.message)) {
+        return Response.json({ error: "このブランドを編集する権限がありません" }, { status: 403 });
+      }
+      console.error("set_main_brand failed:", error.message);
+      return Response.json({ error: "メインブランドを変更できませんでした" }, { status: 500 });
+    }
+    if (!("brandKind" in body) && !("parentBrandId" in body) && !("sortOrder" in body)) {
+      return Response.json({ id, main: true });
+    }
   }
 
   const now = new Date().toISOString();

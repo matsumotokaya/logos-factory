@@ -468,18 +468,18 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         data={kitData}
         kindControl={previewing ? undefined : kindControl}
         eyebrow={
-          overview.parent ? (
+          overview.isMain ? (
+            <span className="flex items-center gap-1.5">
+              <MainMark />
+              メインブランド
+            </span>
+          ) : overview.parent ? (
             <span className="flex items-center gap-1.5">
               <Link href={`/brands/${overview.parent.id}`} className="hover:text-ink hover:underline">
                 {overview.parent.name}
               </Link>
               <span aria-hidden="true" className="text-ink-faint">›</span>
               <span>サブブランド</span>
-            </span>
-          ) : overview.isMain ? (
-            <span className="flex items-center gap-1.5">
-              <MainMark />
-              メインブランド
             </span>
           ) : (
             "ブランド"

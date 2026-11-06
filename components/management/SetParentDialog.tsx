@@ -1,12 +1,12 @@
 "use client";
 
-// 「継承元を指定」 — which brand this one builds on, or none.
+// 「サブブランドにする」 — which brand this one sits under, or none.
 //
-// A sub-brand is a brand that inherits from another (its colours, its type,
-// its logo when it has none of its own). That is a pointer on the brand, not
-// a folder it lives in, so it is set from a list rather than by dragging the
-// row somewhere. The server refuses a cycle and a brand from another
-// workspace; the list here already leaves those out.
+// A sub-brand is a brand under another (usually the main): it inherits what
+// it lacks — colours, type, the logo when it has none of its own. That is a
+// pointer on the brand, not a folder it lives in, so it is set from a list
+// rather than by dragging the row somewhere. The server refuses a cycle and
+// a brand from another workspace; the list here already leaves those out.
 
 import { Dialog } from "@base-ui/react/dialog";
 import { useState } from "react";
@@ -17,6 +17,7 @@ export default function SetParentDialog({
   onOpenChange,
   brand,
   brands,
+  mainBrandId,
   saving,
   error,
   onSave,
@@ -26,13 +27,17 @@ export default function SetParentDialog({
   brand: { id: string; name: string; parentBrandId: string | null };
   /** Every brand in the workspace; the dialog removes the brand itself and its descendants. */
   brands: BrandSummary[];
+  /** The workspace's main brand: the default choice for a brand that has no parent yet. */
+  mainBrandId: string | null;
   saving: boolean;
   error: string | null;
   onSave: (parentBrandId: string | null) => void;
 }) {
   // Mounted per brand by the shell (it unmounts when closed), so the initial
   // value is the brand's current parent and never has to be re-synced.
-  const [choice, setChoice] = useState<string>(brand.parentBrandId ?? "");
+  const [choice, setChoice] = useState<string>(
+    brand.parentBrandId ?? (mainBrandId && mainBrandId !== brand.id ? mainBrandId : ""),
+  );
 
   // A brand cannot inherit from itself or from anything that inherits from it.
   const parentOf = new Map(brands.map((row) => [row.id, row.parentBrandId]));
@@ -56,10 +61,10 @@ export default function SetParentDialog({
             className="w-full max-w-md rounded-2xl border border-hairline bg-white p-6 shadow-xl focus:outline-none"
           >
             <Dialog.Title className="text-balance font-display text-xl font-semibold text-ink">
-              「{brand.name}」の継承元
+              「{brand.name}」をサブブランドにする
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-pretty text-sm text-ink-muted">
-              継承元を指定すると、このブランドはサブブランドになり、自分に無い色・書体・ロゴを継承元から受け取ります。指定しなければ独立したブランドです。
+              どのブランドの下に置くかを選びます。サブブランドは、自分に無い色・書体・ロゴをそのブランドから受け取ります。「独立したブランド」を選ぶと、どのブランドにも属しません。
             </Dialog.Description>
 
             <form
@@ -70,7 +75,7 @@ export default function SetParentDialog({
               }}
             >
               <label htmlFor="set-parent-select" className="text-[11px] font-semibold text-ink-muted">
-                継承元
+                置き先
               </label>
               <select
                 id="set-parent-select"
@@ -79,10 +84,11 @@ export default function SetParentDialog({
                 disabled={saving}
                 className="mt-1.5 w-full rounded-xl border border-hairline bg-paper px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
               >
-                <option value="">継承しない（独立したブランド）</option>
+                <option value="">独立したブランドにする</option>
                 {options.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.name}
+                    {row.id === mainBrandId ? "（メインブランド）" : ""}
                   </option>
                 ))}
               </select>

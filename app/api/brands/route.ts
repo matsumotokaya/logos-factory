@@ -24,6 +24,7 @@ type OrganizationRow = {
   name: string;
   website: string | null;
   description: string | null;
+  main_brand_id: string | null;
 };
 
 type BrandRow = {
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
   // RLS returns only the workspaces this user belongs to.
   const organizationResult = await supabase
     .from("organizations")
-    .select("org_id, name, website, description")
+    .select("org_id, name, website, description, main_brand_id")
     .order("created_at", { ascending: true });
   if (organizationResult.error) {
     return Response.json(
@@ -216,10 +217,9 @@ export async function GET(req: Request) {
     return resolved;
   };
 
-  // Inheritance is a reference, not a folder: a brand is 「Main」 when another
-  // one points at it, and the pointer's target is named on the sub.
-  const inheritedFrom = new Set(
-    brands.map((brand) => brand.parent_brand_id).filter((id): id is string => id !== null),
+  // The main is the workspace's choice (0061); the sub's parent is named on it.
+  const mainByOrg = new Map(
+    organizations.map((organization) => [organization.org_id, organization.main_brand_id]),
   );
   const summariesByOrganization = new Map<string, BrandSummary[]>();
   for (const brand of brands) {
@@ -245,7 +245,7 @@ export async function GET(req: Request) {
       assets: brandAssets,
       materialCount: materialCounts.get(brand.id) ?? 0,
       sortOrder: brand.sort_order,
-      isMain: inheritedFrom.has(brand.id),
+      isMain: mainByOrg.get(brand.organization_id) === brand.id,
       parentName: brand.parent_brand_id
         ? (brandById.get(brand.parent_brand_id)?.name ?? null)
         : null,

@@ -64,7 +64,7 @@ export type BrandOverview = {
   brandOrganizationId: string;
   /** The brand this one inherits from, if any (parent_brand_id). */
   parent: { id: string; name: string } | null;
-  /** Another brand in the workspace inherits from this one. */
+  /** The workspace's main brand (organizations.main_brand_id). */
   isMain: boolean;
   website: string;
   industry: string;
@@ -195,9 +195,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       ? supabase.from("brand_entities").select("id, name").eq("id", parentId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabase
-      .from("brand_entities")
-      .select("id", { count: "exact", head: true })
-      .eq("parent_brand_id", brandId),
+      .from("organizations")
+      .select("main_brand_id")
+      .eq("org_id", row.organization_id as string)
+      .maybeSingle(),
   ]);
   const overview: BrandOverview = {
     id: row.id as string,
@@ -207,7 +208,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     parent: parentResult.data
       ? { id: parentResult.data.id as string, name: parentResult.data.name as string }
       : null,
-    isMain: (childrenResult.count ?? 0) > 0,
+    isMain: childrenResult.data?.main_brand_id === brandId,
     website: (row.website as string) ?? "",
     industry: (row.industry as string) ?? "",
     location: (row.location as string) ?? "",
