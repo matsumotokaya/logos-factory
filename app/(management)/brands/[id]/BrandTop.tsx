@@ -45,6 +45,7 @@ import { materialFileName } from "@/lib/materials/naming";
 import type { PipelineStage } from "@/lib/pipeline/stages";
 import { VIDEO_TEMPLATE_FAMILIES } from "@/lib/video/templates";
 import { MainMark } from "@/components/management/MainMark";
+import BrandRoleMenu from "@/components/brand/BrandRoleMenu";
 import { isMeasuredClaim } from "@/lib/brand/profile";
 
 type Tile = {
@@ -468,21 +469,29 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         data={kitData}
         kindControl={previewing ? undefined : kindControl}
         eyebrow={
-          overview.isMain ? (
-            <span className="flex items-center gap-1.5">
-              <MainMark />
-              メインブランド
-            </span>
-          ) : overview.parent ? (
-            <span className="flex items-center gap-1.5">
-              <Link href={`/brands/${overview.parent.id}`} className="hover:text-ink hover:underline">
-                {overview.parent.name}
-              </Link>
-              <span aria-hidden="true" className="text-ink-faint">›</span>
-              <span>サブブランド</span>
-            </span>
+          previewing ? (
+            overview.isMain ? (
+              <span className="flex items-center gap-1.5">
+                <MainMark />
+                メインブランド
+              </span>
+            ) : overview.parent ? (
+              `${overview.parent.name} › サブブランド`
+            ) : (
+              "ブランド"
+            )
           ) : (
-            "ブランド"
+            <BrandRoleMenu
+              brand={{
+                id: brandId,
+                name: overview.name,
+                organizationId: overview.brandOrganizationId,
+                parent: overview.parent,
+                isMain: overview.isMain,
+              }}
+              onChanged={load}
+              onError={setError}
+            />
           )
         }
         logosHref={previewing ? undefined : `/brands/${brandId}/assets/logos`}
