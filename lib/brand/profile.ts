@@ -16,6 +16,8 @@ export type Reading = {
   confidence: string;
   /** Null for a value: adoption is the standing, not the source. */
   sourceKind: string | null;
+  /** The parent brand this shows through from, when not the brand's own. */
+  from: { id: string; name: string } | null;
 };
 
 export type BrandProfile = {
@@ -62,6 +64,7 @@ export function buildProfile(values: KnowledgeValue[], claims: KnowledgeClaim[])
       state: "claimed",
       confidence: claim.confidence,
       sourceKind: claim.sourceKind,
+      from: null,
     });
   }
   for (const value of values) {
@@ -70,6 +73,7 @@ export function buildProfile(values: KnowledgeValue[], claims: KnowledgeClaim[])
       state: "adopted",
       confidence: value.confidence,
       sourceKind: null,
+      from: value.from ?? null,
     });
   }
   return {

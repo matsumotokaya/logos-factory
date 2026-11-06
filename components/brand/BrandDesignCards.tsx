@@ -42,6 +42,16 @@ export function Standing({
   path: string;
   onAdopt?: AdoptHandler;
 }) {
+  if (reading?.from) {
+    return (
+      <span
+        className="ml-1.5 rounded-full border border-hairline bg-ink/[0.03] px-1.5 py-px text-[9px] text-ink-muted"
+        title={`「${reading.from.name}」の値がそのまま使われています。このブランドで決めると上書きされます`}
+      >
+        {reading.from.name}から
+      </span>
+    );
+  }
   if (!isGuess(reading) || !reading) return null;
   const source = SOURCE_LABEL[reading.sourceKind ?? ""] ?? reading.sourceKind ?? "推定";
   if (onAdopt) {

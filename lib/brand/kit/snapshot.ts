@@ -30,6 +30,11 @@ export const BrandKitBriefSchema = z.object({
   }),
   /** field_path → adopted value. Only values; a claim is not a rule. */
   values: z.record(z.string(), z.unknown()),
+  /** field_path → the ancestor brand a value showed through from (inherit.ts). */
+  inherited: z.record(z.string(), z.object({ id: z.string(), name: z.string() })).optional(),
+  /** The ancestor the logos / key visual were borrowed from, when the brand has none. */
+  logosFrom: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
+  keyVisualFrom: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
   logos: z.array(
     z.object({
       id: z.string(),

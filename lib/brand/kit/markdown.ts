@@ -69,6 +69,19 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
     out.push(`- キービジュアル: ${options.kitUrl}/keyvisual.${extensionOf(brief.keyVisual.mediaType)}`);
   }
   out.push(`- 公開: ${options.publishedAt}（取得: ${brief.snapshotAt}）`);
+  const fromParent = Object.entries(brief.inherited ?? {});
+  const parents = new Map<string, string>();
+  for (const [, parent] of fromParent) parents.set(parent.id, parent.name);
+  if (brief.logosFrom) parents.set(brief.logosFrom.id, brief.logosFrom.name);
+  if (brief.keyVisualFrom) parents.set(brief.keyVisualFrom.id, brief.keyVisualFrom.name);
+  if (parents.size > 0) {
+    const names = [...parents.values()].map((name) => `「${name}」`).join("・");
+    const parts: string[] = [];
+    if (fromParent.length > 0) parts.push(`${fromParent.length}項目（${fromParent.map(([path]) => `\`${path}\``).join(", ")}）`);
+    if (brief.logosFrom) parts.push("ロゴ");
+    if (brief.keyVisualFrom) parts.push("キービジュアル");
+    out.push(`- 親ブランド: このブランドは ${names} のサブブランドです。${parts.join("・")}は親の値をそのまま使っています`);
+  }
   out.push("");
 
   // ---- ブランド

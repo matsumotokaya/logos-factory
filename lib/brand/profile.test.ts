@@ -27,6 +27,7 @@ test("採用された値は推定より優先され、推定だけの項目は�
     state: "adopted",
     confidence: "adopted",
     sourceKind: null,
+    from: null,
   });
   assert.equal(profile.get("identity.legal_name")?.state, "claimed");
   assert.equal(profile.get("identity.legal_name")?.sourceKind, "llm_structuring");

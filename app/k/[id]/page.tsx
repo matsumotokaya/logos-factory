@@ -50,6 +50,7 @@ export default async function KitPage({ params }: { params: Promise<{ id: string
       value,
       confidence: "adopted",
       decidedAt: brief.snapshotAt,
+      from: brief.inherited?.[fieldPath] ?? null,
     })),
     claims: [],
     logos: brief.logos.map((logo, index) => ({

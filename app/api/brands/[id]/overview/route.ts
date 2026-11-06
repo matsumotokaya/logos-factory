@@ -11,12 +11,15 @@ import {
   createServerSupabaseForToken,
   requireUser,
 } from "@/lib/supabase/server";
+import { brandChain, ownReadings, resolveChain } from "@/lib/brand/kit/inherit";
 
 export type KnowledgeValue = {
   fieldPath: string;
   value: unknown;
   confidence: string;
   decidedAt: string;
+  /** Set when the value shows through from a parent brand (inherit.ts). */
+  from?: { id: string; name: string } | null;
 };
 
 /**
@@ -99,12 +102,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         )
         .eq("id", brandId)
         .maybeSingle(),
-      supabase
-        .from("brand_knowledge_values")
-        .select("field_path, value, confidence, decided_at")
-        .eq("brand_id", brandId)
-        .is("variant_id", null)
-        .order("field_path"),
+      // The brand's values resolved through its parents (inherit.ts): a
+      // sub-brand's gaps show the parent's readings, marked `from`.
+      brandChain(supabase, brandId).then(async (chainResult) => {
+        if (!chainResult.ok) return { error: chainResult.error, data: null };
+        const readings = await ownReadings(supabase, chainResult.chain.map((brand) => brand.id));
+        if (!readings.ok) return { error: readings.error, data: null };
+        return { error: null, data: resolveChain(chainResult.chain, readings.byBrand) };
+      }),
       // Newest first so the reducer below can keep the first of each path:
       // claims are append-only and contradictions are kept, so "what do we
       // currently believe" is the most recent observation, not a merge.
@@ -215,10 +220,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     description: (row.description as string) ?? "",
     updatedAt: row.updated_at as string,
     knowledge: (knowledgeResult.data ?? []).map((k) => ({
-      fieldPath: k.field_path as string,
+      fieldPath: k.fieldPath,
       value: k.value,
-      confidence: k.confidence as string,
-      decidedAt: k.decided_at as string,
+      confidence: k.confidence,
+      decidedAt: k.decidedAt,
+      from: k.from,
     })),
     claims: latestClaims,
     files,
