@@ -41,6 +41,7 @@ export default function KitView({
   data,
   kindControl,
   eyebrow,
+  extraFacts,
   logosHref,
   onAdopt,
   emptyNote,
@@ -48,6 +49,7 @@ export default function KitView({
   data: KitViewData;
   kindControl?: ReactNode;
   eyebrow?: ReactNode;
+  extraFacts?: { label: string; value: ReactNode }[];
   logosHref?: string;
   onAdopt?: AdoptHandler;
   /** Shown instead of the cards when nothing has been read yet. */
@@ -75,6 +77,7 @@ export default function KitView({
         logosHref={logosHref}
         kindControl={kindControl}
         eyebrow={eyebrow}
+        extraFacts={extraFacts}
         onAdopt={onAdopt}
       />
 

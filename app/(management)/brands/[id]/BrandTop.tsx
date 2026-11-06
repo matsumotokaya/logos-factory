@@ -33,7 +33,12 @@ import BrandPipelinePanel, {
   type BrandPipelinePayload,
 } from "@/components/pipeline/BrandPipelinePanel";
 import type { BrandMaterial } from "@/components/pipeline/MaterialIntake";
-import BrandRunStatus from "@/components/brand/BrandRunStatus";
+import {
+  BrandRunDrawer,
+  BrandRunFact,
+  BrandRunLive,
+  useBrandRun,
+} from "@/components/brand/BrandRunStatus";
 import BrandKnowledgePanel, {
   BrandSiteFiles,
 } from "@/components/brand/BrandKnowledgePanel";
@@ -77,6 +82,7 @@ export default function BrandTop({ brandId }: { brandId: string }) {
   const [kit, setKit] = useState<KitStatusView | null>(null);
   const [kitBusy, setKitBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
 
   // The brand's key visual, if it has declared one.
   //
@@ -186,13 +192,14 @@ export default function BrandTop({ brandId }: { brandId: string }) {
     }
   }, [brandId]);
 
-  // The run's own line (BrandRunStatus) says what it brought back; this only
-  // has to put it on the page.
+  // The run's drawer says what it brought back; this only has to put it on
+  // the page.
   const settleRun = useCallback(async () => {
     setBusy(false);
     await load();
     await loadPipeline();
   }, [load, loadPipeline]);
+  const run = useBrandRun(brandId, runWatch, () => void settleRun());
 
   const uploadMaterial = useCallback(
     async (file: File, data: string) => {
@@ -454,14 +461,14 @@ export default function BrandTop({ brandId }: { brandId: string }) {
         onUnpublish={unpublishKit}
       />
 
-      {!previewing ? (
-        <BrandRunStatus
-          brandId={brandId}
-          watch={runWatch}
-          onSettled={() => void settleRun()}
+      <BrandRunLive run={run} />
+      {runOpen && !previewing ? (
+        <BrandRunDrawer
+          run={run}
           website={overview.website || null}
           busy={busy}
           onReimport={() => void reimportSite()}
+          onClose={() => setRunOpen(false)}
         />
       ) : null}
 
@@ -493,6 +500,16 @@ export default function BrandTop({ brandId }: { brandId: string }) {
               onError={setError}
             />
           )
+        }
+        extraFacts={
+          previewing
+            ? undefined
+            : [
+                {
+                  label: "更新",
+                  value: <BrandRunFact run={run} busy={busy} onOpen={() => setRunOpen(true)} />,
+                },
+              ]
         }
         logosHref={previewing ? undefined : `/brands/${brandId}/assets/logos`}
         onAdopt={previewing ? undefined : adopt}

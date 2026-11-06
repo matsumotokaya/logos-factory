@@ -24,6 +24,7 @@ export default function BrandHero({
   logosHref,
   kindControl,
   eyebrow,
+  extraFacts = [],
   onAdopt,
 }: {
   name: string;
@@ -41,6 +42,8 @@ export default function BrandHero({
   /** The line above the name: what kind of brand this is, and what it
    *  inherits from. Defaults to the bare word. */
   eyebrow?: ReactNode;
+  /** Workspace-only rows after the brand's facts, like 「更新」 with its date. */
+  extraFacts?: { label: string; value: ReactNode }[];
   onAdopt?: AdoptHandler;
 }) {
   const tagline = profile.text("offering.tagline") ?? profile.text("voice.tagline");
@@ -48,7 +51,8 @@ export default function BrandHero({
   const audience = profile.text("offering.audience");
   const background = profile.text("palette.background");
 
-  const facts: { label: string; value: ReactNode; reading?: string }[] = [
+  type Fact = { label: string; value: ReactNode; reading?: string };
+  const facts: Fact[] = ([
     operator ? { label: "運営", value: operator, reading: "identity.legal_name" } : null,
     industry ? { label: "業種", value: industry } : null,
     audience ? { label: "対象", value: audience, reading: "offering.audience" } : null,
@@ -63,7 +67,9 @@ export default function BrandHero({
           ),
         }
       : null,
-  ].filter((fact): fact is NonNullable<typeof fact> => fact !== null);
+  ] as (Fact | null)[])
+    .filter((fact): fact is Fact => fact !== null)
+    .concat(extraFacts);
 
   return (
     <header className="grid gap-6 border-b border-hairline pb-8 md:grid-cols-[minmax(0,1fr)_18rem]">
