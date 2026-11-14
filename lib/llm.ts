@@ -36,7 +36,14 @@ import { LengthFinishReasonError } from "openai/error";
  * `LLM_ENGINE` is the sentence a run's log shows a user, so it is derived here
  * rather than written out again.
  */
-export const LLM_MODEL = "gpt-5.6-luna";
+export const LLM_MODEL = "gpt-6-luna";
+
+/**
+ * How hard the model reasons, for every call. Medium everywhere (owner's
+ * decision, 2026-11-14, on moving to GPT-6 Luna): one setting, so a call is
+ * never cheaper or sloppier than the rest without someone deciding it.
+ */
+export const LLM_EFFORT = "medium" as const;
 export const LLM_PROVIDER = "OpenAI API";
 export const LLM_ENGINE = `OpenAI API（Chat Completions + structured outputs / ${LLM_MODEL}）`;
 

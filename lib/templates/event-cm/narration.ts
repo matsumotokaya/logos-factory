@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { LLM_BUDGET, LLM_MODEL, parseOrExplain } from "@/lib/llm";
+import { LLM_BUDGET, LLM_EFFORT, LLM_MODEL, parseOrExplain } from "@/lib/llm";
 import { z } from "zod";
 import {
   EVENT_CM_MAX_CHARS,
@@ -273,7 +273,7 @@ export async function draftEventCmNarration(
     openai().chat.completions.parse({
     model: LLM_MODEL,
     max_completion_tokens: LLM_BUDGET.long,
-    reasoning_effort: "medium",
+    reasoning_effort: LLM_EFFORT,
     messages: [
       {
         role: "system",

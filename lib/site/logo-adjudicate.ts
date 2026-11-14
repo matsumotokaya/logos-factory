@@ -3,7 +3,7 @@ import "server-only";
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { LLM_BUDGET, LLM_MODEL } from "@/lib/llm";
+import { LLM_BUDGET, LLM_EFFORT, LLM_MODEL } from "@/lib/llm";
 
 // Choosing which of a site's candidate images is its logo. Enumeration is
 // rule-based (logo-resolve.ts); the pick among several is judgment, so a VLM
@@ -14,8 +14,11 @@ const LLM_TIMEOUT_MS = 120_000;
 const openai = (): OpenAI => new OpenAI({ timeout: LLM_TIMEOUT_MS, maxRetries: 2 });
 
 // Pricing (USD per 1M tokens), for the cost line in a run's log.
-// GPT-5.6 family GA 2026-07-09. Update if the model or its pricing changes.
+// GPT-6 Luna: page-factory src/llm/pricing.ts (from developers.openai.com,
+// verified 2026-09-26). GPT-5.6 family GA 2026-07-09. Update if the model or
+// its pricing changes.
 const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
+  "gpt-6-luna": { input: 0.1, output: 0.5 },
   "gpt-5.6-sol": { input: 5, output: 30 },
   "gpt-5.6-terra": { input: 2.5, output: 15 },
   "gpt-5.6-luna": { input: 1, output: 6 },
@@ -110,7 +113,7 @@ export async function adjudicateLogo(input: {
   const response = await client.chat.completions.parse({
     model: LLM_MODEL,
     max_completion_tokens: LLM_BUDGET.short,
-    reasoning_effort: "low",
+    reasoning_effort: LLM_EFFORT,
     messages: [
       { role: "system", content: LOGO_ADJUDICATOR_SYSTEM },
       { role: "user", content },

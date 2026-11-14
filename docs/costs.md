@@ -10,8 +10,8 @@ Logos / CM Makerの運営にかかる費用の正本。API単価、ライセン�
 
 | 領域 | 現在の構成 | 課金単位 | 現在地 |
 |---|---|---|---|
-| Campaign分析・Brand Kit・コピー | OpenAI API | 入出力token | ジョブごとのtoken数と推計USDを記録済み。月次集計は未実装 |
-| Campaignロゴ裁定（Stage 1c） | OpenAI API（gpt-5.6-luna, vision） | 入出力token | 候補2件以上のときだけ1回呼ぶ。実測: best24.co.jp 4候補で入力1,398 / 出力79token ≈ $0.002（2026-09-03） |
+| 文章・読み取りの LLM(全箇所) | OpenAI API。**`gpt-6-luna`・推論 medium**(2026-11-14 から。それまで `gpt-5.6-luna`)。モデルと推論の深さは [lib/llm.ts](../lib/llm.ts) の `LLM_MODEL` / `LLM_EFFORT` の1か所 | 入出力token。GPT-6 Luna は入力 $0.10 / 出力 $0.50(100万tokenあたり。出所は page-factory `src/llm/pricing.ts`、2026-09-26 確認)。GPT-5.6 Luna は $1 / $6 だった | 呼び出し箇所: サイトの分析(運営・提供内容・種別)、特長とお客様の声の抜き出し、ロゴの裁定(画像)、LP の文章、イベント動画の資料の構造化とナレーション。月次集計は未実装 |
+| ロゴ裁定（Stage 1c） | 上と同じ LLM(画像入力) | 入出力token | 候補2件以上のときだけ1回呼ぶ。実測: best24.co.jp 4候補で入力1,398 / 出力79token ≈ $0.002（2026-09-03、gpt-5.6-luna 当時） |
 | CMナレーション | Gemini 3.1 Flash TTS Preview | テキスト入力token + 音声出力token | 本文書で試算済み |
 | CMブラウザプレビュー | `@remotion/player` | 通常のWeb配信資源 | 専用レンダリング費なし |
 | CM MP4 | 現在はRemotion CLI + ローカルChromium。将来はRemotion Lambda予定 | レンダリング計算資源 + Remotionライセンス | ローカル実測済み、クラウド実測は未実施 |

@@ -162,6 +162,12 @@ const OFFERING: CaptureField[] = [
   { path: "offering.business_type", label: "事業の型", layer: "fact", method: "llm", required: false, useFor: "同上" },
   { path: "offering.audience", label: "主要な対象", layer: "fact", method: "llm", required: false, useFor: "コピーの宛先" },
   { path: "offering.summary", label: "提供内容の要約", layer: "fact", method: "llm", required: false, useFor: "LPの要約節" },
+  { path: "offering.features", label: "特長", layer: "fact", method: "llm", required: false, useFor: "LPの特長の節・動画の見せ場（サイトが自分で挙げているもの）" },
+];
+
+/** Who vouches for them. Only what the page itself carries — never written for them. */
+const PROOF: CaptureField[] = [
+  { path: "proof.voices", label: "お客様の声", layer: "fact", method: "llm", required: false, useFor: "LPのお客様の声・導入事例の節" },
 ];
 
 /** Evidence that we actually looked. `site.captured_at` is what makes 認知 visible. */
@@ -184,6 +190,7 @@ export const CAPTURE_FRAME: readonly CaptureField[] = [
   ...CONTACT,
   ...SOCIAL,
   ...OFFERING,
+  ...PROOF,
   ...SITE,
 ];
 
@@ -200,6 +207,7 @@ export const FRAME_GROUPS: readonly { key: string; label: string; prefix: string
   { key: "contact", label: "連絡先", prefix: "contact." },
   { key: "social", label: "ソーシャル", prefix: "social." },
   { key: "offering", label: "提供内容", prefix: "offering." },
+  { key: "proof", label: "実績と声", prefix: "proof." },
   { key: "site", label: "サイト", prefix: "site." },
 ];
 

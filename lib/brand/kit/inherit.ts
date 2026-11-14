@@ -61,6 +61,8 @@ export type OwnReading = {
 export async function ownReadings(
   supabase: SupabaseClient,
   brandIds: string[],
+  /** Also every unconfirmed reading — what 「公開する」 would confirm. */
+  options: { withUnconfirmed?: boolean } = {},
 ): Promise<{ ok: true; byBrand: Map<string, OwnReading[]> } | { ok: false; error: string }> {
   const byBrand = new Map<string, OwnReading[]>();
   if (brandIds.length === 0) return { ok: true, byBrand };
@@ -75,7 +77,7 @@ export async function ownReadings(
       .select("brand_id, field_path, value, observed_at")
       .in("brand_id", brandIds)
       .is("variant_id", null)
-      .eq("confidence", "evidenced")
+      .in("confidence", options.withUnconfirmed ? ["evidenced", "inferred", "confirmed", "suggested", "adopted"] : ["evidenced"])
       .order("observed_at", { ascending: false })
       .limit(800),
   ]);

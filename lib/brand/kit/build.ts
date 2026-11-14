@@ -16,6 +16,9 @@ import { KIT_LOGO_SVG_MAX_BYTES, type BrandKitBrief } from "./snapshot";
 export async function buildKitBrief(
   supabase: SupabaseClient,
   brandId: string,
+  /** The kit as 「公開する」 would make it: unconfirmed readings included,
+   *  since publishing confirms them (publish.ts). For 「更新あり」. */
+  options: { withUnconfirmed?: boolean } = {},
 ): Promise<{ ok: true; brief: BrandKitBrief } | { ok: false; status: number; error: string }> {
   const entity = await supabase
     .from("brand_entities")
@@ -33,7 +36,7 @@ export async function buildKitBrief(
   const chainIds = chain.map((brand) => brand.id);
 
   const [readings, logos, keyVisuals] = await Promise.all([
-    ownReadings(supabase, chainIds),
+    ownReadings(supabase, chainIds, options),
     supabase
       .from("logos")
       .select(`id, subject_entity_id, title, role, logo_candidates(${LOGO_PREVIEW_COLUMNS})`)

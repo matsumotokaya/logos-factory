@@ -62,4 +62,12 @@ test("SNSのURLはハンドルに縮める", () => {
   assert.equal(socialHandle("https://www.linkedin.com/company/funds-inc/"), "@funds-inc");
   assert.equal(socialHandle("https://www.facebook.com/"), "facebook.com");
   assert.equal(socialHandle("not a url"), "not a url");
+  // A Facebook page named in Japanese: decoded, and cut at a readable length.
+  const long = socialHandle(
+    "https://www.facebook.com/WealthPark-Business-WealthPark%E6%A0%AA%E5%BC%8F%E4%BC%9A%E7%A4%BE-2253775971335835/",
+  );
+  assert.equal(long, "@WealthPark-Business…");
+  // No word break to cut at: cut at the limit.
+  assert.equal(socialHandle("https://x.com/abcdefghijklmnopqrstuvwxyz0123"), "@abcdefghijklmnopqrstuv…");
+  assert.equal(socialHandle("https://www.facebook.com/%E3%83%95%E3%82%A1%E3%83%B3%E3%82%BA"), "@ファンズ");
 });

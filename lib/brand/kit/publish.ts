@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { adoptBrandKnowledge, type AdoptKnowledgeField } from "@/lib/brand/knowledge";
 import { createTake } from "@/lib/takes/create";
 import { canonicalKitPath } from "@/lib/takes/publication-path";
 import { buildKitBrief } from "./build";
@@ -58,7 +59,9 @@ export async function kitStatus(
   supabase: SupabaseClient,
   brandId: string,
 ): Promise<{ ok: true; status: KitStatus } | { ok: false; status: number; error: string }> {
-  const draft = await buildKitBrief(supabase, brandId);
+  // What publishing now would freeze, unconfirmed readings included, so a
+  // re-read that changed what the page shows turns the kit 「更新あり」.
+  const draft = await buildKitBrief(supabase, brandId, { withUnconfirmed: true });
   if (!draft.ok) return draft;
   const live = await livePublication(supabase, brandId);
   const urlPath = canonicalKitPath(brandId);
@@ -99,10 +102,63 @@ export async function kitStatus(
   };
 }
 
+/**
+ * Publishing is the confirmation (owner's decision, 2026-11-14).
+ *
+ * The page shows what the brand is — measured values and what the AI read
+ * off the site and the inputs — and pressing 「公開する」 on it means "this is
+ * right". So every reading still standing as a claim is adopted first, as the
+ * person's decision, and the kit freezes all of it. It used to publish only
+ * what had been adopted one field at a time, which put a page on screen and a
+ * different page at the URL.
+ */
+async function confirmShownReadings(
+  supabase: SupabaseClient,
+  input: { brandId: string; userId: string },
+): Promise<{ ok: true; adopted: number } | { ok: false; error: string }> {
+  const [claims, values] = await Promise.all([
+    supabase
+      .from("brand_knowledge_claims")
+      .select("field_path, layer, value, confidence, observed_at")
+      .eq("brand_id", input.brandId)
+      .is("variant_id", null)
+      .neq("confidence", "unknown")
+      .order("observed_at", { ascending: false }),
+    supabase
+      .from("brand_knowledge_values")
+      .select("field_path")
+      .eq("brand_id", input.brandId)
+      .is("variant_id", null),
+  ]);
+  if (claims.error) return { ok: false, error: claims.error.message };
+  if (values.error) return { ok: false, error: values.error.message };
+  const settled = new Set((values.data ?? []).map((row) => row.field_path as string));
+  const latest = new Map<string, AdoptKnowledgeField>();
+  for (const row of claims.data ?? []) {
+    const path = row.field_path as string;
+    if (settled.has(path) || latest.has(path)) continue;
+    const value = row.value;
+    if (value === null || value === undefined || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    latest.set(path, { field_path: path, layer: row.layer as "fact" | "expression", value });
+  }
+  if (latest.size === 0) return { ok: true, adopted: 0 };
+  const result = await adoptBrandKnowledge(supabase, {
+    brandId: input.brandId,
+    fields: [...latest.values()],
+    sourceKind: "user_input",
+    sourceRef: { source: "kit_publish", at: new Date().toISOString() },
+    userId: input.userId,
+  });
+  return result.ok ? { ok: true, adopted: result.adopted } : { ok: false, error: result.error };
+}
+
 export async function publishKit(
   supabase: SupabaseClient,
   input: { brandId: string; userId: string },
 ): Promise<{ ok: true; takeId: string; urlPath: string } | { ok: false; status: number; error: string }> {
+  const confirmed = await confirmShownReadings(supabase, input);
+  if (!confirmed.ok) return { ok: false, status: 500, error: confirmed.error };
   const draft = await buildKitBrief(supabase, input.brandId);
   if (!draft.ok) return draft;
   const brief = draft.brief;

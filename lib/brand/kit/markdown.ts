@@ -1,4 +1,5 @@
 import { frameLabel } from "@/lib/brand/capture-frame";
+import { parseFeatures, parseVoices } from "@/lib/brand/content";
 import { BRAND_KIND_LABEL, isBrandKind } from "@/lib/brand-kind";
 import { fontFamilies, isHex, SOCIAL_NETWORKS } from "@/lib/brand/profile";
 import type { BrandKitBrief } from "./snapshot";
@@ -12,8 +13,9 @@ import { kitTokens } from "./tokens";
 // the product's ("プライマリ", not "palette.primary"), with the field path in
 // a trailing code span so a tool that wants the raw key still has it.
 //
-// Everything here is ADOPTED. A value a model only guessed is not in the brief
-// (docs/product.md §2.1), so nothing in this file needs a confidence column.
+// Everything here is settled: measured off the site, or read and then
+// confirmed by the owner publishing it (docs/product.md §2.1), so nothing in
+// this file needs a confidence column.
 
 export type KitMarkdownOptions = {
   /** Absolute base of this kit, e.g. https://logos.example/k/<id>. No trailing slash. */
@@ -56,7 +58,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
   out.push(`# ${brief.brand.name} — Brand Kit`);
   out.push("");
   out.push(
-    `このファイルは ${brief.brand.name} のブランドキットです。ここに書かれた値は、ブランドのサイトから測定されたものと、持ち主が採用したものだけです。モデルの推測は含みません。無い項目は無いものとして扱い、推測で補わないでください。`,
+    `このファイルは ${brief.brand.name} のブランドキットです。ここに書かれた値は、ブランドのサイトから測定したものと、サイトや資料から読み取って持ち主が確認し公開したものです。無い項目は無いものとして扱い、推測で補わないでください。`,
   );
   out.push("");
   out.push(`- キット: ${options.kitUrl}`);
@@ -133,7 +135,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
     border: "区切り線・カードの縁",
   };
   if (Object.keys(tokens.color).length === 0) {
-    out.push("色は採用されていません。");
+    out.push("色は指定されていません。");
   } else {
     out.push("| 役割 | HEX | 使いどころ | key |");
     out.push("| --- | --- | --- | --- |");
@@ -158,7 +160,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
   const heading = text(v["typography.heading_font"]);
   const body = text(v["typography.body_font"]);
   if (!heading && !body) {
-    out.push("書体は採用されていません。");
+    out.push("書体は指定されていません。");
   } else {
     out.push(
       ...table([
@@ -187,7 +189,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
   const shapeRows = table(
     Object.entries(tokens.shape).map(([key, value]) => row(frameLabel(`tokens.${key}`), value, `tokens.${key}`)),
   );
-  out.push(...(shapeRows.length > 0 ? shapeRows : ["形の値は採用されていません。"]));
+  out.push(...(shapeRows.length > 0 ? shapeRows : ["形の値は指定されていません。"]));
   out.push("");
 
   // ---- 構成
@@ -202,7 +204,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
   if (hero) structure.push(`- ヒーローの作り: ${hero} \`layout.hero_kind\``);
   const cta = text(v["layout.cta_label"]);
   if (cta) structure.push(`- CTA の文言: 「${cta}」 \`layout.cta_label\``);
-  out.push(...(structure.length > 0 ? structure : ["構成は採用されていません。"]));
+  out.push(...(structure.length > 0 ? structure : ["構成は指定されていません。"]));
   out.push("");
 
   // ---- 声
@@ -216,6 +218,33 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
     out.push("");
   }
 
+  // ---- 伝えること
+  const features = parseFeatures(v["offering.features"]);
+  const voices = parseVoices(v["proof.voices"]);
+  if (features || voices) {
+    out.push("## 伝えること");
+    out.push("");
+    out.push("ブランドが自分のサイトで述べている内容です。特長は言い回しを整えてよく、お客様の声は一字も変えずに使ってください。ここに無い特長・声・数字を作らないでください。");
+    out.push("");
+    if (features) {
+      out.push("### 特長 `offering.features`");
+      out.push("");
+      features.forEach((feature, index) => {
+        out.push(`${index + 1}. **${feature.title}**${feature.description ? ` — ${feature.description}` : ""}`);
+      });
+      out.push("");
+    }
+    if (voices) {
+      out.push("### お客様の声 `proof.voices`");
+      out.push("");
+      for (const voice of voices) {
+        const who = [voice.name, voice.role].filter(Boolean).join("・");
+        out.push(`- 「${voice.quote}」${who ? ` — ${who}` : ""}`);
+      }
+      out.push("");
+    }
+  }
+
   // ---- 連絡先・ソーシャル
   out.push("## 連絡先とソーシャル");
   out.push("");
@@ -226,7 +255,7 @@ export function kitMarkdown(brief: BrandKitBrief, options: KitMarkdownOptions): 
     row("メール", text(v["contact.email"]), "contact.email"),
     ...SOCIAL_NETWORKS.map((network) => row(network.label, text(v[network.path]), network.path)),
   ]);
-  out.push(...(reach.length > 0 ? reach : ["連絡先は採用されていません。"]));
+  out.push(...(reach.length > 0 ? reach : ["連絡先は指定されていません。"]));
   out.push("");
 
   out.push("## 使い方");

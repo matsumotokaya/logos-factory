@@ -6,7 +6,6 @@
 // (deliverable-architecture §17.8).
 
 import type { GoalField, GoalProgress } from "@/lib/pipeline/stages";
-import MaterialIntake, { type BrandMaterial } from "./MaterialIntake";
 
 export interface BrandPipelinePayload {
   sources: Array<{ label: string; addedAt: string | null }>;
@@ -14,15 +13,6 @@ export interface BrandPipelinePayload {
   structuredFields: string[];
   adoptedFields: string[];
   goal: GoalProgress;
-}
-
-export interface MaterialActions {
-  websiteLabel: string | null;
-  materials: BrandMaterial[];
-  busy: boolean;
-  onUploadFile: (file: File, data: string) => Promise<void>;
-  onAddNote: (text: string) => Promise<void>;
-  onRemove: (id: string) => Promise<void>;
 }
 
 function FieldList({
@@ -87,28 +77,12 @@ function GoalList({ fields, tone }: { fields: GoalField[]; tone: "filled" | "mis
 export default function BrandPipelinePanel({
   stageId,
   payload,
-  onInject,
-  materials,
 }: {
   stageId: string;
   payload: BrandPipelinePayload;
-  onInject: () => void;
-  materials: MaterialActions;
 }) {
-  if (stageId === "input") {
-    return (
-      <MaterialIntake
-        websiteLabel={materials.websiteLabel}
-        materials={materials.materials}
-        busy={materials.busy}
-        onUploadFile={materials.onUploadFile}
-        onAddNote={materials.onAddNote}
-        onRemove={materials.onRemove}
-        onRefetchSite={onInject}
-      />
-    );
-  }
-
+  // The input stage is the brand's input form (BrandInputForm), drawn by the
+  // page that owns the handlers.
   if (stageId === "extract") {
     return (
       <section className="flex flex-col gap-2">

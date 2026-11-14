@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandFile, BrandOverview } from "@/app/api/brands/[id]/overview/route";
+import BrandImageLibrary from "@/components/brand/BrandImageLibrary";
 
 const KIND_LABEL: Record<string, string> = {
   keyvisual: "キービジュアル",
@@ -67,7 +68,11 @@ export default function MaterialsPortal({ brandId }: { brandId: string }) {
     };
   }, [load]);
 
-  const files = overview?.files ?? [];
+  const allFiles = overview?.files ?? [];
+  // The site's pictures are sorted by what they are for the brand
+  // (BrandImageLibrary); everything else is listed by kind below.
+  const files = allFiles.filter((file) => !(file.sourceKind === "url_fetch" && file.mediaType?.startsWith("image/")));
+  const fromSite = allFiles.length - files.length;
   const groups = KIND_ORDER.map((kind) => ({
     kind,
     label: KIND_LABEL[kind] ?? kind,
@@ -101,12 +106,13 @@ export default function MaterialsPortal({ brandId }: { brandId: string }) {
 
       {overview === null && !error ? (
         <p className="text-sm text-ink-muted">読み込み中…</p>
-      ) : files.length === 0 ? (
+      ) : allFiles.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-hairline px-5 py-6 text-sm text-ink-muted">
           まだ素材がありません。ブランドキットの「サイトを読み直す」で画面と画像が入ります。
         </p>
       ) : (
         <div className="flex flex-col gap-8">
+          {fromSite > 0 ? <BrandImageLibrary brandId={brandId} files={allFiles} onChanged={load} /> : null}
           {groups.map((group) => (
             <section key={group.kind} className="flex flex-col gap-3">
               <div className="flex items-baseline gap-3">

@@ -99,7 +99,7 @@ export interface SiteImageRef {
   renderedHeight: number;
   /** distance from the top of the document, in px */
   top: number;
-  role: "keyvisual" | "hero" | "content" | "texture";
+  role: "keyvisual" | "hero" | "content" | "texture" | "icon";
   /** a tiling background — the only way a texture is visible in a DOM */
   repeats: boolean;
 }
@@ -135,8 +135,10 @@ const NAV_TIMEOUT = 30_000;
  * survived the DOM-size filter by being stretched.
  */
 const IMAGE_BUDGET = {
-  count: 16,
+  count: 32,
   minBytes: 4_000,
+  /** An SVG icon is a few hundred bytes and still a whole drawing. */
+  minSvgBytes: 300,
   maxBytes: 8_000_000,
   totalBytes: 40_000_000,
 };
@@ -703,13 +705,38 @@ const COLLECT_SITE_PROFILE = String.raw`(() => {
     const ogMeta = document.querySelector('meta[property="og:image"], meta[name="og:image"]');
     const ogSrc = ogMeta ? ogMeta.getAttribute("content") : null;
 
+    let icons = 0;
     for (const img of Array.from(document.querySelectorAll("img")).slice(0, 300)) {
       const cs = getComputedStyle(img);
       if (!visible(img, cs)) continue;
       const r = img.getBoundingClientRect();
       const nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
-      if (r.width < 120 || r.height < 90) continue;
-      if (nw && nh && nw * nh < 40000) continue; // 200x200 or smaller: an icon
+      const srcRaw = img.currentSrc || img.getAttribute("src") || "";
+      // Small drawings are a brand's icon set, worth a few: an SVG or a small
+      // image shown between 32 and 120px. Tracking pixels and avatars of a
+      // dozen pixels stay out.
+      if (r.width < 120 || r.height < 90) {
+        const drawing = /\.svg(\?|#|$)/i.test(srcRaw) || (nw > 0 && nw <= 256);
+        if (!drawing || r.width < 32 || r.height < 32 || icons >= 16) continue;
+        let absIcon = srcRaw;
+        try { absIcon = new URL(srcRaw, location.href).href; } catch (e) { /* keep raw */ }
+        icons += 1;
+        push({
+          src: absIcon,
+          alt: (img.getAttribute("alt") || "").trim().slice(0, 120) || null,
+          naturalWidth: nw || null,
+          naturalHeight: nh || null,
+          renderedWidth: Math.round(r.width),
+          renderedHeight: Math.round(r.height),
+          top: Math.round(r.top + window.scrollY),
+          role: "icon",
+          repeats: false,
+        });
+        continue;
+      }
+      // Below 150x150 natural is a thumbnail of something else; a portrait on
+      // a team page is usually larger than that, and is the brand's own.
+      if (nw && nh && nw * nh < 22500) continue;
       const src = img.currentSrc || img.getAttribute("src") || "";
       if (!src) continue;
       let abs = src;
@@ -774,14 +801,14 @@ const COLLECT_SITE_PROFILE = String.raw`(() => {
 
     // Biggest first, hero and key visual ahead of the rest: whatever gets
     // dropped by the fetch budget should be the least useful thing.
-    const rank = { keyvisual: 0, hero: 1, texture: 2, content: 3 };
+    const rank = { keyvisual: 0, hero: 1, texture: 2, content: 3, icon: 4 };
     out.images.sort((a, b) => {
       const ra = rank[a.role] === undefined ? 9 : rank[a.role];
       const rb = rank[b.role] === undefined ? 9 : rank[b.role];
       if (ra !== rb) return ra - rb;
       return (b.renderedWidth * b.renderedHeight) - (a.renderedWidth * a.renderedHeight);
     });
-    out.images = out.images.slice(0, 40);
+    out.images = out.images.slice(0, 60);
   } catch (e) { /* best effort */ }
 
   return out;
@@ -1245,9 +1272,10 @@ export async function captureSite(
           const resp = await page.request.get(ref.src, { timeout: 15_000 });
           if (!resp.ok()) continue;
           const body = await resp.body();
-          if (body.length < IMAGE_BUDGET.minBytes || body.length > IMAGE_BUDGET.maxBytes) continue;
           const mediaType = (resp.headers()["content-type"] ?? "").split(";")[0].trim();
           if (!/^image\//.test(mediaType)) continue;
+          const floor = mediaType === "image/svg+xml" ? IMAGE_BUDGET.minSvgBytes : IMAGE_BUDGET.minBytes;
+          if (body.length < floor || body.length > IMAGE_BUDGET.maxBytes) continue;
           spent += body.length;
           images.push({
             ...ref,

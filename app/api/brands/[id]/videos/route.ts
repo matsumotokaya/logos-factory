@@ -187,8 +187,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const send = (event: CreateEvent) =>
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      // The reader may leave — a reload, a closed tab. The work does not stop
+      // for that: writing to a closed stream throws, and a throw here would
+      // abandon a take half made. The result still lands in the lists.
+      let open = true;
+      const send = (event: CreateEvent) => {
+        if (!open) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {
+          open = false;
+        }
+      };
       try {
         const result = await createVideoTake({
           supabase,
@@ -213,7 +223,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
                 : "動画を追加できませんでした",
         });
       } finally {
-        controller.close();
+        if (open) {
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the reader leaving.
+          }
+        }
       }
     },
   });

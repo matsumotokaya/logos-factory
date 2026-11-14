@@ -2,7 +2,7 @@
 
 // The brand kit, drawn once for two readers.
 //
-// The workspace shows the DRAFT (values and claims, with 推定 → 採用 on every
+// The workspace shows the DRAFT (values and claims, the AI's readings marked
 // claim) and the public page shows a PUBLISHED take (values only). Same
 // component, same order, same words, so what the editor sees is what the
 // reader gets (docs/product.md §2.1: preview is the page without its tools).
@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import type { KnowledgeClaim, KnowledgeValue } from "@/app/api/brands/[id]/overview/route";
 import BrandAssetSlots from "@/components/brand/BrandAssetSlots";
 import {
+  ContentCard,
   PaletteCard,
   ShapeCard,
   StructureCard,
@@ -42,6 +43,7 @@ export default function KitView({
   kindControl,
   eyebrow,
   extraFacts,
+  status,
   logosHref,
   onAdopt,
   emptyNote,
@@ -50,6 +52,8 @@ export default function KitView({
   kindControl?: ReactNode;
   eyebrow?: ReactNode;
   extraFacts?: { label: string; value: ReactNode }[];
+  /** Workspace-only, under the name (BrandHero `status`). */
+  status?: ReactNode;
   logosHref?: string;
   onAdopt?: AdoptHandler;
   /** Shown instead of the cards when nothing has been read yet. */
@@ -78,6 +82,7 @@ export default function KitView({
         kindControl={kindControl}
         eyebrow={eyebrow}
         extraFacts={extraFacts}
+        status={status}
         onAdopt={onAdopt}
       />
 
@@ -105,6 +110,20 @@ export default function KitView({
           </div>
         )}
       </section>
+
+      {profile.get("offering.features") || profile.get("proof.voices") ? (
+        <section aria-labelledby="brand-says" className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="brand-says" className="text-balance text-lg font-semibold">
+              伝えること
+            </h2>
+            <span className="text-xs text-ink-muted">
+              LPの特長とお客様の声は、ここから取られます
+            </span>
+          </div>
+          <ContentCard profile={profile} onAdopt={onAdopt} />
+        </section>
+      ) : null}
 
       <section aria-labelledby="brand-assets" className="flex flex-col gap-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">

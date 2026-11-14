@@ -2,8 +2,8 @@
 
 // Works — what was made from the kit, by kind.
 //
-// The factory's side of the brand (docs/product.md §2): examples of the kit
-// in use, never the kit itself. One card per kind of deliverable, in the
+// The factory's side of the brand (docs/product.md §2): what the kit was put
+// to work on, and so the check on it. One card per kind of deliverable, in the
 // order the catalog's families come; a kind the product cannot make yet is
 // still listed, saying so, because the shape of the folder is the promise.
 
@@ -13,17 +13,21 @@ import { authedFetch } from "@/lib/authed-fetch";
 import type { BrandOverview } from "@/app/api/brands/[id]/overview/route";
 import FolderIndex, { type FolderEntry } from "@/components/management/FolderIndex";
 import { VIDEO_STATE_LABEL, type VideoSummary } from "@/lib/video/asset";
+import type { LpSummary } from "@/app/api/brands/[id]/lps/route";
+import CreateLpButton from "@/components/lp/CreateLpButton";
 
 export default function WorksIndex({ brandId }: { brandId: string }) {
   const [overview, setOverview] = useState<BrandOverview | null>(null);
   const [videos, setVideos] = useState<VideoSummary[]>([]);
+  const [lps, setLps] = useState<LpSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [overviewRes, videoRes] = await Promise.all([
+      const [overviewRes, videoRes, lpRes] = await Promise.all([
         authedFetch(`/api/brands/${brandId}/overview`),
         authedFetch(`/api/brands/${brandId}/videos`),
+        authedFetch(`/api/brands/${brandId}/lps`),
       ]);
       const overviewJson = overviewRes.ok
         ? ((await overviewRes.json()) as { overview?: BrandOverview })
@@ -32,6 +36,8 @@ export default function WorksIndex({ brandId }: { brandId: string }) {
       setOverview(overviewJson.overview);
       const videoJson = videoRes.ok ? ((await videoRes.json()) as { videos?: VideoSummary[] }) : null;
       setVideos((videoJson?.videos ?? []).filter((video) => !video.isPlaceholder));
+      const lpJson = lpRes.ok ? ((await lpRes.json()) as { lps?: LpSummary[] }) : null;
+      setLps(lpJson?.lps ?? []);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込めませんでした");
@@ -69,10 +75,14 @@ export default function WorksIndex({ brandId }: { brandId: string }) {
       key: "lp",
       label: "LPs",
       href: `${base}/lp`,
-      count: 0,
-      description: "ランディングページ。キットを読んで組み、公開 URL を持ちます",
+      count: lps.length,
+      description: "ランディングページ。入力なしでキットから組み、キットに無かった内容に印を付けます",
       thumbs: [],
-      emptyNote: "準備中。先に公開したキットを外部のエージェントに渡して作る検証をします",
+      emptyNote:
+        lps.length > 0
+          ? `最新: ${lps[0].headline || lps[0].title}`
+          : "まだLPがありません。「＋ LPを作る」で、このキットから1ページ作ります",
+      action: <CreateLpButton brandId={brandId} label="＋ LPを作る" variant="outline" className="px-3 py-1 text-[11px]" />,
     },
     {
       key: "banner",
@@ -90,7 +100,7 @@ export default function WorksIndex({ brandId }: { brandId: string }) {
       <FolderIndex
         eyebrow="WORKS"
         title={overview ? `${overview.name} の Works` : "Works"}
-        lead="このキットから作ったもの。キットの参照例であって、キットそのものではありません。"
+        lead="このキットから作ったもの。作ってみて足りなかったものが、キットに足す項目になります。"
         backHref={`/brands/${brandId}`}
         backLabel="← ブランドキット"
         error={error}

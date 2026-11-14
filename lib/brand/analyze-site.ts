@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { BRAND_KINDS } from "@/lib/brand-kind";
-import { LLM_BUDGET, LLM_MODEL } from "@/lib/llm";
+import { LLM_BUDGET, LLM_EFFORT, LLM_MODEL } from "@/lib/llm";
 import type { RawServiceInfo } from "@/lib/site/ingest";
 import { usageOf, type LlmUsage } from "@/lib/site/logo-adjudicate";
 
@@ -56,7 +56,7 @@ export async function analyzeSite(
   const response = await client.chat.completions.parse({
     model: LLM_MODEL,
     max_completion_tokens: LLM_BUDGET.short,
-    reasoning_effort: "low",
+    reasoning_effort: LLM_EFFORT,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {

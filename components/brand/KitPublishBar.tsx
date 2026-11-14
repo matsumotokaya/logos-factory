@@ -10,15 +10,12 @@
 //   更新あり  live but the draft moved on → 更新を公開
 //   非公開    was live, taken down        → 公開する
 //
-// Publishing opens a dialog first, because the kit carries adopted values
-// only: what is still 推定 is listed as what will NOT be in it. The warning
-// never blocks — the choice is the user's (deliverable-architecture §15.2-4).
+// Publishing opens a dialog that says one thing: where it goes. Pressing it
+// publishes what the page shows — the AI's readings included, confirmed by
+// the press (owner's decision, 2026-11-14; lib/brand/kit/publish.ts).
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { frameLabel } from "@/lib/brand/capture-frame";
-import { isMeasuredClaim } from "@/lib/brand/profile";
-import type { KnowledgeClaim, KnowledgeValue } from "@/app/api/brands/[id]/overview/route";
 
 export type KitState = "draft" | "live" | "stale" | "unpublished";
 
@@ -53,8 +50,6 @@ export function PublishStateBadge({ state }: { state: KitState }) {
 
 export default function KitPublishBar({
   status,
-  values,
-  claims,
   busy,
   previewing,
   onTogglePreview,
@@ -62,8 +57,6 @@ export default function KitPublishBar({
   onUnpublish,
 }: {
   status: KitStatusView | null;
-  values: KnowledgeValue[];
-  claims: KnowledgeClaim[];
   busy: boolean;
   previewing: boolean;
   onTogglePreview: () => void;
@@ -86,16 +79,6 @@ export default function KitPublishBar({
   const url =
     typeof window === "undefined" ? status.urlPath : `${window.location.origin}${status.urlPath}`;
 
-  // What the published kit will leave out: every GUESS that no value covers.
-  // A measured fact (a footer's social link) goes with the values.
-  const adoptedPaths = new Set(values.map((value) => value.fieldPath));
-  const pending = claims.filter(
-    (claim) =>
-      claim.confidence !== "unknown" &&
-      !isMeasuredClaim(claim) &&
-      !adoptedPaths.has(claim.fieldPath),
-  );
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -110,8 +93,9 @@ export default function KitPublishBar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hairline bg-white px-4 py-2.5 text-[12px]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-[12px]">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <span className="w-24 shrink-0 font-semibold text-ink">ブランドキット</span>
           <PublishStateBadge state={state} />
           {state === "live" || state === "stale" ? (
             <span className="flex min-w-0 items-center gap-2 text-ink-muted">
@@ -139,8 +123,8 @@ export default function KitPublishBar({
           ) : (
             <span className="text-ink-muted">
               {state === "draft"
-                ? "このページはまだ公開されていません。中身を確かめて「公開する」と、URLを渡すだけで使えるブランドキットになります。"
-                : "公開を取り下げています。URLは404を返します。"}
+                ? "まだ公開していません。公開すると、URLを渡すだけで使えるキットになります"
+                : "公開を取り下げています"}
             </span>
           )}
         </div>
@@ -197,34 +181,18 @@ export default function KitPublishBar({
         >
           <div>
             <h2 className="text-base font-semibold">{actionLabel}</h2>
-            <p className="mt-1 text-[12px] text-ink-muted">
-              いまの内容を凍結して {status.urlPath} に出します。あとで下書きが変わっても、公開版はこの版のままです。
+            <p className="mt-2 text-[12px] text-ink-muted">
+              {state === "stale" ? "公開中のブランドキットを、いまの内容に置き換えます。" : "このブランドキットを公開します。"}
             </p>
+            <p className="mt-3 break-all rounded-lg bg-ink/[0.04] px-3 py-2 font-mono text-[12px] text-ink">{url}</p>
           </div>
-          {pending.length > 0 ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
-              <p className="font-semibold">{pending.length}項目が推定のままで、公開版には含まれません</p>
-              <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-                {pending.map((claim) => (
-                  <li key={claim.fieldPath}>{frameLabel(claim.fieldPath)}</li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-amber-800/80">
-                載せたい項目は、閉じてから「推定 → 採用」を押してください。このまま公開もできます。
-              </p>
-            </div>
-          ) : (
-            <p className="rounded-xl border border-hairline px-4 py-3 text-[12px] text-ink-muted">
-              推定のまま残っている項目はありません。
-            </p>
-          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="rounded-full border border-hairline px-4 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink hover:text-ink"
             >
-              閉じる
+              キャンセル
             </button>
             <button
               type="submit"

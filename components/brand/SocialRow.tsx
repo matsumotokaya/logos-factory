@@ -66,7 +66,7 @@ export default function SocialRow({ profile }: { profile: BrandProfile }) {
                   className="flex items-center gap-2 rounded-full border border-ink bg-ink px-3 py-1.5 text-paper transition hover:bg-paper hover:text-ink"
                 >
                   <SocialIcon path={network.path} className="size-4 shrink-0" />
-                  <span className="text-[12px] font-semibold">{socialHandle(url)}</span>
+                  <span className="max-w-[12rem] truncate text-[12px] font-semibold">{socialHandle(url)}</span>
                 </a>
               </li>
             );

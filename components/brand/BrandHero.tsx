@@ -1,8 +1,11 @@
 "use client";
 
-// The top of the brand page: the mark, large, beside the name. The logo is
-// the one thing a reader checks to know the capture read the right site, so
-// it is the first thing on the page rather than a thumbnail under 「アセット」.
+// The top of the brand page, in the order a reader needs it (owner's layout,
+// 2026-11-14): what this is — its standing and kind, its name — then, in the
+// workspace, where its kit is published and how its information is updated
+// (`status`); then what it says about itself: the catch copy, the facts and
+// social accounts, the description. The mark sits beside all of it, large:
+// it is the one thing a reader checks to know the capture read the right site.
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -25,6 +28,7 @@ export default function BrandHero({
   kindControl,
   eyebrow,
   extraFacts = [],
+  status,
   onAdopt,
 }: {
   name: string;
@@ -42,8 +46,11 @@ export default function BrandHero({
   /** The line above the name: what kind of brand this is, and what it
    *  inherits from. Defaults to the bare word. */
   eyebrow?: ReactNode;
-  /** Workspace-only rows after the brand's facts, like 「更新」 with its date. */
+  /** Workspace-only rows after the brand's facts. */
   extraFacts?: { label: string; value: ReactNode }[];
+  /** Workspace-only, under the name: the kit's address and state, and the
+   *  way into updating the brand's information. Absent on the public kit. */
+  status?: ReactNode;
   onAdopt?: AdoptHandler;
 }) {
   const tagline = profile.text("offering.tagline") ?? profile.text("voice.tagline");
@@ -113,18 +120,20 @@ export default function BrandHero({
 
       <div className="flex min-w-0 flex-col gap-5">
         <div>
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <p className="text-xs font-semibold text-ink-muted">{eyebrow ?? "BRAND"}</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="text-xs font-semibold text-ink-muted">{eyebrow ?? "BRAND"}</div>
             {kindControl}
           </div>
           <h1 className="mt-2 text-balance font-display text-3xl font-semibold">{name}</h1>
-          {tagline ? (
-            <p className="mt-1.5 text-pretty text-base text-ink">{tagline}</p>
-          ) : null}
-          <p className="mt-3 text-pretty text-sm text-ink-muted">
-            {description || "このブランドのプロフィール・デザインルール・アセットの一覧です。"}
-          </p>
         </div>
+
+        {status}
+
+        {tagline ? (
+          <p className={status ? "border-t border-hairline pt-5 text-pretty font-display text-xl font-semibold text-ink" : "text-pretty font-display text-xl font-semibold text-ink"}>
+            {tagline}
+          </p>
+        ) : null}
 
         {facts.length > 0 ? (
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
@@ -146,6 +155,10 @@ export default function BrandHero({
         ) : null}
 
         <SocialRow profile={profile} />
+
+        <p className="text-pretty text-sm leading-relaxed text-ink-muted">
+          {description || "このブランドの説明は、まだ読み取れていません。"}
+        </p>
       </div>
     </header>
   );

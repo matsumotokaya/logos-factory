@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PipelineStageId } from "@/lib/pipeline/stages";
 
 // A run on the brand itself (brand_runs, migration 0059): reading its site on
 // creation or on demand. The runner keeps the log in memory and writes the
@@ -11,6 +12,8 @@ export type BrandRunStep = {
   ts: string;
   message: string;
   level: "info" | "success" | "warn";
+  /** The pipeline stage the step belongs to; absent on runs logged before stages were recorded. */
+  stage?: PipelineStageId;
 };
 
 export type BrandRunResult = {
@@ -68,6 +71,8 @@ function fromRow(row: Row): BrandRun {
 /** The writer a detached run holds. Failing to write the log never fails the run. */
 export type BrandRunLog = {
   id: string;
+  /** Every step logged after this belongs to the stage, until the next call. */
+  stage: (stage: PipelineStageId) => void;
   step: (message: string, level?: BrandRunStep["level"]) => Promise<void>;
   finish: (result: BrandRunResult) => Promise<void>;
   fail: (error: string) => Promise<void>;
@@ -87,6 +92,7 @@ export async function startBrandRun(
   }
   const id = inserted.data.id as string;
   const steps: BrandRunStep[] = [];
+  let current: PipelineStageId | undefined;
 
   const write = async (patch: Record<string, unknown>) => {
     const { error } = await supabase
@@ -98,8 +104,11 @@ export async function startBrandRun(
 
   return {
     id,
+    stage: (stage) => {
+      current = stage;
+    },
     step: async (message, level = "info") => {
-      steps.push({ ts: new Date().toISOString(), message, level });
+      steps.push({ ts: new Date().toISOString(), message, level, ...(current ? { stage: current } : {}) });
       await write({});
     },
     finish: async (result) => {

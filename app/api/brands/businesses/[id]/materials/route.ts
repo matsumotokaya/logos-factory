@@ -9,6 +9,9 @@ import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
 import { isPdf } from "@/lib/materials/pdf";
 import { signedMaterialUrl } from "@/lib/materials/signed-url";
 import { registerPdfChildren, type PdfExpansion } from "@/lib/materials/pdf-children";
+import { inputOf } from "@/lib/brand/inputs";
+import { scrapeUrl } from "@/lib/site/ingest";
+import { normalizePublicHttpUrl } from "@/lib/public-url";
 
 /**
  * Material a brand is built from: the PDF of a brand book, a guideline page,
@@ -52,7 +55,7 @@ export async function GET(
   const result = await supabase
     .from("brand_materials")
     .select(
-      "id, kind, label, media_type, bytes, width, height, r2_key, source_kind, source_url, derived_from_material_id, created_at",
+      "id, kind, label, media_type, bytes, width, height, r2_key, source_kind, source_url, derived_from_material_id, provenance, created_at",
     )
     .eq("brand_id", id)
     .eq("scope", "brand")
@@ -63,10 +66,26 @@ export async function GET(
   // Every material is a container whose contents begin with its own file
   // (docs/asset-normalization.md §9.4), so the list hands over a URL its bytes
   // can be fetched through. Brand scope, so the brand delivery route signs it.
-  type Row = { id: string; label: string; r2_key: string | null };
+  type Row = {
+    id: string;
+    label: string;
+    r2_key: string | null;
+    source_kind: string;
+    derived_from_material_id: string | null;
+    provenance: Record<string, unknown> | null;
+  };
   const materials = ((result.data ?? []) as unknown as Row[]).map((row) => {
-    const { r2_key, ...rest } = row;
-    return { ...rest, url: signedMaterialUrl(id, { ...row, r2_key }) };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept off the wire
+    const { r2_key, provenance, ...rest } = row;
+    // What the person fed in (a file, a page, a note) and when it was last
+    // read into the brand — the pipeline's input list (lib/brand/inputs.ts).
+    const input = inputOf(row);
+    return {
+      ...rest,
+      input: input?.kind ?? null,
+      read_at: input?.readAt ?? null,
+      url: signedMaterialUrl(id, { ...row, r2_key }),
+    };
   });
   return Response.json({ materials }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -90,13 +109,41 @@ export async function POST(
       mediaType?: unknown;
       data?: unknown;
       text?: unknown;
+      url?: unknown;
     };
 
-    // A pasted note and an uploaded file are the same thing once stored; only
-    // how they arrive differs.
+    // A pasted note, an uploaded file and an added page are the same thing
+    // once stored; only how they arrive differs.
     let buffer: Buffer;
     let mediaType: string;
-    if (typeof body.text === "string" && body.text.trim()) {
+    let input: "file" | "note" | "url" = "file";
+    let sourceUrl: string | null = null;
+    let pageTitle: string | null = null;
+    if (typeof body.url === "string" && body.url.trim()) {
+      // A page added as input: kept as the text it said when it was added, so
+      // what the brand was read from stays on record after the page changes.
+      const target = normalizePublicHttpUrl(body.url.trim()).href;
+      const page = await scrapeUrl(target);
+      const text = [
+        `URL: ${page.url}`,
+        page.title ? `タイトル: ${page.title}` : "",
+        page.description ? `説明: ${page.description}` : "",
+        page.headings.length ? `見出し:\n${page.headings.join("\n")}` : "",
+        page.bodyText ? `本文:\n${page.bodyText}` : "",
+        page.footerText ? `フッター:\n${page.footerText}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      if (!page.bodyText.trim() && page.headings.length === 0) {
+        throw new Error("このページから文章を読み取れませんでした（JavaScriptで描くページかもしれません）");
+      }
+      buffer = Buffer.from(text, "utf8");
+      mediaType = "text/plain";
+      input = "url";
+      sourceUrl = page.url;
+      pageTitle = page.title;
+    } else if (typeof body.text === "string" && body.text.trim()) {
+      input = "note";
       buffer = Buffer.from(body.text, "utf8");
       mediaType = "text/plain";
     } else if (typeof body.data === "string" && typeof body.mediaType === "string") {
@@ -114,7 +161,11 @@ export async function POST(
     const label =
       typeof body.label === "string" && body.label.trim()
         ? body.label.trim().slice(0, 200)
-        : "素材";
+        : input === "url"
+          ? (pageTitle?.trim() || sourceUrl || "ページ").slice(0, 200)
+          : input === "note"
+            ? "メモ"
+            : "素材";
     const checksum = createHash("sha256").update(buffer).digest("hex");
     const materialId = randomUUID();
     // Content hash in the key: the same bytes uploaded twice cannot produce
@@ -140,7 +191,8 @@ export async function POST(
         checksum,
         ...measurementColumns(measurement),
         source_kind: "upload",
-        provenance: { source: "brand_pipeline_input", uploaded_by: user.id },
+        source_url: sourceUrl,
+        provenance: { source: "brand_pipeline_input", input, uploaded_by: user.id },
       })
       .select("id, kind, label, media_type, bytes, source_kind, source_url, created_at")
       .maybeSingle();

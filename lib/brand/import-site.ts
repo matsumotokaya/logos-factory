@@ -10,6 +10,9 @@ import {
 } from "@/lib/brand/knowledge";
 import type { BrandRunLog, BrandRunResult } from "@/lib/brand/runs";
 import { assignPaletteRoles } from "@/lib/brand/site-palette";
+import { readSiteContent, siteContentClaims } from "@/lib/brand/site-content";
+import { readBrandInputs, type InputRead } from "@/lib/brand/read-inputs";
+import { classifySiteImages } from "@/lib/brand/classify-site-images";
 import { siteKnowledge } from "@/lib/brand/site-knowledge";
 import { saveSiteMaterials } from "@/lib/brand/site-materials";
 import { analyzeSite, type SiteAnalysis } from "@/lib/brand/analyze-site";
@@ -137,10 +140,14 @@ export async function importSiteIntoBrand(input: {
 }): Promise<BrandRunResult> {
   const { supabase, userId, brandId, url, log } = input;
 
+  // The five stages every pipeline shows (lib/pipeline/stages.ts), named as
+  // the work passes through them so the log and the pipeline say the same.
+  log.stage("input");
   await log.step(`${url} を取得しています`);
   const page = await scrapeUrl(url);
   await log.step(`ページを取得しました${page.title ? `: ${page.title}` : ""}`);
 
+  log.stage("extract");
   await log.step("ブラウザで描画して、色・書体・レイアウト・ロゴを測っています");
   const capture = await captureSite(page.url, { faviconUrl: page.faviconUrl });
   if (!capture) {
@@ -222,6 +229,7 @@ export async function importSiteIntoBrand(input: {
   await log.step(`${claimed.appended}件を記録し、測定できた${adopted}項目を採用しました`);
 
   // Who runs it and what it offers: structured from the page's own text.
+  log.stage("structure");
   await log.step("運営者・提供内容・ブランドの種別を、ページの文章から読み取っています");
   const { analysis } = await analyzeSite(page);
   const facts = await appendBrandKnowledgeClaims(supabase, {
@@ -241,8 +249,33 @@ export async function importSiteIntoBrand(input: {
     await log.step(`運営者・提供内容を記録しました（運営: ${analysis.operator.name || "不明"}）`);
   }
 
+  // What the page says for itself — its features and its customers' words.
+  // Never fatal: a brand without them is still a brand, and the first
+  // deliverable that wants them reads the page again (ensureSiteContent).
+  await log.step("ページが挙げている特長とお客様の声を読み取っています");
+  try {
+    const content = await readSiteContent(page);
+    const said = await appendBrandKnowledgeClaims(supabase, {
+      brandId,
+      fields: siteContentClaims(content),
+      sourceKind: "llm_structuring",
+      sourceRef,
+      userId,
+    });
+    if (!said.ok) throw new Error(said.error);
+    await log.step(`特長${content.features.length}件・お客様の声${content.voices.length}件を記録しました`);
+  } catch (error) {
+    console.error("Site content reading failed:", error);
+    await log.step("特長とお客様の声は読み取れませんでした（ほかの項目は保存済みです）", "warn");
+  }
+
+  // What the person fed in beside the site — files, pages, notes. Read after
+  // the site, so where both speak, their own material is the newer word.
+  const inputs = await readInputsStep(supabase, { brandId, userId, log });
+
   // Files last, and never fatal: a brand that gained its measurements but
   // lost a screenshot to a storage hiccup is still better off.
+  log.stage("map");
   await log.step("サイトの画像を保存しています");
   let files = { saved: [] as { label: string }[], skipped: 0, note: null as string | null };
   try {
@@ -253,14 +286,146 @@ export async function importSiteIntoBrand(input: {
     await log.step("画像の保存に失敗しました（測定値は保存済みです）", "warn");
   }
 
+  // The pictures on the pages added as input — the company page's portraits,
+  // the product page's screens — which the top page does not carry.
+  const extra = await addedPageImages({ supabase, userId, brandId, log });
+
+  // Which of them are the brand's own assets and which only happened to be
+  // on the page (lib/brand/asset-use.ts).
+  await judgeImagesStep(supabase, { brandId, log });
+
   const result: BrandRunResult = {
     url: page.url,
     adopted,
-    claims: claimed.appended + (facts.ok ? facts.appended : 0),
-    files: files.saved.length,
+    claims: claimed.appended + (facts.ok ? facts.appended : 0) + inputs.recorded,
+    files: files.saved.length + extra,
     note: files.note,
   };
+  log.stage("output");
   await log.step("読み取りが終わりました", "success");
   await log.finish(result);
   return result;
+}
+
+/**
+ * The brand's own inputs, read into claims, with the account of it in the
+ * run's log. Never fatal: a brand whose site was read is still better off
+ * when a brand book could not be.
+ */
+export async function readInputsStep(
+  supabase: SupabaseClient,
+  input: { brandId: string; userId: string; log: BrandRunLog },
+): Promise<InputRead> {
+  const { log } = input;
+  try {
+    const result = await readBrandInputs({ supabase, brandId: input.brandId, userId: input.userId });
+    if (result.read.length === 0 && result.skipped.length === 0) return result;
+    if (result.read.length > 0) {
+      await log.step(`追加した素材${result.read.length}点を読み、${result.recorded}件を記録しました（${result.read.join("、")}）`);
+    }
+    for (const item of result.skipped) {
+      await log.step(`読まなかった素材: ${item.label} — ${item.reason}`, "warn");
+    }
+    return result;
+  } catch (error) {
+    console.error("Reading brand inputs failed:", error);
+    await log.step(
+      `追加した素材を読めませんでした（${error instanceof Error ? error.message : "不明なエラー"}）。サイトの読み取りは保存済みです`,
+      "warn",
+    );
+    return { read: [], skipped: [], recorded: 0 };
+  }
+}
+
+/**
+ * A brand with no site to read: its inputs alone, through the same stages
+ * and the same log.
+ */
+export async function importInputsOnly(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  brandId: string;
+  log: BrandRunLog;
+}): Promise<BrandRunResult> {
+  const { supabase, userId, brandId, log } = input;
+  log.stage("input");
+  await log.step("サイトの URL が無いので、追加した素材だけを読みます");
+  log.stage("structure");
+  await log.step("追加した素材から、運営者・提供内容・特長・お客様の声を読み取っています");
+  const inputs = await readInputsStep(supabase, { brandId, userId, log });
+  if (inputs.read.length === 0) {
+    throw new Error("読める素材がありません。サイトの URL か、資料・メモを追加してください");
+  }
+  const result: BrandRunResult = { url: "", adopted: 0, claims: inputs.recorded, files: 0, note: null };
+  log.stage("output");
+  await log.step("読み取りが終わりました", "success");
+  await log.finish(result);
+  return result;
+}
+
+/** At most this many added pages are rendered for their pictures per read. */
+const ADDED_PAGES_RENDERED = 3;
+
+/** Render the pages added as input and keep their pictures. Never fatal. */
+async function addedPageImages(input: {
+  supabase: SupabaseClient;
+  userId: string;
+  brandId: string;
+  log: BrandRunLog;
+}): Promise<number> {
+  const { supabase, userId, brandId, log } = input;
+  const { data, error } = await supabase
+    .from("brand_materials")
+    .select("source_url, provenance")
+    .eq("brand_id", brandId)
+    .eq("scope", "brand")
+    .eq("source_kind", "upload")
+    .not("source_url", "is", null);
+  if (error) return 0;
+  const urls = [
+    ...new Set(
+      (data ?? [])
+        .filter((row) => (row.provenance as Record<string, unknown> | null)?.input === "url")
+        .map((row) => row.source_url as string),
+    ),
+  ].slice(0, ADDED_PAGES_RENDERED);
+  let saved = 0;
+  for (const url of urls) {
+    try {
+      await log.step(`追加したページの画像を集めています: ${url}`);
+      const capture = await captureSite(url);
+      if (!capture) continue;
+      const result = await saveSiteMaterials({ supabase, userId, brandId, capture, screenshots: false });
+      saved += result.saved.length;
+      await log.step(`画像${result.saved.length}点を保存しました（${url}）`);
+    } catch (error) {
+      console.error("Added page capture failed:", error);
+      await log.step(`このページの画像は集められませんでした: ${url}`, "warn");
+    }
+  }
+  return saved;
+}
+
+/** Judge the brand's site images, with the account of it in the log. Never fatal. */
+async function judgeImagesStep(
+  supabase: SupabaseClient,
+  input: { brandId: string; log: BrandRunLog },
+): Promise<void> {
+  const { log } = input;
+  try {
+    await log.step("画像を1枚ずつ見て、ブランドの素材か、たまたま載っていた画像かを判断しています");
+    const result = await classifySiteImages({ supabase, brandId: input.brandId });
+    if (result.judged === 0 && result.remaining === 0) {
+      await log.step("新しく判断する画像はありませんでした");
+      return;
+    }
+    await log.step(
+      `画像${result.judged}点を判断しました（ブランドの素材 ${result.core}点）${
+        result.remaining > 0 ? `。残り${result.remaining}点は次の作り直しで判断します` : ""
+      }`,
+    );
+  } catch (error) {
+    console.error("Judging site images failed:", error);
+    await log.step("画像の判断はできませんでした（画像は保存済みです）", "warn");
+  }
 }

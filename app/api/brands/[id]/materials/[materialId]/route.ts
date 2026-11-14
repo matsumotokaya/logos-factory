@@ -47,9 +47,9 @@ export async function PATCH(
   const { id: brandId, materialId } = await ctx.params;
   const supabase = createServerSupabaseForToken(user.token);
 
-  let body: { category?: unknown; scope?: unknown };
+  let body: { category?: unknown; scope?: unknown; picked?: unknown };
   try {
-    body = (await req.json()) as { category?: unknown; scope?: unknown };
+    body = (await req.json()) as { category?: unknown; scope?: unknown; picked?: unknown };
   } catch {
     return Response.json({ error: "内容を読めませんでした" }, { status: 400 });
   }
@@ -84,7 +84,14 @@ export async function PATCH(
     }
   }
 
-  if (Object.keys(patch).length === 0 && !promote) {
+  // 「使えそう」 — a person keeping a picture the judgement set aside
+  // (lib/brand/asset-use.ts). Written onto the judgement once the row is read.
+  const picking = "picked" in body;
+  if (picking && typeof body.picked !== "boolean") {
+    return Response.json({ error: "選ぶかどうかが不正です" }, { status: 400 });
+  }
+
+  if (Object.keys(patch).length === 0 && !promote && !picking) {
     return Response.json({ error: "変更する内容がありません" }, { status: 400 });
   }
 
@@ -105,6 +112,18 @@ export async function PATCH(
     return Response.json({ error: "素材が見つかりません" }, { status: 404 });
   }
   const row = current.data as unknown as CopySource;
+
+  if (picking) {
+    const provenance = ((row as unknown as { provenance?: Record<string, unknown> | null }).provenance ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const asset = (provenance.asset as Record<string, unknown> | undefined) ?? null;
+    if (!asset) {
+      return Response.json({ error: "この画像はまだ判断されていません" }, { status: 409 });
+    }
+    patch.provenance = { ...provenance, asset: { ...asset, picked: body.picked === true } };
+  }
 
   if (promote) {
     // The screen is not the authority: it decided this was possible, and the

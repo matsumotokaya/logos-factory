@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type {
-  BrandFile,
   KnowledgeClaim,
   KnowledgeValue,
 } from "@/app/api/brands/[id]/overview/route";
@@ -56,6 +55,8 @@ function formatValue(value: unknown): string {
       .map((item) =>
         item && typeof item === "object"
           ? ((item as Record<string, unknown>).heading as string) ??
+            ((item as Record<string, unknown>).title as string) ??
+            ((item as Record<string, unknown>).quote as string) ??
             ((item as Record<string, unknown>).kind as string) ??
             ""
           : String(item),
@@ -199,10 +200,10 @@ export default function BrandKnowledgePanel({
   return (
     <div className="flex flex-col gap-5">
       <p className="text-pretty text-xs text-ink-muted">
-        <span className="font-semibold text-ink">{adopted}項目</span>を採用、
-        <span className="font-semibold text-ink">{claimed}項目</span>を推定、
+        <span className="font-semibold text-ink">{adopted}項目</span>が確定、
+        <span className="font-semibold text-ink">{claimed}項目</span>がAIの読み取り、
         <span className="font-semibold text-ink">{unknown}項目</span>はまだわかりません。
-        推定は読み取っただけで、まだこのブランドの規則にはなっていません。
+        AIの読み取りは、ブランドキットを公開するときに確定します。
       </p>
 
       {groups.map((group) => {
@@ -239,7 +240,7 @@ export default function BrandKnowledgePanel({
                             CONFIDENCE_LABEL[row.confidence] ?? row.confidence
                           }`}
                         >
-                          推定
+                          AIの読み取り
                         </span>
                       ) : null}
                     </div>
@@ -297,101 +298,6 @@ export default function BrandKnowledgePanel({
           </section>
         );
       })}
-    </div>
-  );
-}
-
-const FILE_ROLE_LABEL: Record<string, string> = {
-  screenshot_desktop: "デスクトップ",
-  screenshot_full: "全景",
-  screenshot_mobile: "モバイル",
-  keyvisual: "キービジュアル",
-  hero: "ヒーロー",
-  texture: "地紋",
-  content: "本文中",
-};
-
-function formatBytes(bytes: number | null): string {
-  if (!bytes) return "";
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)}MB`;
-  return `${Math.round(bytes / 1000)}KB`;
-}
-
-/**
- * The files the capture brought home.
- *
- * The screenshots come first and large, because their job is partly evidence:
- * a page that says 「このサイトを読みました」 and then shows you the frame it
- * rendered is making a claim it can back up. The rest is the raw material the
- * next video, LP or banner is built out of.
- */
-export function BrandSiteFiles({ files }: { files: BrandFile[] }) {
-  const fromSite = files.filter((file) => file.sourceKind === "url_fetch");
-  const screenshots = fromSite.filter((file) => file.category === "screen");
-  const imagery = fromSite.filter((file) => file.category !== "screen");
-
-  if (fromSite.length === 0) {
-    return (
-      <p className="rounded-2xl border border-dashed border-hairline px-4 py-5 text-pretty text-sm text-ink-muted">
-        サイトから取り込んだ画像はまだありません。URLを登録して取り込むと、実際に描画した画面・キービジュアル・地紋がここに入ります。
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      {screenshots.length > 0 ? (
-        <ul className="grid gap-3 sm:grid-cols-3">
-          {screenshots.map((file) => (
-            <li key={file.id} className="flex flex-col gap-1.5">
-              <div className="overflow-hidden rounded-2xl border border-hairline bg-ink/[0.03]">
-                {file.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived, same-origin private URL
-                  <img
-                    src={file.url}
-                    alt={file.label}
-                    className="block h-40 w-full object-cover object-top"
-                    loading="lazy"
-                  />
-                ) : null}
-              </div>
-              <p className="text-[11px] text-ink-muted">
-                {FILE_ROLE_LABEL[file.role ?? ""] ?? file.label}
-                {file.width && file.height ? (
-                  <span className="text-ink-faint">
-                    {" "}
-                    {file.width}×{file.height}
-                  </span>
-                ) : null}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {imagery.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {imagery.map((file) => (
-            <li key={file.id} className="flex flex-col gap-1.5">
-              <div className="overflow-hidden rounded-xl border border-hairline bg-ink/[0.03]">
-                {file.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived, same-origin private URL
-                  <img
-                    src={file.url}
-                    alt={file.label}
-                    className="block h-28 w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : null}
-              </div>
-              <p className="truncate text-[10px] text-ink-muted" title={file.label}>
-                {FILE_ROLE_LABEL[file.role ?? ""] ?? "画像"}
-                <span className="text-ink-faint"> {formatBytes(file.bytes)}</span>
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }

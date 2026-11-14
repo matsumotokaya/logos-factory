@@ -7,6 +7,7 @@ import {
   brandAssetsPipeline,
   type BrandPipelineInput,
 } from "@/lib/pipeline/brand-assets";
+import { inputOf } from "@/lib/brand/inputs";
 
 /**
  * The brand-asset pipeline for one brand, derived on every request from the
@@ -54,7 +55,7 @@ export async function GET(
       .eq("brand_id", id),
     supabase
       .from("brand_materials")
-      .select("label, kind, created_at")
+      .select("label, kind, source_kind, derived_from_material_id, provenance, created_at")
       .eq("brand_id", id)
       .eq("scope", "brand")
       .order("created_at", { ascending: true }),
@@ -83,10 +84,20 @@ export async function GET(
       ...(website
         ? [{ label: website, addedAt: null as string | null }]
         : []),
-      ...(materials.data ?? []).map((row) => ({
-        label: (row.label as string) ?? (row.kind as string),
-        addedAt: row.created_at as string | null,
-      })),
+      // Only what a person fed in. The site's photographs are fetched BY a
+      // read — its output — and counting them as input made every read look
+      // stale the moment it finished (lib/brand/inputs.ts). An input counts
+      // as new only until a read has covered it.
+      ...(materials.data ?? []).flatMap((row) => {
+        const input = inputOf(row as never);
+        if (!input) return [];
+        return [
+          {
+            label: (row.label as string) ?? (row.kind as string),
+            addedAt: input.readAt ? null : (row.created_at as string | null),
+          },
+        ];
+      }),
     ],
     extracted: claimRows
       .filter((row) => row.source_kind === "url_extraction")

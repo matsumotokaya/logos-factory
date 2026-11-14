@@ -265,6 +265,34 @@ export const TEMPLATES: TemplateEntry[] = [
     rerenderable: true,
   },
   {
+    // The landing page — the first deliverable made FROM the kit, and the
+    // check on it (docs/product.md §2): one fixed composition, drawn in the
+    // kit's colour, type and shape, whose page lists everything the kit did
+    // not carry. The brief freezes the kit it was made from, so the HTML is
+    // derived on read like the kit's own page.
+    id: "brand-lp",
+    version: 1,
+    toolKind: "lp",
+    briefSchemaVersion: 1,
+    rendererRevision: "html/brand-lp@2026-11-13",
+    name: "ランディングページ",
+    summary:
+      "ブランドキットの色・書体・形・ロゴで組む1ページのLPです。ヒーロー・概要・特長3つ・お客様の声・締めのCTAで構成し、キットに無かった内容には印を付けます。",
+    requires: "ブランドキット（色・書体・ロゴ）とブランドの説明",
+    stages: ["collect", "structure", "render"],
+    // Nothing yet: the page is shown in the workspace only. Publishing it is
+    // a later version of this template.
+    publishSurfaces: [],
+    costProfile: { llm: true, tts: false, render: "none" },
+    defaultRenders: [
+      { locale: "und", aspectRatio: "responsive", theme: "", format: "html" },
+    ],
+    isBrandDefault: false,
+    // Made with one button from the brand, never through the video dialog.
+    addable: false,
+    rerenderable: true,
+  },
+  {
     id: "logo-presentation",
     version: 1,
     toolKind: "logo_presentation",

@@ -118,7 +118,7 @@ export default async function KitPage({ params }: { params: Promise<{ id: string
           <a href={`${base}/brand.md`} className="font-mono text-accent hover:underline">
             {base}/brand.md
           </a>{" "}
-          が同じ内容を Markdown で返します。ここに載っている値はサイトから測定されたものと持ち主が採用したものだけで、モデルの推測は含まれていません。
+          が同じ内容を Markdown で返します。ここに載っている値は、サイトから測定したものと、サイトや資料から読み取って持ち主が確認し公開したものです。
         </p>
       </section>
     </main>

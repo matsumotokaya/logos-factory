@@ -18,8 +18,9 @@ import type {
 } from "@/lib/brand-hierarchy";
 import { cn } from "@/lib/cn";
 import { BRAND_TREE_REFRESH_EVENT } from "@/lib/brand-events";
+import RunDock from "@/components/pipeline/RunDock";
 import { BRAND_KIND_LABEL, isBrandKind } from "@/lib/brand-kind";
-import { readCurrentWorkspaceId, resolveWorkspace } from "@/lib/workspace";
+import { readCurrentWorkspaceId, resolveWorkspace, writeCurrentWorkspaceId } from "@/lib/workspace";
 import {
   brandActions,
   logoActions,
@@ -27,7 +28,7 @@ import {
   type TreeActionId,
 } from "@/lib/brand-tree-actions";
 import RowActionsMenu from "./RowActionsMenu";
-import WorkspaceMenu from "./WorkspaceMenu";
+import WorkspaceMenu, { type WorkspaceChoice } from "./WorkspaceMenu";
 import AddBrandDialog from "./AddBrandDialog";
 import SetParentDialog from "./SetParentDialog";
 import { MainMark } from "./MainMark";
@@ -128,7 +129,7 @@ function activeBrandId(
 const ROW_BASE = 8;
 const ROW_INDENT = 12;
 
-type RowIconKind = "folder" | "logo" | "video";
+type RowIconKind = "folder" | "logo" | "video" | "page";
 
 function TreeIcon({ kind, open }: { kind: RowIconKind; open?: boolean }) {
   const common = {
@@ -161,6 +162,14 @@ function TreeIcon({ kind, open }: { kind: RowIconKind; open?: boolean }) {
         <rect x="3" y="3.5" width="14" height="13" rx="1.5" {...stroke} />
         <circle cx="7.5" cy="8" r="1.5" {...stroke} />
         <path d="m3.5 14.5 4-4 3 3 2-2 4 4" {...stroke} />
+      </svg>
+    );
+  }
+  if (kind === "page") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3.5" width="14" height="13" rx="1.5" {...stroke} />
+        <path d="M3 7.5h14M6.5 11h7M6.5 13.5h4" {...stroke} />
       </svg>
     );
   }
@@ -551,7 +560,28 @@ function BrandNode({
                   </li>
                 )),
               )}
-              {folder("lp", "LPs", `${worksPath}/lp`, depth + 2, lpAssets.length, null)}
+              {folder(
+                "lp",
+                "LPs",
+                `${worksPath}/lp`,
+                depth + 2,
+                lpAssets.length,
+                // Plain rows: an LP is deleted from its own page, where what
+                // it was made from is in view.
+                lpAssets.map((asset) => (
+                  <li key={`lp-asset-${asset.id}`}>
+                    <TreeRow
+                      depth={depth + 3}
+                      href={`${worksPath}/lp/${asset.id}`}
+                      active={within(`${worksPath}/lp/${asset.id}`)}
+                      open={null}
+                      icon="page"
+                      label={asset.title}
+                      onActivate={onNavigate}
+                    />
+                  </li>
+                )),
+              )}
               {folder("banner", "Banners", `${worksPath}/banner`, depth + 2, bannerAssets.length, null)}
             </>,
           )}
@@ -723,9 +753,14 @@ function SidebarContent({
   onAction,
   onAddBrand,
   onReorder,
+  workspaces,
+  onSwitchWorkspace,
 }: {
   /** The workspace being viewed; null while loading or when the user has none. */
   organization: BrandOrganizationSummary | null;
+  /** Every workspace the user can open, for the switch at the top. */
+  workspaces: WorkspaceChoice[];
+  onSwitchWorkspace: (id: string) => void;
   pathname: string;
   loading: boolean;
   error: string | null;
@@ -739,7 +774,6 @@ function SidebarContent({
   onAddBrand: () => void;
   onReorder: (orderedIds: string[]) => void;
 }) {
-  const workspaceName = organization?.name?.trim() || "名称未設定のワークスペース";
   return (
     // pb-28 keeps ~100px of breathing room below the last item so it never
     // sits flush against the bottom edge of the scroll area.
@@ -747,10 +781,15 @@ function SidebarContent({
       {/* The workspace heads the pane the way an explorer's root folder does:
           its name on the left, the actions on the right, ruled off from the
           tree because it is the container and not one of the brands. */}
-      <div className="flex h-10 items-center gap-0.5 border-b border-hairline bg-ink/[0.04] pl-4 pr-2">
-        <h2 className="min-w-0 flex-1 truncate text-xs font-semibold" title={workspaceName}>
-          {workspaceName}
-        </h2>
+      <div className="flex h-10 items-center gap-0.5 border-b border-hairline bg-ink/[0.04] pl-2 pr-2">
+        {/* The name is the switch: the workspaces are parallel, and this
+            says which one is open and that the others are a click away. */}
+        <WorkspaceMenu
+          current={workspaces.find((choice) => choice.id === organization?.id) ?? null}
+          workspaces={workspaces}
+          onSwitch={onSwitchWorkspace}
+          onNavigate={onNavigate}
+        />
         {organization ? (
           <>
             <ToolbarButton label="ブランドを追加" onClick={onAddBrand}>
@@ -764,11 +803,6 @@ function SidebarContent({
             </ToolbarButton>
           </>
         ) : null}
-        <WorkspaceMenu
-          name={organization?.name?.trim() || "ワークスペース"}
-          workspaceId={organization?.id ?? null}
-          onNavigate={onNavigate}
-        />
       </div>
 
       <div className="pt-1">
@@ -1157,8 +1191,25 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
     }
   };
 
+  // Switching opens the other workspace where its brands begin — its main
+  // brand — because whatever page is open belongs to the workspace being left.
+  const switchWorkspace = (id: string) => {
+    writeCurrentWorkspaceId(id);
+    setCurrentWorkspaceId(id);
+    setClosedRows(new Set());
+    const next = organizations.find((candidate) => candidate.id === id);
+    const landing = next?.brands.find((brand) => brand.isMain) ?? next?.brands[0];
+    router.push(landing ? `/brands/${landing.id}` : "/brands");
+  };
+
   const sidebarProps = {
     organization: workspace,
+    workspaces: organizations.map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name ?? "",
+      brandCount: candidate.brands.length,
+    })),
+    onSwitchWorkspace: switchWorkspace,
     onReorder: (orderedIds: string[]) => void reorderBrands(orderedIds),
     pathname,
     loading,
@@ -1290,6 +1341,9 @@ export default function ManagementShell({ children }: { children: ReactNode }) {
           onConfirm={() => void confirmDelete()}
         />
       ) : null}
+
+      {/* Every run the workspace is waiting on, on whatever page is open. */}
+      <RunDock />
 
       {notice ? (
         <div

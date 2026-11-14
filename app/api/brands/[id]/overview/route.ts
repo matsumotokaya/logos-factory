@@ -3,6 +3,7 @@
 // show "this brand's profile" (palette, fonts, voice rules) before it lists
 // the assets (logos / videos / LPs).
 
+import { readJudgement, type AssetUse } from "@/lib/brand/asset-use";
 import path from "node:path";
 import { guardBrandRequest } from "@/lib/brand-access";
 import { signedLabsUrl } from "@/lib/labs-output-sign";
@@ -53,6 +54,8 @@ export type BrandFile = {
   sourceKind: string;
   sourceUrl: string | null;
   role: string | null;
+  /** What the picture is for the brand, as the vision model judged it (lib/brand/asset-use.ts). */
+  asset: { use: AssetUse; note: string; picked: boolean } | null;
   createdAt: string;
   /** signed, same-origin, short-lived; null when the row has no body in R2 */
   url: string | null;
@@ -179,6 +182,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       sourceKind: row.source_kind as string,
       sourceUrl: (row.source_url as string | null) ?? null,
       role: typeof provenance.role === "string" ? provenance.role : null,
+      asset: (() => {
+        const judgement = readJudgement(provenance);
+        return judgement ? { use: judgement.use, note: judgement.note, picked: judgement.picked === true } : null;
+      })(),
       createdAt: row.created_at as string,
       // Access was checked by RLS on the query above; the browser gets a URL
       // that proves it on its own, because an <img> cannot send a token.

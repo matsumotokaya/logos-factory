@@ -128,16 +128,50 @@ export const SOCIAL_NETWORKS = [
   { path: "social.github", label: "GitHub", host: "github.com" },
 ] as const;
 
-/** `https://www.instagram.com/funds_jp` → `@funds_jp`; a URL we cannot shorten stays a host. */
-export function socialHandle(url: string): string {
+/** Longer than this, a handle is cut with 「…」: a Facebook page's address can run to a hundred characters. */
+export const SOCIAL_HANDLE_MAX = 24;
+
+/**
+ * `abcdef…` when longer than `max` characters (counted as characters, not
+ * bytes). Cut at a word break — a hyphen, underscore or dot — when one falls
+ * in the second half of what fits, so the name ends on a whole word
+ * (`@WealthPark-Business…`, not `@WealthPark-Busin…`).
+ */
+function clip(value: string, max: number): string {
+  const chars = [...value];
+  if (chars.length <= max) return value;
+  const fits = chars.slice(0, max - 1);
+  let cut = fits.length;
+  for (let index = fits.length; index >= Math.ceil(max / 2); index -= 1) {
+    if (/[-_.]/.test(chars[index] ?? "")) {
+      cut = index;
+      break;
+    }
+  }
+  return `${chars.slice(0, cut).join("")}…`;
+}
+
+/**
+ * `https://www.instagram.com/funds_jp` → `@funds_jp`; a URL we cannot shorten
+ * stays a host. Percent-encoded names are shown decoded (a Japanese page name
+ * arrives as %E6%A0%AA…), and anything past SOCIAL_HANDLE_MAX is cut — the
+ * full address stays on the link.
+ */
+export function socialHandle(url: string, max = SOCIAL_HANDLE_MAX): string {
   try {
     const parsed = new URL(url);
     const segments = parsed.pathname.split("/").filter(Boolean);
     const last = segments.at(-1);
     if (!last) return parsed.hostname.replace(/^www\./, "");
+    let name = last;
+    try {
+      name = decodeURIComponent(last);
+    } catch {
+      // A malformed escape: show it as it is.
+    }
     // LinkedIn and YouTube put a type segment first (company/…, channel/…, @…).
-    return last.startsWith("@") ? last : `@${last}`;
+    return clip(name.startsWith("@") ? name : `@${name}`, max);
   } catch {
-    return url;
+    return clip(url, max);
   }
 }

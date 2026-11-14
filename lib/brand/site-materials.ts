@@ -40,7 +40,7 @@ import { measureMaterial, measurementColumns } from "@/lib/materials/measure";
 /** What the capture is allowed to leave behind, per run. */
 const LIMITS = {
   /** screenshots + imagery, before de-duplication */
-  files: 20,
+  files: 40,
   maxBytes: 8_000_000,
 };
 
@@ -96,6 +96,7 @@ type Candidate = {
  */
 function classify(image: FetchedSiteImage): { kind: string; category: string | null } {
   if (image.role === "keyvisual") return { kind: "keyvisual", category: null };
+  if (image.role === "icon") return { kind: "illustration", category: "mark" };
   if (image.role === "texture") return { kind: "photo", category: "texture" };
   if (image.mediaType === "image/svg+xml") return { kind: "illustration", category: "graphic" };
   return { kind: "photo", category: null };
@@ -187,17 +188,20 @@ export async function saveSiteMaterials({
   userId,
   brandId,
   capture,
+  screenshots = true,
 }: {
   supabase: SupabaseClient;
   userId: string;
   brandId: string;
   capture: SiteCapture;
+  /** False for a further page added as input: its pictures, not its screen. */
+  screenshots?: boolean;
 }): Promise<SiteMaterialsResult> {
   if (!isR2Configured()) {
     return { saved: [], skipped: 0, note: "R2が未設定のため、サイトの画像は保存していません" };
   }
 
-  const candidates = [...screenshotCandidates(capture), ...imageCandidates(capture)]
+  const candidates = [...(screenshots ? screenshotCandidates(capture) : []), ...imageCandidates(capture)]
     .filter((candidate) => candidate.body.length > 0 && candidate.body.length <= LIMITS.maxBytes)
     .slice(0, LIMITS.files);
   if (candidates.length === 0) {

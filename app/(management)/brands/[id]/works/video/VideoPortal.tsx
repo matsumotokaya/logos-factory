@@ -27,16 +27,8 @@ import {
   VIDEO_TEMPLATES,
 } from "@/lib/video/templates";
 import { VIDEO_STATE_LABEL, type VideoSummary } from "@/lib/video/asset";
-import BusyBar from "@/components/pipeline/BusyBar";
-import RunOverlay, { type RunCard } from "@/components/pipeline/RunOverlay";
+import { startStreamRun } from "@/lib/runs/store";
 
-
-/** One line of the creation log. Mirrors the server's `CreateEvent`
- *  (app/api/brands/[id]/videos/route.ts). */
-type CreateEvent =
-  | { type: "step"; label: string; index: number; total: number }
-  | { type: "done"; id: string; createdAt: string }
-  | { type: "error"; message: string };
 
 export default function VideoPortal({ brandId }: { brandId: string }) {
   const router = useRouter();
@@ -45,8 +37,6 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  /** The creation log, in the same card every stage run uses. */
-  const [runs, setRuns] = useState<RunCard[]>([]);
   // One value for the pair the dialog asks about — the template and, where the
   // template paints more than one way, the art direction (lib/video/templates.ts
   // `VideoStyle`). Parsed back into the two fields the API takes on submit.
@@ -90,126 +80,44 @@ export default function VideoPortal({ brandId }: { brandId: string }) {
    * Create the video, showing the account of it as it happens.
    *
    * The request streams (POST /api/brands/[id]/videos): one NDJSON line per
-   * step, emitted where the work is. Creating an event video is most of a
-   * minute — a seed read, a narration written by a model, a row saved — and it
-   * used to go out as one opaque call behind a bar reading 「動画を作成して
-   * います…」, which after thirty seconds is indistinguishable from a page that
-   * has frozen. The card is the same one every stage run uses.
+   * step, emitted where the work is. The run goes to the workspace's run
+   * store (lib/runs/store.ts), so its card stays on screen wherever the user
+   * goes until the video exists, and the new video opens by itself only if
+   * they are still here.
    *
    * No percentage, deliberately: 3/3 counts steps, which is a fact, while a
    * percentage over an LLM call is a guess that stalls (BusyBar says the same).
    */
   async function submit() {
     setSubmitting(true);
-    const runId = `create-${Date.now()}`;
-    const startedAt = Date.now();
-    setRuns((prev) => [
-      ...prev,
-      {
-        id: runId,
-        label: "動画を作成しています",
-        status: "running",
-        lines: [],
-        startedAt,
-        endedAt: null,
-      },
-    ]);
-    const push = (line: string) =>
-      setRuns((prev) =>
-        prev.map((run) =>
-          run.id === runId ? { ...run, lines: [...run.lines, line] } : run,
-        ),
-      );
-    const finish = (status: "succeeded" | "failed", error?: string) =>
-      setRuns((prev) =>
-        prev.map((run) =>
-          run.id === runId
-            ? { ...run, status, endedAt: Date.now(), error: error ?? null }
-            : run,
-        ),
-      );
-
-    try {
-      const { templateId, artDirection } = parseVideoStyle(style);
-      const body: Record<string, unknown> = {
-        template: templateId,
-        artDirection: artDirection ?? undefined,
-        title: title.trim() || undefined,
-      };
-      const res = await authedFetch(`/api/brands/${brandId}/videos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      // A refusal answered before the work began is still an ordinary JSON
-      // error with a status: a bad template never reaches the stream.
-      if (!res.ok || !res.body) {
-        const json = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(json?.error ?? "動画を追加できませんでした");
-      }
-
-      let created: string | null = null;
-      let failed: string | null = null;
-      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += value;
-        // Split on the newline the server writes after every event; the tail is
-        // whatever arrived mid-line and is kept for the next chunk.
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let event;
-          try {
-            event = JSON.parse(line) as CreateEvent;
-          } catch {
-            continue;
-          }
-          if (event.type === "step") {
-            push(`${event.index}/${event.total} ${event.label}`);
-          } else if (event.type === "done") {
-            created = event.id;
-          } else if (event.type === "error") {
-            failed = event.message;
-          }
-        }
-      }
-      if (failed || !created) {
-        throw new Error(failed ?? "動画を追加できませんでした");
-      }
-
-      push("できました");
-      finish("succeeded");
-      setAdding(false);
-      setTitle("");
-      // The left tree lists videos too, so it has to pick the new one up.
-      refreshBrandTree();
-      router.push(`/brands/${brandId}/works/video/${created}`);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "動画を追加できませんでした";
-      finish("failed", message);
-      setError(message);
-    } finally {
-      setSubmitting(false);
-    }
+    setAdding(false);
+    const { templateId, artDirection } = parseVideoStyle(style);
+    const body: Record<string, unknown> = {
+      template: templateId,
+      artDirection: artDirection ?? undefined,
+      title: title.trim() || undefined,
+    };
+    setTitle("");
+    const created = await startStreamRun({
+      key: `video:${brandId}`,
+      label: "動画を作成しています",
+      request: () =>
+        authedFetch(`/api/brands/${brandId}/videos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      resultHref: (id) => `/brands/${brandId}/works/video/${id}`,
+      onDone: (id) => router.push(`/brands/${brandId}/works/video/${id}`),
+    });
+    setSubmitting(false);
+    // The left tree lists videos too, so it has to pick the new one up.
+    if (created) refreshBrandTree();
+    else void load();
   }
 
   return (
     <main className="w-full flex flex-col gap-6 px-6 py-8 md:px-10">
-      {/* The same bar the video detail screen uses for every long step. The
-          dialog says what is happening; this says it is still happening after
-          the dialog has been left behind — creation continues through the
-          redirect to the new video. */}
-      <BusyBar label={submitting ? "動画を作成しています…" : null} />
-      {/* Survives the redirect: the card is rendered by this page, so it goes
-          when the new video opens. The bar above is what carries over. */}
-      <RunOverlay
-        runs={runs}
-        onDismiss={(id) => setRuns((prev) => prev.filter((run) => run.id !== id))}
-      />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-ink-muted">WORKS / VIDEOS</p>

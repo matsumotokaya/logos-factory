@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EventCmBriefSchema } from "@/remotion/event-cm/brief-schema";
 import { BrandKitBriefSchema } from "@/lib/brand/kit/snapshot";
+import { BrandLpBriefSchema } from "@/lib/templates/brand-lp/brief-schema";
 
 // The brief schema of each template — the shape of the data that template needs.
 //
@@ -43,6 +44,7 @@ const LogoPresentationBriefSchema = z.object({
 
 export const BRIEF_SCHEMAS: Record<string, z.ZodType<unknown>> = {
   "brand-kit": BrandKitBriefSchema,
+  "brand-lp": BrandLpBriefSchema,
   "logo-presentation": LogoPresentationBriefSchema,
   "event-cm": EventCmBriefSchema,
 };

@@ -13,6 +13,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/lib/cn";
+import { parseFeatures, parseVoices } from "@/lib/brand/content";
 import { fontFamilies, isGuess, isHex, type BrandProfile, type Reading } from "@/lib/brand/profile";
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -25,7 +26,7 @@ const SOURCE_LABEL: Record<string, string> = {
   render_output: "出力から",
 };
 
-/** 推定 → 採用, offered where the workspace can act on it. */
+/** Confirming one reading ahead of publishing, where a page offers it. */
 export type AdoptHandler = (fieldPath: string) => void;
 
 /**
@@ -53,25 +54,28 @@ export function Standing({
     );
   }
   if (!isGuess(reading) || !reading) return null;
-  const source = SOURCE_LABEL[reading.sourceKind ?? ""] ?? reading.sourceKind ?? "推定";
+  const source = SOURCE_LABEL[reading.sourceKind ?? ""] ?? reading.sourceKind ?? "AIの読み取り";
+  // Kept for the LP page, which can still confirm one field ahead of publishing.
   if (onAdopt) {
     return (
       <button
         type="button"
         onClick={() => onAdopt(path)}
-        title={`${source}。押すと採用し、公開版に載ります`}
-        className="ml-1.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-px text-[9px] font-semibold text-amber-800 transition hover:border-ink hover:bg-ink hover:text-paper"
+        title={`${source}。押すとキットに確定します`}
+        className="ml-1.5 rounded-full border border-hairline px-1.5 py-px text-[9px] font-semibold text-ink-muted transition hover:border-ink hover:text-ink"
       >
-        推定 → 採用
+        AI
       </button>
     );
   }
+  // An AI's reading of the site or the inputs. Shown as it is, published as
+  // it is when the kit is published (publishing confirms it).
   return (
     <span
-      className="ml-1.5 rounded-full border border-hairline px-1.5 py-px text-[9px] text-ink-muted"
-      title={source}
+      className="ml-1.5 rounded-full border border-hairline px-1.5 py-px text-[9px] font-semibold text-ink-faint"
+      title={`${source}。AIがサイトや素材の文章から読み取った値です。直すときは「ブランド情報を更新」で入力を足して作り直します`}
     >
-      推定
+      AI
     </span>
   );
 }
@@ -520,5 +524,71 @@ export function StructureCard({ profile, onAdopt }: CardProps) {
         ) : null}
       </div>
     </FacetCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 伝えること
+
+/**
+ * What the brand says for itself: the features it lists and the customers it
+ * quotes. Not a look, so not one of the four cards above — but read off the
+ * same site, held as the same kind of reading, and adopted the same way. An
+ * LP's features and voices are taken from here (lib/templates/brand-lp).
+ */
+export function ContentCard({ profile, onAdopt }: CardProps) {
+  const featuresReading = profile.get("offering.features");
+  const voicesReading = profile.get("proof.voices");
+  const features = parseFeatures(featuresReading?.value) ?? [];
+  const voices = parseVoices(voicesReading?.value) ?? [];
+  if (features.length === 0 && voices.length === 0) return null;
+  return (
+    <section className="grid gap-6 rounded-2xl border border-hairline bg-white p-5 md:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-3">
+        <h3 className="text-sm font-semibold text-ink">
+          特長
+          <Standing reading={featuresReading} path="offering.features" onAdopt={onAdopt} />
+        </h3>
+        {features.length > 0 ? (
+          <ol className="flex flex-col gap-3">
+            {features.map((feature, index) => (
+              <li key={`${feature.title}-${index}`} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 text-[12px]">
+                <span className="font-mono text-[11px] text-ink-faint">{String(index + 1).padStart(2, "0")}</span>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-ink">{feature.title}</span>
+                  {feature.description ? (
+                    <span className="mt-0.5 block text-pretty leading-relaxed text-ink-muted">{feature.description}</span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-[12px] text-ink-faint">サイトに見つかりませんでした。</p>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-3 border-t border-hairline pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+        <h3 className="text-sm font-semibold text-ink">
+          お客様の声
+          <Standing reading={voicesReading} path="proof.voices" onAdopt={onAdopt} />
+        </h3>
+        {voices.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {voices.map((voice, index) => (
+              <li key={`${voice.quote}-${index}`} className="text-[12px]">
+                <p className="text-pretty leading-relaxed text-ink">「{voice.quote}」</p>
+                {voice.name || voice.role ? (
+                  <p className="mt-0.5 text-[11px] text-ink-muted">
+                    {[voice.name, voice.role].filter(Boolean).join(" ・ ")}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[12px] text-ink-faint">サイトに見つかりませんでした。</p>
+        )}
+      </div>
+    </section>
   );
 }

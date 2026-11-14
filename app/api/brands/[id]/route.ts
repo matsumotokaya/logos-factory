@@ -1,5 +1,7 @@
 import { guardBrandRequest } from "@/lib/brand-access";
 import { isBrandKind } from "@/lib/brand-kind";
+import { normalizedWebsite } from "@/lib/brand/create-from-url";
+import { normalizePublicHttpUrl } from "@/lib/public-url";
 import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server";
 
 // PATCH: relabel a Brand or move it in the tree.
@@ -9,6 +11,7 @@ import { createServerSupabaseForToken, requireUser } from "@/lib/supabase/server
 //   { parentBrandId: null }         inherit from nothing
 //   { sortOrder: 3 }                position in the workspace's list
 //   { main: true }                  make it the workspace's main brand (0061)
+//   { website: "https://…" }        the site the brand is read from (its main input)
 //
 // Neither changes anything else: the kind is a label, and a move leaves every
 // deliverable as it was because a take pins its inputs. The tree's rules —
@@ -23,7 +26,7 @@ export async function PATCH(
   const user = await requireUser(req);
   const { id } = await ctx.params;
 
-  let body: { brandKind?: unknown; parentBrandId?: unknown; sortOrder?: unknown; main?: unknown };
+  let body: { brandKind?: unknown; parentBrandId?: unknown; sortOrder?: unknown; main?: unknown; website?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -52,7 +55,7 @@ export async function PATCH(
       console.error("set_main_brand failed:", error.message);
       return Response.json({ error: "メインブランドを変更できませんでした" }, { status: 500 });
     }
-    if (!("brandKind" in body) && !("parentBrandId" in body) && !("sortOrder" in body)) {
+    if (!("brandKind" in body) && !("parentBrandId" in body) && !("sortOrder" in body) && !("website" in body)) {
       return Response.json({ id, main: true });
     }
   }
@@ -81,7 +84,26 @@ export async function PATCH(
     }
     patch.sort_order = body.sortOrder;
   }
-  if (!("brand_kind" in patch) && !("parent_brand_id" in patch) && !("sort_order" in patch)) {
+  if ("website" in body) {
+    // The main input. Changing it changes nothing until the brand is read
+    // again; the next 「この入力で作り直す」 reads the new address.
+    if (typeof body.website !== "string") {
+      return Response.json({ error: "URLが不正です" }, { status: 400 });
+    }
+    if (body.website.trim() === "") {
+      patch.website = "";
+    } else {
+      try {
+        patch.website = normalizedWebsite(normalizePublicHttpUrl(body.website.trim()).href);
+      } catch (error) {
+        return Response.json(
+          { error: error instanceof Error ? error.message : "URLを読み取れませんでした" },
+          { status: 400 },
+        );
+      }
+    }
+  }
+  if (!("brand_kind" in patch) && !("parent_brand_id" in patch) && !("sort_order" in patch) && !("website" in patch)) {
     return Response.json({ error: "変更する項目がありません" }, { status: 400 });
   }
 
@@ -89,7 +111,7 @@ export async function PATCH(
     .from("brand_entities")
     .update(patch)
     .eq("id", id)
-    .select("id, brand_kind, parent_brand_id, sort_order")
+    .select("id, brand_kind, parent_brand_id, sort_order, website")
     .maybeSingle();
   if (updated.error) {
     const message = updated.error.message;
@@ -116,6 +138,7 @@ export async function PATCH(
       id: updated.data.id as string,
       brandKind: updated.data.brand_kind as string,
       parentBrandId: (updated.data.parent_brand_id as string | null) ?? null,
+      website: (updated.data.website as string | null) ?? "",
     },
   });
 }
